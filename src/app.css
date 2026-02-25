@@ -1,0 +1,106 @@
+/* CSS Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #app {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color-scheme: light;
+
+  --color-bg: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-border: #dee2e6;
+  --color-text: #212529;
+  --color-text-muted: #6c757d;
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-danger: #ef4444;
+
+  --toolbar-height: 48px;
+  --palette-width: 200px;
+  --panel-width: 260px;
+  --border-radius: 6px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+button {
+  font-family: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--border-radius);
+  padding: 0.375rem 0.75rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover {
+  background: var(--color-bg);
+  border-color: var(--color-primary);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+input, textarea {
+  font-family: inherit;
+  font-size: 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 0.375rem 0.5rem;
+  width: 100%;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+input:focus, textarea:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 0;
+  border-color: var(--color-primary);
+}
+
+label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* Responsive layout: reduce panel widths on smaller desktop screens */
+@media (max-width: 1200px) {
+  :root {
+    --palette-width: 160px;
+    --panel-width: 220px;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --palette-width: 140px;
+    --panel-width: 180px;
+  }
+}
