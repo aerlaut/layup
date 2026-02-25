@@ -10,7 +10,11 @@
 </script>
 
 <div class="component-node">
-  <Handle type="target" position={Position.Top} />
+  <Handle id="top-target" type="target" position={Position.Top} />
+  <Handle id="left-target" type="target" position={Position.Left} />
+  <Handle id="left-source" type="source" position={Position.Left} />
+  <Handle id="right-target" type="target" position={Position.Right} />
+  <Handle id="right-source" type="source" position={Position.Right} />
   <div class="node-type-badge">Component</div>
   <div class="node-label">{data.label}</div>
   {#if data.technology}
@@ -22,7 +26,7 @@
   {#if data.childDiagramId}
     <div class="drill-indicator" title="Double-click to drill in">▸</div>
   {/if}
-  <Handle type="source" position={Position.Bottom} />
+  <Handle id="bottom-source" type="source" position={Position.Bottom} />
 </div>
 
 <style>
