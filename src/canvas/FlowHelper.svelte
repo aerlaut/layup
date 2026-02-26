@@ -5,11 +5,14 @@
    */
   import { useSvelteFlow } from '@xyflow/svelte';
 
-  let { onReady }: { onReady: (fn: (pos: { x: number; y: number }) => { x: number; y: number }) => void } = $props();
+  let { onReady }: { onReady: (fns: {
+    screenToFlowPosition: (pos: { x: number; y: number }) => { x: number; y: number };
+    fitView: (options?: { duration?: number }) => void;
+  }) => void } = $props();
 
-  const { screenToFlowPosition } = useSvelteFlow();
+  const { screenToFlowPosition, fitView } = useSvelteFlow();
 
   $effect(() => {
-    onReady(screenToFlowPosition);
+    onReady({ screenToFlowPosition, fitView });
   });
 </script>

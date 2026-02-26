@@ -26,6 +26,8 @@
     drillDown,
     drillUp,
     pendingNodeType,
+    switchFocusToGroup,
+    clearGroupFocus,
   } from '../stores/diagramStore';
   import type { C4Node, C4Edge } from '../types';
   import PersonNode from '../elements/PersonNode.svelte';
@@ -94,6 +96,8 @@
     const d = $currentDiagram;
     const boundaries = $contextBoundaries;
     const parent = $parentDiagram;
+    const s = get(diagramStore);
+    const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
 
     const activeNodes: Node[] = d?.nodes.map(toFlowNode) ?? [];
     const activeEdges: Edge[] = d?.edges.map(toFlowEdge) ?? [];
@@ -118,8 +122,24 @@
         class: 'boundary-node-wrapper',
       });
 
-      // Context child nodes for sibling (non-focused) groups only
-      if (!group.isFocused) {
+      if (isNoFocus) {
+        // In no-focus mode, render ALL groups' nodes as active (full opacity)
+        // Skip the group whose nodes are already in activeNodes (from currentDiagram)
+        const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
+        if (group.childDiagramId !== currentDiagramId) {
+          for (const cn of group.childNodes) {
+            activeNodes.push(toFlowNode(cn));
+          }
+          // Also include edges from sibling diagrams
+          const siblingDiagram = s.diagrams[group.childDiagramId];
+          if (siblingDiagram) {
+            for (const e of siblingDiagram.edges) {
+              activeEdges.push(toFlowEdge(e));
+            }
+          }
+        }
+      } else if (!group.isFocused) {
+        // Context child nodes for sibling (non-focused) groups only
         for (const cn of group.childNodes) {
           contextNodes.push({
             id: `ctx-${cn.id}`,
@@ -145,22 +165,29 @@
 
     // Collect cross-group edges from parent diagram
     if (parent) {
-      const activeNodeIds = new Set(d?.nodes.map((n) => n.id) ?? []);
+      const allActiveNodeIds = new Set(activeNodes.map((n) => n.id));
       for (const e of parent.edges) {
         if (!e.sourceGroupId && !e.targetGroupId) continue;
-        const srcInActive = activeNodeIds.has(e.source);
-        const tgtInActive = activeNodeIds.has(e.target);
-        const srcInContext =
-          !srcInActive &&
-          boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.source));
-        const tgtInContext =
-          !tgtInActive &&
-          boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.target));
-        if ((srcInActive || srcInContext) && (tgtInActive || tgtInContext)) {
-          const flowEdge = toFlowEdge(e);
-          flowEdge.source = srcInActive ? e.source : `ctx-${e.source}`;
-          flowEdge.target = tgtInActive ? e.target : `ctx-${e.target}`;
-          activeEdges.push(flowEdge);
+        const srcInActive = allActiveNodeIds.has(e.source);
+        const tgtInActive = allActiveNodeIds.has(e.target);
+        if (isNoFocus) {
+          // In no-focus mode, all nodes are active — just remap IDs directly
+          if (srcInActive && tgtInActive) {
+            activeEdges.push(toFlowEdge(e));
+          }
+        } else {
+          const srcInContext =
+            !srcInActive &&
+            boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.source));
+          const tgtInContext =
+            !tgtInActive &&
+            boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.target));
+          if ((srcInActive || srcInContext) && (tgtInActive || tgtInContext)) {
+            const flowEdge = toFlowEdge(e);
+            flowEdge.source = srcInActive ? e.source : `ctx-${e.source}`;
+            flowEdge.target = tgtInActive ? e.target : `ctx-${e.target}`;
+            activeEdges.push(flowEdge);
+          }
         }
       }
     }
@@ -170,12 +197,29 @@
     edges = activeEdges;
   });
 
-  // screenToFlowPosition provided by FlowHelper child component
+  // Helpers provided by FlowHelper child component (inside SvelteFlow context)
   let screenToFlowPosition: ((pos: { x: number; y: number }) => { x: number; y: number }) | undefined;
+  let flowFitView: ((options?: { duration?: number }) => void) | undefined;
+
+  // Track navigation stack length to detect drill-down/drill-up (not focus switches)
+  let prevNavStackLength = $state(0);
+  $effect(() => {
+    const s = get(diagramStore);
+    const currentLength = s.navigationStack.length;
+    if (prevNavStackLength !== 0 && currentLength !== prevNavStackLength && flowFitView) {
+      // Navigation changed (drill down/up) — refit viewport
+      flowFitView({ duration: 200 });
+    }
+    prevNavStackLength = currentLength;
+  });
 
   // ─── Event handlers ──────────────────────────────────────────────────────────
 
   function handleConnect(conn: Connection) {
+    // Reject connections in no-focus mode
+    const state = get(diagramStore);
+    if (state.focusedParentNodeId === null && state.navigationStack.length > 1) return;
+
     const srcId = conn.source;
     const tgtId = conn.target;
     const isCtxSrc = srcId.startsWith('ctx-');
@@ -226,8 +270,29 @@
 
   function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }) {
     if (node.id.startsWith('boundary-')) return;
-    const realId = node.id.startsWith('ctx-') ? node.id.slice(4) : node.id;
-    setSelected(realId);
+    if (node.id.startsWith('ctx-')) {
+      const realId = node.id.slice(4);
+      // Find which group this context node belongs to and switch focus
+      const boundaries = $contextBoundaries;
+      const group = boundaries.find((g) => g.childNodes.some((n) => n.id === realId));
+      if (group) {
+        switchFocusToGroup(group.parentNodeId);
+        setSelected(realId);
+      }
+      return;
+    }
+    // In no-focus mode, clicking an active node should focus its group
+    const s = get(diagramStore);
+    if (s.focusedParentNodeId === null && s.navigationStack.length > 1) {
+      const boundaries = $contextBoundaries;
+      const group = boundaries.find((g) => g.childNodes.some((n) => n.id === node.id));
+      if (group) {
+        switchFocusToGroup(group.parentNodeId);
+        setSelected(node.id);
+        return;
+      }
+    }
+    setSelected(node.id);
   }
 
   function handleEdgeClick({ edge }: { edge: Edge; event: MouseEvent }) {
@@ -235,11 +300,38 @@
   }
 
   function handlePaneClick({ event }: { event: MouseEvent }) {
+    const s = get(diagramStore);
+    const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
+
     const pending = $pendingNodeType;
-    if (pending && screenToFlowPosition) {
+    if (pending && screenToFlowPosition && !isNoFocus) {
       const pos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       dispatch('place', pos);
     }
+
+    // Check if click is within an unfocused boundary to switch focus
+    if (screenToFlowPosition && s.navigationStack.length > 1) {
+      const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const boundaries = $contextBoundaries;
+      const clickedGroup = boundaries.find((g) => {
+        if (g.isFocused && !isNoFocus) return false; // skip the focused group unless in no-focus mode
+        const bb = g.boundingBox;
+        return (
+          flowPos.x >= bb.x &&
+          flowPos.x <= bb.x + bb.width &&
+          flowPos.y >= bb.y &&
+          flowPos.y <= bb.y + bb.height
+        );
+      });
+      if (clickedGroup) {
+        switchFocusToGroup(clickedGroup.parentNodeId);
+        return;
+      }
+      // Click outside all boundaries — enter no-focus mode
+      clearGroupFocus();
+      return;
+    }
+
     setSelected(null);
   }
 
@@ -296,7 +388,7 @@
     bind:edges
     {nodeTypes}
     {edgeTypes}
-    fitView
+    fitView={prevNavStackLength === 0}
     minZoom={0.2}
     maxZoom={2}
     zoomOnDoubleClick={false}
@@ -311,7 +403,7 @@
     <Background />
     <Controls />
     <MiniMap />
-    <FlowHelper onReady={(fn) => { screenToFlowPosition = fn; }} />
+    <FlowHelper onReady={(fns) => { screenToFlowPosition = fns.screenToFlowPosition; flowFitView = fns.fitView; }} />
 
     <!-- SVG marker definitions for edge start/end markers -->
     <svg style="position: absolute; width: 0; height: 0;">
