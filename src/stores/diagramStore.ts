@@ -159,10 +159,17 @@ export function deleteNode(nodeId: string): void {
 }
 
 export function addEdge(edge: C4Edge): void {
+  const normalized: C4Edge = {
+    markerStart: 'none',
+    markerEnd: 'arrow',
+    lineStyle: 'solid',
+    waypoints: [],
+    ...edge,
+  };
   diagramStore.update((s) => {
     const current = getCurrentDiagram(s);
-    current.edges = [...current.edges, edge];
-    return { ...s, selectedId: edge.id };
+    current.edges = [...current.edges, normalized];
+    return { ...s, selectedId: normalized.id };
   });
 }
 

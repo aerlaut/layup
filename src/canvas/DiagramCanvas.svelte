@@ -145,6 +145,8 @@
       id: `edge-${Date.now()}`,
       source: conn.source,
       target: conn.target,
+      sourceHandle: conn.sourceHandle ?? undefined,
+      targetHandle: conn.targetHandle ?? undefined,
       label: '',
       description: '',
       technology: '',

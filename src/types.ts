@@ -13,6 +13,9 @@ export interface C4Node {
   childDiagramId?: string;
 }
 
+export type MarkerType = 'arrow' | 'dot' | 'none';
+export type LineStyle = 'solid' | 'dashed' | 'dotted';
+
 export interface C4Edge {
   id: string;
   source: string;
@@ -20,6 +23,12 @@ export interface C4Edge {
   label?: string;
   description?: string;
   technology?: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+  markerStart?: MarkerType;
+  markerEnd?: MarkerType;
+  lineStyle?: LineStyle;
+  waypoints?: Array<{ x: number; y: number }>;
 }
 
 export interface DiagramLevel {

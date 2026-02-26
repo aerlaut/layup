@@ -1,8 +1,8 @@
 ## 1. Data Model & Store
 
-- [ ] 1.1 Extend `C4Edge` interface in `types.ts` with `sourceHandle`, `targetHandle`, `markerStart`, `markerEnd`, `lineStyle`, and `waypoints` fields
-- [ ] 1.2 Update `addEdge` in `diagramStore.ts` to capture `sourceHandle` and `targetHandle` from the Connection object, and set defaults for `markerStart: 'none'`, `markerEnd: 'arrow'`, `lineStyle: 'solid'`, `waypoints: []`
-- [ ] 1.3 Update `DiagramCanvas.svelte` `handleConnect` to pass `sourceHandle` and `targetHandle` from the Connection object to the new edge
+- [x] 1.1 Extend `C4Edge` interface in `types.ts` with `sourceHandle`, `targetHandle`, `markerStart`, `markerEnd`, `lineStyle`, and `waypoints` fields
+- [x] 1.2 Update `addEdge` in `diagramStore.ts` to capture `sourceHandle` and `targetHandle` from the Connection object, and set defaults for `markerStart: 'none'`, `markerEnd: 'arrow'`, `lineStyle: 'solid'`, `waypoints: []`
+- [x] 1.3 Update `DiagramCanvas.svelte` `handleConnect` to pass `sourceHandle` and `targetHandle` from the Connection object to the new edge
 
 ## 2. SVG Marker Definitions
 
