@@ -23,6 +23,7 @@
     deleteEdge as storeDeleteEdge,
     setSelected,
     updateNodePositions,
+    updateNodePositionsInDiagram,
     drillDown,
     drillUp,
     pendingNodeType,
@@ -116,8 +117,8 @@
         position: { x: bBox.x, y: bBox.y },
         style: `width: ${bBox.width}px; height: ${bBox.height}px;`,
         data: { label: group.parentLabel, isFocused: group.isFocused },
-        selectable: false,
-        draggable: false,
+        selectable: true,
+        draggable: true,
         connectable: false,
         class: 'boundary-node-wrapper',
       });
@@ -128,7 +129,13 @@
         const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
         if (group.childDiagramId !== currentDiagramId) {
           for (const cn of group.childNodes) {
-            activeNodes.push(toFlowNode(cn));
+            const flowNode = toFlowNode(cn);
+            flowNode.parentId = boundaryId;
+            flowNode.position = {
+              x: cn.position.x - bBox.x,
+              y: cn.position.y - bBox.y,
+            };
+            activeNodes.push(flowNode);
           }
           // Also include edges from sibling diagrams
           const siblingDiagram = s.diagrams[group.childDiagramId];
@@ -136,6 +143,28 @@
             for (const e of siblingDiagram.edges) {
               activeEdges.push(toFlowEdge(e));
             }
+          }
+        } else {
+          // Current group nodes — also parent them to boundary
+          for (const node of activeNodes) {
+            if (group.childNodes.some((cn) => cn.id === node.id)) {
+              node.parentId = boundaryId;
+              node.position = {
+                x: node.position.x - bBox.x,
+                y: node.position.y - bBox.y,
+              };
+            }
+          }
+        }
+      } else if (group.isFocused) {
+        // Focused group — parent active nodes to boundary
+        for (const node of activeNodes) {
+          if (group.childNodes.some((cn) => cn.id === node.id)) {
+            node.parentId = boundaryId;
+            node.position = {
+              x: node.position.x - bBox.x,
+              y: node.position.y - bBox.y,
+            };
           }
         }
       } else if (!group.isFocused) {
@@ -269,7 +298,17 @@
   }
 
   function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }) {
-    if (node.id.startsWith('boundary-')) return;
+    if (node.id.startsWith('boundary-')) {
+      // Clicking a boundary selects the group (boundary itself)
+      const parentNodeId = node.id.replace('boundary-', '');
+      const s = get(diagramStore);
+      if (s.focusedParentNodeId === null && s.navigationStack.length > 1) {
+        // In no-focus mode, switch focus to this group
+        switchFocusToGroup(parentNodeId);
+      }
+      // Don't set selectedId to boundary — just focus the group
+      return;
+    }
     if (node.id.startsWith('ctx-')) {
       const realId = node.id.slice(4);
       // Find which group this context node belongs to and switch focus
@@ -342,11 +381,78 @@
     nodes: Node[];
     event: MouseEvent | TouchEvent;
   }) {
-    updateNodePositions(draggedNodes.map((n) => ({ id: n.id, position: n.position })));
+    const s = get(diagramStore);
+    const boundaries = $contextBoundaries;
+
+    // Separate boundary drags from regular node drags
+    const boundaryDrags = draggedNodes.filter((n) => n.id.startsWith('boundary-'));
+    const regularDrags = draggedNodes.filter((n) => !n.id.startsWith('boundary-'));
+
+    // Handle boundary drags: compute delta and move all children in the store
+    for (const bNode of boundaryDrags) {
+      const parentNodeId = bNode.id.replace('boundary-', '');
+      const group = boundaries.find((g) => g.parentNodeId === parentNodeId);
+      if (!group) continue;
+
+      const dx = bNode.position.x - group.boundingBox.x;
+      const dy = bNode.position.y - group.boundingBox.y;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+
+      const childUpdates = group.childNodes.map((cn) => ({
+        id: cn.id,
+        position: { x: cn.position.x + dx, y: cn.position.y + dy },
+      }));
+      updateNodePositionsInDiagram(group.childDiagramId, childUpdates);
+    }
+
+    // Handle regular node drags: convert relative (to boundary) → absolute positions
+    if (regularDrags.length > 0) {
+      // Group updates by diagram
+      const updatesByDiagram = new Map<string, Array<{ id: string; position: { x: number; y: number } }>>();
+
+      for (const n of regularDrags) {
+        if (n.parentId && n.parentId.startsWith('boundary-')) {
+          // Node is parented to a boundary — convert to absolute coords
+          const boundaryFlowNode = nodes.find((bn) => bn.id === n.parentId);
+          if (!boundaryFlowNode) continue;
+
+          const absPosition = {
+            x: n.position.x + boundaryFlowNode.position.x,
+            y: n.position.y + boundaryFlowNode.position.y,
+          };
+
+          // Find which diagram this node belongs to
+          const parentNodeId = n.parentId.replace('boundary-', '');
+          const group = boundaries.find((g) => g.parentNodeId === parentNodeId);
+          if (!group) continue;
+
+          const diagramId = group.childDiagramId;
+          if (!updatesByDiagram.has(diagramId)) updatesByDiagram.set(diagramId, []);
+          updatesByDiagram.get(diagramId)!.push({ id: n.id, position: absPosition });
+        } else {
+          // Regular node without boundary parent
+          const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
+          if (!updatesByDiagram.has(currentDiagramId)) updatesByDiagram.set(currentDiagramId, []);
+          updatesByDiagram.get(currentDiagramId)!.push({ id: n.id, position: n.position });
+        }
+      }
+
+      for (const [diagramId, updates] of updatesByDiagram) {
+        const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
+        if (diagramId === currentDiagramId) {
+          updateNodePositions(updates);
+        } else {
+          updateNodePositionsInDiagram(diagramId, updates);
+        }
+      }
+    }
   }
 
   function handleDelete({ nodes: delNodes, edges: delEdges }: { nodes: Node[]; edges: Edge[] }) {
-    for (const n of delNodes) storeDeleteNode(n.id);
+    for (const n of delNodes) {
+      if (n.id.startsWith('boundary-')) continue; // Don't delete boundary nodes directly
+      storeDeleteNode(n.id);
+    }
     for (const e of delEdges) storeDeleteEdge(e.id);
   }
 

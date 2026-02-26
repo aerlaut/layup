@@ -626,3 +626,20 @@ export function updateNodePositions(updates: Array<{ id: string; position: { x: 
     return newState;
   });
 }
+
+export function updateNodePositionsInDiagram(
+  diagramId: string,
+  updates: Array<{ id: string; position: { x: number; y: number } }>
+): void {
+  diagramStore.update((s) => {
+    const diagram = s.diagrams[diagramId];
+    if (!diagram) return s;
+    const posMap = new Map(updates.map((u) => [u.id, u.position]));
+    diagram.nodes = diagram.nodes.map((n) =>
+      posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n
+    );
+    let newState = { ...s };
+    newState = resolveBoundaryOverlaps(newState);
+    return newState;
+  });
+}

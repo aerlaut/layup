@@ -20,7 +20,12 @@
     background: transparent;
     opacity: 0.5;
     position: relative;
-    pointer-events: none;
+    pointer-events: all;
+    cursor: grab;
+  }
+
+  .boundary-node:active {
+    cursor: grabbing;
   }
 
   .boundary-node.focused {

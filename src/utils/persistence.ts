@@ -1,7 +1,7 @@
 import type { DiagramState } from '../types';
 import { SCHEMA_VERSION } from '../stores/diagramStore';
 
-const STORAGE_KEY = 'vasker_diagram';
+const STORAGE_KEY = 'laverop_diagram';
 const STORAGE_WARN_BYTES = 4 * 1024 * 1024; // 4 MB
 
 // ─── localStorage ─────────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@ export function saveToLocalStorage(state: DiagramState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
-    console.warn('vasker: failed to save to localStorage', e);
+    console.warn('laverop: failed to save to localStorage', e);
   }
 }
 
@@ -21,7 +21,7 @@ export function loadFromLocalStorage(): DiagramState | null {
     const parsed = JSON.parse(raw) as DiagramState;
     return parsed;
   } catch (e) {
-    console.warn('vasker: failed to load from localStorage', e);
+    console.warn('laverop: failed to load from localStorage', e);
     return null;
   }
 }
@@ -72,7 +72,7 @@ export function parseDiagramJSON(text: string): DiagramState {
   }
   if (state.version > SCHEMA_VERSION) {
     throw new ImportError(
-      `Diagram was created with a newer version (v${state.version}). Please upgrade vasker.`
+      `Diagram was created with a newer version (v${state.version}). Please upgrade laverop.`
     );
   }
   if (!state.diagrams || typeof state.diagrams !== 'object') {

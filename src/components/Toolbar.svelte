@@ -48,7 +48,7 @@
         ← Back
       </button>
     {/if}
-    <span class="app-title">vasker</span>
+    <span class="app-title">laverop</span>
     <BreadcrumbBar />
   </div>
 
