@@ -298,6 +298,7 @@
     fitView
     minZoom={0.2}
     maxZoom={2}
+    zoomOnDoubleClick={false}
     deleteKey="Delete"
     onconnect={handleConnect}
     onnodeclick={handleNodeClick}
