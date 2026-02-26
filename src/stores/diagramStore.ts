@@ -110,7 +110,7 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
     .map((n) => {
       const childDiagram = $s.diagrams[n.childDiagramId!];
       const childNodes = childDiagram?.nodes ?? [];
-      const isFocused = n.childDiagramId === currentDiagramId;
+      const isFocused = $s.focusedParentNodeId === null || n.childDiagramId === currentDiagramId;
       const boundingBox = computeBoundingBox(childNodes, n.position);
       return {
         parentNodeId: n.id,
@@ -570,6 +570,34 @@ export function loadDiagram(state: DiagramState): void {
 
 export function resetDiagram(): void {
   diagramStore.set(createInitialState());
+}
+
+export function switchFocusToGroup(parentNodeId: string): void {
+  diagramStore.update((s) => {
+    if (s.navigationStack.length <= 1) return s;
+    const parentDiagramId = s.navigationStack[s.navigationStack.length - 2];
+    const parentDiagram = s.diagrams[parentDiagramId];
+    if (!parentDiagram) return s;
+    const parentNode = parentDiagram.nodes.find((n) => n.id === parentNodeId);
+    if (!parentNode?.childDiagramId) return s;
+    const newStack = [...s.navigationStack];
+    newStack[newStack.length - 1] = parentNode.childDiagramId;
+    return {
+      ...s,
+      navigationStack: newStack,
+      focusedParentNodeId: parentNodeId,
+      selectedId: null,
+    };
+  });
+}
+
+export function clearGroupFocus(): void {
+  diagramStore.update((s) => ({
+    ...s,
+    focusedParentNodeId: null,
+    selectedId: null,
+    pendingNodeType: null,
+  }));
 }
 
 export function setSelected(id: string | null): void {

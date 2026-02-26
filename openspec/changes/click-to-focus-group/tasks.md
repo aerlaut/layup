@@ -1,8 +1,8 @@
 ## 1. Store Actions & Focus State
 
-- [ ] 1.1 Add `switchFocusToGroup(parentNodeId: string)` action to `diagramStore.ts` — sets `focusedParentNodeId` to the given parent node, replaces the last `navigationStack` entry with the group's `childDiagramId`, clears `selectedId`
-- [ ] 1.2 Add `clearGroupFocus()` action to `diagramStore.ts` — sets `focusedParentNodeId` to null, keeps navigation stack unchanged, clears `selectedId`, and clears `pendingNodeType` to null
-- [ ] 1.3 Update `contextBoundaries` derived store to handle null `focusedParentNodeId` — when null, set `isFocused: true` for all groups (the "no focus" / "all focused" state)
+- [x] 1.1 Add `switchFocusToGroup(parentNodeId: string)` action to `diagramStore.ts` — sets `focusedParentNodeId` to the given parent node, replaces the last `navigationStack` entry with the group's `childDiagramId`, clears `selectedId`
+- [x] 1.2 Add `clearGroupFocus()` action to `diagramStore.ts` — sets `focusedParentNodeId` to null, keeps navigation stack unchanged, clears `selectedId`, and clears `pendingNodeType` to null
+- [x] 1.3 Update `contextBoundaries` derived store to handle null `focusedParentNodeId` — when null, set `isFocused: true` for all groups (the "no focus" / "all focused" state)
 
 ## 2. Canvas Click Handlers
 
