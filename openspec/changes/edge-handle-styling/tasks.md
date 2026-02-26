@@ -32,9 +32,9 @@
 
 ## 6. Backward Compatibility & Persistence
 
-- [ ] 6.1 Verify that existing saved diagrams (without new fields) load and render correctly with default values
-- [ ] 6.2 Verify that new edge fields persist to localStorage and survive page reload
-- [ ] 6.3 Verify that JSON export/import preserves all new edge fields including waypoints
+- [x] 6.1 Verify that existing saved diagrams (without new fields) load and render correctly with default values
+- [x] 6.2 Verify that new edge fields persist to localStorage and survive page reload
+- [x] 6.3 Verify that JSON export/import preserves all new edge fields including waypoints
 
 ## 7. Integration Testing
 
@@ -42,4 +42,4 @@
 - [ ] 7.2 Test all marker combinations (arrow/dot/none × start/end) render correctly
 - [ ] 7.3 Test all line styles (solid/dashed/dotted) render correctly
 - [ ] 7.4 Test waypoint add/move/delete workflow end-to-end
-- [ ] 7.5 Run `npm run build` and `npm run check` to verify no type errors or build failures
+- [x] 7.5 Run `npm run build` and `npm run check` to verify no type errors or build failures

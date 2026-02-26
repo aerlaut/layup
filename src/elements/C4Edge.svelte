@@ -187,6 +187,9 @@
   stroke-width="20"
   ondblclick={handleEdgeDblClick}
   style="cursor: pointer;"
+  role="button"
+  tabindex="-1"
+  aria-label="Double-click to add waypoint"
 />
 
 <BaseEdge
