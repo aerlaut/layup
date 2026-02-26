@@ -82,7 +82,7 @@ Archive a completed change in the experimental workflow.
    mv openspec/changes/<name> openspec/changes/archive/YYYY-MM-DD-<name>
    ```
 
-    Create a Git commit for the archive with a message like "Archive change '<name>' using schema '<schemaName>'".
+   Create a Git commit for the archive with a message like "Archive change '<name>' using schema '<schemaName>'". Checkout main branch and merge the archived change's branch if not already on main.
 
 6. **Display summary**
 
@@ -115,3 +115,4 @@ All artifacts complete. All tasks complete.
 - If sync is requested, use openspec-sync-specs approach (agent-driven)
 - If delta specs exist, always run the sync assessment and show the combined summary before prompting
 - Always create a git commit at the end of the archive with a sensible message
+- Always return to main and merge after archiving, don't stay on the archived change's branch
