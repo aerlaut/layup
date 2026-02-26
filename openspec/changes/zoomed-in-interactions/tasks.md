@@ -1,8 +1,8 @@
 ## 1. Interactive Context Nodes
 
-- [ ] 1.1 Remove `pointer-events: none` from `.context-node` in `app.css` and change opacity from 0.35 to 0.7
-- [ ] 1.2 In `DiagramCanvas.svelte`, remove `selectable: false`, `draggable: false`, `connectable: false` from context node creation
-- [ ] 1.3 Update `BoundaryNode.svelte` non-focused boundary opacity from 0.25 to a more visible level (e.g., 0.5)
+- [x] 1.1 Remove `pointer-events: none` from `.context-node` in `app.css` and change opacity from 0.35 to 0.7
+- [x] 1.2 In `DiagramCanvas.svelte`, remove `selectable: false`, `draggable: false`, `connectable: false` from context node creation
+- [x] 1.3 Update `BoundaryNode.svelte` non-focused boundary opacity from 0.25 to a more visible level (e.g., 0.5)
 - [ ] 1.4 Verify context nodes can be selected, dragged, and connected in the UI
 
 ## 2. Cross-Group Edges

@@ -18,7 +18,7 @@
     border: 1.5px dashed #94a3b8;
     border-radius: 10px;
     background: transparent;
-    opacity: 0.25;
+    opacity: 0.5;
     position: relative;
     pointer-events: none;
   }

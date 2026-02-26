@@ -92,10 +92,9 @@ label {
 
 /* ─── Context boundary / sibling node styles ──────────────────────────────── */
 
-/* Context nodes: dimmed and completely non-interactive */
+/* Context nodes: slightly dimmed but fully interactive */
 .svelte-flow__node.context-node {
-  opacity: 0.35;
-  pointer-events: none;
+  opacity: 0.7;
 }
 
 /* Boundary node wrapper: no pointer events so clicks pass through to pane */

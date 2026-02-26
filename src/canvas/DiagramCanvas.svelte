@@ -130,9 +130,7 @@
               technology: cn.technology,
               childDiagramId: cn.childDiagramId,
             },
-            selectable: false,
             draggable: false,
-            connectable: false,
             class: 'context-node',
           });
         }
