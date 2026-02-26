@@ -20,10 +20,10 @@
 
 ## 4. Properties Panel
 
-- [ ] 4.1 Add start marker dropdown (arrow/dot/none) to the edge section of `PropertiesPanel.svelte`
-- [ ] 4.2 Add end marker dropdown (arrow/dot/none) to the edge section of `PropertiesPanel.svelte`
-- [ ] 4.3 Add line style dropdown (solid/dashed/dotted) to the edge section of `PropertiesPanel.svelte`
-- [ ] 4.4 Wire dropdowns to call `updateEdge` store action with the selected values
+- [x] 4.1 Add start marker dropdown (arrow/dot/none) to the edge section of `PropertiesPanel.svelte`
+- [x] 4.2 Add end marker dropdown (arrow/dot/none) to the edge section of `PropertiesPanel.svelte`
+- [x] 4.3 Add line style dropdown (solid/dashed/dotted) to the edge section of `PropertiesPanel.svelte`
+- [x] 4.4 Wire dropdowns to call `updateEdge` store action with the selected values
 
 ## 5. Edge-to-Flow Mapping
 
