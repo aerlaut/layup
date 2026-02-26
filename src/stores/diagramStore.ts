@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { DiagramState, DiagramLevel, C4Node, C4Edge, C4NodeType, C4LevelType } from '../types';
+import type { DiagramState, DiagramLevel, C4Node, C4Edge, C4NodeType, C4LevelType, BoundaryGroup } from '../types';
 
 export const SCHEMA_VERSION = 1;
 
@@ -20,6 +20,7 @@ function createInitialState(): DiagramState {
     navigationStack: [ROOT_DIAGRAM_ID],
     selectedId: null,
     pendingNodeType: null,
+    focusedParentNodeId: null,
   };
 }
 
@@ -60,6 +61,60 @@ export const isAtRoot = derived(
   diagramStore,
   ($s) => $s.navigationStack.length === 1
 );
+
+const NODE_DEFAULT_WIDTH = 160;
+const NODE_DEFAULT_HEIGHT = 80;
+const BOUNDARY_PADDING = 40;
+const BOUNDARY_MIN_WIDTH = 220;
+const BOUNDARY_MIN_HEIGHT = 160;
+
+function computeBoundingBox(
+  childNodes: C4Node[],
+  fallbackPosition: { x: number; y: number }
+): { x: number; y: number; width: number; height: number } {
+  if (childNodes.length === 0) {
+    return {
+      x: fallbackPosition.x - BOUNDARY_PADDING,
+      y: fallbackPosition.y - BOUNDARY_PADDING,
+      width: BOUNDARY_MIN_WIDTH,
+      height: BOUNDARY_MIN_HEIGHT,
+    };
+  }
+  const minX = Math.min(...childNodes.map((n) => n.position.x));
+  const minY = Math.min(...childNodes.map((n) => n.position.y));
+  const maxX = Math.max(...childNodes.map((n) => n.position.x)) + NODE_DEFAULT_WIDTH;
+  const maxY = Math.max(...childNodes.map((n) => n.position.y)) + NODE_DEFAULT_HEIGHT;
+  return {
+    x: minX - BOUNDARY_PADDING,
+    y: minY - BOUNDARY_PADDING,
+    width: Math.max(maxX - minX + BOUNDARY_PADDING * 2, BOUNDARY_MIN_WIDTH),
+    height: Math.max(maxY - minY + BOUNDARY_PADDING * 2, BOUNDARY_MIN_HEIGHT),
+  };
+}
+
+export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => {
+  if ($s.navigationStack.length <= 1) return [];
+  const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2];
+  const currentDiagramId = $s.navigationStack[$s.navigationStack.length - 1];
+  const parentDiagram = $s.diagrams[parentDiagramId];
+  if (!parentDiagram) return [];
+
+  return parentDiagram.nodes
+    .filter((n) => n.childDiagramId !== undefined)
+    .map((n) => {
+      const childDiagram = $s.diagrams[n.childDiagramId!];
+      const childNodes = childDiagram?.nodes ?? [];
+      const isFocused = n.childDiagramId === currentDiagramId;
+      const boundingBox = computeBoundingBox(childNodes, n.position);
+      return {
+        parentNodeId: n.id,
+        parentLabel: n.label,
+        isFocused,
+        childNodes,
+        boundingBox,
+      };
+    });
+});
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
@@ -195,6 +250,7 @@ export function drillDown(nodeId: string): void {
       ...s,
       navigationStack: [...s.navigationStack, childId!],
       selectedId: null,
+      focusedParentNodeId: nodeId,
     };
   });
 }
@@ -206,6 +262,7 @@ export function drillUp(): void {
       ...s,
       navigationStack: s.navigationStack.slice(0, -1),
       selectedId: null,
+      focusedParentNodeId: null,
     };
   });
 }
@@ -218,6 +275,7 @@ export function navigateTo(diagramId: string): void {
       ...s,
       navigationStack: s.navigationStack.slice(0, idx + 1),
       selectedId: null,
+      focusedParentNodeId: null,
     };
   });
 }

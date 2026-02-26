@@ -90,6 +90,25 @@ label {
   margin-bottom: 0.25rem;
 }
 
+/* ─── Context boundary / sibling node styles ──────────────────────────────── */
+
+/* Context nodes: dimmed and completely non-interactive */
+.svelte-flow__node.context-node {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* Boundary node wrapper: no pointer events so clicks pass through to pane */
+.svelte-flow__node.boundary-node-wrapper {
+  pointer-events: none;
+  /* Remove xyflow's default node shadow/border so BoundaryNode controls all styling */
+  box-shadow: none !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
 /* Responsive layout: reduce panel widths on smaller desktop screens */
 @media (max-width: 1200px) {
   :root {

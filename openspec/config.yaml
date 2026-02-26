@@ -4,17 +4,18 @@ schema: spec-driven
 # This is shown to AI when creating artifacts.
 # Add your tech stack, conventions, style guides, domain knowledge, etc.
 # Example:
-  context: |
-    Tech stack: TypeScript, Svelte, SvelteKit, Node.js
-    We use conventional commits
-    Domain: software engineering, project management, product development
+context: |
+  Tech stack: TypeScript, Svelte, SvelteKit, Node.js
+  We use conventional commits
+  Domain: software engineering, project management, product development
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
 # Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Create a new GitHub branch to for each proposal. Commit message should be short and sensible. For example, "Add proposal for user authentication flow"
+  design:
+    - Create a new Github commit before design.md is created. Commit message should be short and sensible. For example, "Add design for user authentication flow"
+  tasks:
+    - Group tasks into independent groups that can be carried out in parallel by different teams. Minimize dependencies between groups. For example, one group can focus on frontend implementation while another group focuses on backend implementation.

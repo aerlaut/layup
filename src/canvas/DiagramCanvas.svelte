@@ -13,6 +13,7 @@
 
   import {
     currentDiagram,
+    contextBoundaries,
     addEdge as storeAddEdge,
     deleteNode as storeDeleteNode,
     deleteEdge as storeDeleteEdge,
@@ -26,6 +27,7 @@
   import SystemNode from '../elements/SystemNode.svelte';
   import ContainerNode from '../elements/ContainerNode.svelte';
   import ComponentNode from '../elements/ComponentNode.svelte';
+  import BoundaryNode from '../elements/BoundaryNode.svelte';
   import C4EdgeComponent from '../elements/C4Edge.svelte';
   import FlowHelper from './FlowHelper.svelte';
 
@@ -37,6 +39,7 @@
     container: ContainerNode,
     component: ComponentNode,
     'code-element': SystemNode,
+    boundary: BoundaryNode,
   } as const;
 
   const edgeTypes = {
@@ -72,11 +75,64 @@
   let nodes = $state<Node[]>([]);
   let edges = $state<Edge[]>([]);
 
-  // Sync diagram store → flow nodes/edges
+  // Sync diagram store → flow nodes/edges, merging boundary/context nodes for spatial context
   $effect(() => {
     const d = $currentDiagram;
-    nodes = d?.nodes.map(toFlowNode) ?? [];
-    edges = d?.edges.map(toFlowEdge) ?? [];
+    const boundaries = $contextBoundaries;
+
+    const activeNodes: Node[] = d?.nodes.map(toFlowNode) ?? [];
+    const activeEdges: Edge[] = d?.edges.map(toFlowEdge) ?? [];
+
+    const boundaryNodes: Node[] = [];
+    const contextNodes: Node[] = [];
+
+    for (const group of boundaries) {
+      const boundaryId = `boundary-${group.parentNodeId}`;
+      const bBox = group.boundingBox;
+
+      // Boundary rectangle node (behind all content)
+      boundaryNodes.push({
+        id: boundaryId,
+        type: 'boundary',
+        position: { x: bBox.x, y: bBox.y },
+        style: `width: ${bBox.width}px; height: ${bBox.height}px;`,
+        data: { label: group.parentLabel, isFocused: group.isFocused },
+        selectable: false,
+        draggable: false,
+        connectable: false,
+        class: 'boundary-node-wrapper',
+      });
+
+      // Context child nodes for sibling (non-focused) groups only
+      if (!group.isFocused) {
+        for (const cn of group.childNodes) {
+          contextNodes.push({
+            id: `ctx-${cn.id}`,
+            type: cn.type,
+            // Position relative to boundary node
+            position: {
+              x: cn.position.x - bBox.x,
+              y: cn.position.y - bBox.y,
+            },
+            parentId: boundaryId,
+            data: {
+              label: cn.label,
+              description: cn.description,
+              technology: cn.technology,
+              childDiagramId: cn.childDiagramId,
+            },
+            selectable: false,
+            draggable: false,
+            connectable: false,
+            class: 'context-node',
+          });
+        }
+      }
+    }
+
+    // Render order: boundaries first (back), then context nodes, then active nodes (front)
+    nodes = [...boundaryNodes, ...contextNodes, ...activeNodes];
+    edges = activeEdges;
   });
 
   // screenToFlowPosition provided by FlowHelper child component
@@ -97,6 +153,7 @@
   }
 
   function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }) {
+    if (node.id.startsWith('ctx-') || node.id.startsWith('boundary-')) return;
     setSelected(node.id);
   }
 
