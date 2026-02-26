@@ -71,6 +71,7 @@ Implement tasks from an OpenSpec change.
    - Make the code changes required
    - Keep changes minimal and focused
    - Mark task complete in the tasks file: `- [ ]` → `- [x]`
+   - Create a new Git commit with short commit message describing the change before moving to the next task
    - Continue to next task
 
    **Pause if:**
@@ -147,6 +148,7 @@ What would you like to do?
 - Update task checkbox immediately after completing each task
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
+- Always create a Git commit after completing each task with a descriptive message
 
 **Fluid Workflow Integration**
 

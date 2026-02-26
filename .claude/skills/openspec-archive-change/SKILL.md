@@ -82,6 +82,8 @@ Archive a completed change in the experimental workflow.
    mv openspec/changes/<name> openspec/changes/archive/YYYY-MM-DD-<name>
    ```
 
+    Create a Git commit for the archive with a message like "Archive change '<name>' using schema '<schemaName>'".
+
 6. **Display summary**
 
    Show archive completion summary including:
@@ -112,3 +114,4 @@ All artifacts complete. All tasks complete.
 - Show clear summary of what happened
 - If sync is requested, use openspec-sync-specs approach (agent-driven)
 - If delta specs exist, always run the sync assessment and show the combined summary before prompting
+- Always create a git commit at the end of the archive with a sensible message
