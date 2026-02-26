@@ -11,12 +11,12 @@
 
 ## 3. Edge Rendering (C4Edge.svelte)
 
-- [ ] 3.1 Update `C4Edge.svelte` to read `markerStart`, `markerEnd`, and `lineStyle` from edge data and apply them to `BaseEdge`
-- [ ] 3.2 Implement `stroke-dasharray` styling: solid (none), dashed (`8 4`), dotted (`2 2`)
-- [ ] 3.3 Implement waypoint-based path rendering — when waypoints exist, compute a smooth path through source → waypoints → target instead of using `getBezierPath`
-- [ ] 3.4 Add double-click handler on edge path to insert a new waypoint at the clicked position
-- [ ] 3.5 Render draggable waypoint handles on the edge and implement drag-to-reposition
-- [ ] 3.6 Implement waypoint deletion via right-click context action and Delete/Backspace key
+- [x] 3.1 Update `C4Edge.svelte` to read `markerStart`, `markerEnd`, and `lineStyle` from edge data and apply them to `BaseEdge`
+- [x] 3.2 Implement `stroke-dasharray` styling: solid (none), dashed (`8 4`), dotted (`2 2`)
+- [x] 3.3 Implement waypoint-based path rendering — when waypoints exist, compute a smooth path through source → waypoints → target instead of using `getBezierPath`
+- [x] 3.4 Add double-click handler on edge path to insert a new waypoint at the clicked position
+- [x] 3.5 Render draggable waypoint handles on the edge and implement drag-to-reposition
+- [x] 3.6 Implement waypoint deletion via right-click context action and Delete/Backspace key
 
 ## 4. Properties Panel
 
