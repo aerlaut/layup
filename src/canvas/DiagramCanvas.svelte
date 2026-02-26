@@ -262,7 +262,25 @@
     const target = e.target as HTMLElement;
     // Traverse up to find a node wrapper with [data-id]
     const nodeEl = target.closest('.svelte-flow__node') as HTMLElement | null;
-    if (!nodeEl) return;
+    if (!nodeEl) {
+      // Double-click on pane background — zoom out if not inside any boundary
+      const s = get(diagramStore);
+      if (s.navigationStack.length <= 1) return;
+      if (screenToFlowPosition) {
+        const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+        const inBoundary = $contextBoundaries.some((g) => {
+          const bb = g.boundingBox;
+          return (
+            flowPos.x >= bb.x &&
+            flowPos.x <= bb.x + bb.width &&
+            flowPos.y >= bb.y &&
+            flowPos.y <= bb.y + bb.height
+          );
+        });
+        if (!inBoundary) drillUp();
+      }
+      return;
+    }
     const nodeId = nodeEl.getAttribute('data-id');
     if (!nodeId) return;
     const c4node = $currentDiagram?.nodes.find((n) => n.id === nodeId);

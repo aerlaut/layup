@@ -11,11 +11,11 @@
 - [x] 2.2 Update `handleConnect` in `DiagramCanvas.svelte` to detect when source/target belong to different groups and store the edge on the parent diagram level with group metadata
 - [x] 2.3 In the `$effect` that builds the flow node/edge arrays, collect cross-group edges from the parent diagram and include them in the rendered edges when either source or target group is visible
 - [x] 2.4 Map cross-group edge node IDs to the correct flow node IDs (context nodes use `ctx-` prefix)
-- [ ] 2.5 Verify cross-group edge creation and rendering from both source and target group perspectives
+- [x] 2.5 Verify cross-group edge creation and rendering from both source and target group perspectives
 
 ## 3. Background Double-Click Zoom-Out
 
-- [ ] 3.1 In `handleDblClick` in `DiagramCanvas.svelte`, add a check: if no `.svelte-flow__node` is found under the click target and `navigationStack.length > 1`, call `drillUp()`
+- [x] 3.1 In `handleDblClick` in `DiagramCanvas.svelte`, add a check: if no `.svelte-flow__node` is found under the click target and `navigationStack.length > 1`, call `drillUp()`
 - [ ] 3.2 Verify double-clicking background navigates up one level, and does nothing at root
 
 ## 4. Node Overlap Prevention
