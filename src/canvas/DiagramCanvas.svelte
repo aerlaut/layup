@@ -5,6 +5,7 @@
     Background,
     Controls,
     MiniMap,
+    ConnectionMode,
     type Node,
     type Edge,
     type Connection,
@@ -498,6 +499,7 @@
     minZoom={0.2}
     maxZoom={2}
     zoomOnDoubleClick={false}
+    connectionMode={ConnectionMode.Loose}
     deleteKey="Delete"
     onconnect={handleConnect}
     onnodeclick={handleNodeClick}
