@@ -27,8 +27,8 @@
 
 ## 5. Edge-to-Flow Mapping
 
-- [ ] 5.1 Update `toFlowEdge` mapping in `DiagramCanvas.svelte` to pass `sourceHandle`, `targetHandle`, `markerStart`, `markerEnd`, `lineStyle`, and `waypoints` through to @xyflow edge props
-- [ ] 5.2 Ensure @xyflow receives `sourceHandle` and `targetHandle` so edges route to the correct handle positions
+- [x] 5.1 Update `toFlowEdge` mapping in `DiagramCanvas.svelte` to pass `sourceHandle`, `targetHandle`, `markerStart`, `markerEnd`, `lineStyle`, and `waypoints` through to @xyflow edge props
+- [x] 5.2 Ensure @xyflow receives `sourceHandle` and `targetHandle` so edges route to the correct handle positions
 
 ## 6. Backward Compatibility & Persistence
 

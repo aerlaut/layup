@@ -65,9 +65,18 @@
       id: e.id,
       source: e.source,
       target: e.target,
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
       type: 'c4edge',
       label: e.label,
-      data: { description: e.description, technology: e.technology },
+      data: {
+        description: e.description,
+        technology: e.technology,
+        markerStart: e.markerStart ?? 'none',
+        markerEnd: e.markerEnd ?? 'arrow',
+        lineStyle: e.lineStyle ?? 'solid',
+        waypoints: e.waypoints ?? [],
+      },
     };
   }
 
