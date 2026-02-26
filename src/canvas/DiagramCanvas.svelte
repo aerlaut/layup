@@ -65,9 +65,18 @@
       id: e.id,
       source: e.source,
       target: e.target,
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
       type: 'c4edge',
       label: e.label,
-      data: { description: e.description, technology: e.technology },
+      data: {
+        description: e.description,
+        technology: e.technology,
+        markerStart: e.markerStart ?? 'none',
+        markerEnd: e.markerEnd ?? 'arrow',
+        lineStyle: e.lineStyle ?? 'solid',
+        waypoints: e.waypoints ?? [],
+      },
     };
   }
 
@@ -145,6 +154,8 @@
       id: `edge-${Date.now()}`,
       source: conn.source,
       target: conn.target,
+      sourceHandle: conn.sourceHandle ?? undefined,
+      targetHandle: conn.targetHandle ?? undefined,
       label: '',
       description: '',
       technology: '',
@@ -220,6 +231,58 @@
     <Controls />
     <MiniMap />
     <FlowHelper onReady={(fn) => { screenToFlowPosition = fn; }} />
+
+    <!-- SVG marker definitions for edge start/end markers -->
+    <svg style="position: absolute; width: 0; height: 0;">
+      <defs>
+        <!-- Arrow markers (auto-orient with path direction) -->
+        <marker
+          id="arrow-end"
+          markerWidth="10"
+          markerHeight="7"
+          refX="9"
+          refY="3.5"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <polygon points="0 0, 10 3.5, 0 7" fill="#555" />
+        </marker>
+        <marker
+          id="arrow-start"
+          markerWidth="10"
+          markerHeight="7"
+          refX="1"
+          refY="3.5"
+          orient="auto-start-reverse"
+          markerUnits="strokeWidth"
+        >
+          <polygon points="0 0, 10 3.5, 0 7" fill="#555" />
+        </marker>
+        <!-- Dot markers -->
+        <marker
+          id="dot-end"
+          markerWidth="6"
+          markerHeight="6"
+          refX="3"
+          refY="3"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <circle cx="3" cy="3" r="2.5" fill="#555" />
+        </marker>
+        <marker
+          id="dot-start"
+          markerWidth="6"
+          markerHeight="6"
+          refX="3"
+          refY="3"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <circle cx="3" cy="3" r="2.5" fill="#555" />
+        </marker>
+      </defs>
+    </svg>
   </SvelteFlow>
 </div>
 

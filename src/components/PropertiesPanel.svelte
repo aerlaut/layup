@@ -44,6 +44,21 @@
     updateEdge(selectedEdge.id, { technology: (e.target as HTMLInputElement).value });
   }
 
+  function handleMarkerStartChange(e: Event) {
+    if (!selectedEdge) return;
+    updateEdge(selectedEdge.id, { markerStart: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
+  }
+
+  function handleMarkerEndChange(e: Event) {
+    if (!selectedEdge) return;
+    updateEdge(selectedEdge.id, { markerEnd: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
+  }
+
+  function handleLineStyleChange(e: Event) {
+    if (!selectedEdge) return;
+    updateEdge(selectedEdge.id, { lineStyle: (e.target as HTMLSelectElement).value as import('../types').LineStyle });
+  }
+
   function handleDeleteNode() {
     if (!selectedNode) return;
     deleteNode(selectedNode.id);
@@ -125,6 +140,30 @@
           value={selectedEdge.technology ?? ''}
           on:input={handleEdgeTechChange}
         />
+      </div>
+      <div class="field">
+        <label for="edge-marker-start">Start Marker</label>
+        <select id="edge-marker-start" value={selectedEdge.markerStart ?? 'none'} on:change={handleMarkerStartChange}>
+          <option value="none">None</option>
+          <option value="arrow">Arrow</option>
+          <option value="dot">Dot</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="edge-marker-end">End Marker</label>
+        <select id="edge-marker-end" value={selectedEdge.markerEnd ?? 'arrow'} on:change={handleMarkerEndChange}>
+          <option value="none">None</option>
+          <option value="arrow">Arrow</option>
+          <option value="dot">Dot</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="edge-line-style">Line Style</label>
+        <select id="edge-line-style" value={selectedEdge.lineStyle ?? 'solid'} on:change={handleLineStyleChange}>
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+        </select>
       </div>
       <button class="danger-btn" on:click={handleDeleteEdge}>Delete Relationship</button>
     </div>
