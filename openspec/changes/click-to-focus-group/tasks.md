@@ -16,6 +16,6 @@
 
 ## 3. Visual Rendering Updates
 
-- [ ] 3.1 Update the `$effect` in `DiagramCanvas.svelte` that builds flow nodes — in the "all focused" state (`focusedParentNodeId === null`), render all groups' nodes as active (not as context nodes with `ctx-` prefix and reduced opacity), or remove the `context-node` class so they render at full opacity
+- [x] 3.1 Update the `$effect` in `DiagramCanvas.svelte` that builds flow nodes — in the "all focused" state (`focusedParentNodeId === null`), render all groups' nodes as active (not as context nodes with `ctx-` prefix and reduced opacity), or remove the `context-node` class so they render at full opacity
 - [ ] 3.2 Verify that in no-focus mode, all boundaries show focused styling and all nodes render at full opacity
 - [ ] 3.3 Verify that clicking a group after no-focus mode restores single-focus rendering (one focused group, others unfocused)

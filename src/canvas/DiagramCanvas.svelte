@@ -96,6 +96,8 @@
     const d = $currentDiagram;
     const boundaries = $contextBoundaries;
     const parent = $parentDiagram;
+    const s = get(diagramStore);
+    const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
 
     const activeNodes: Node[] = d?.nodes.map(toFlowNode) ?? [];
     const activeEdges: Edge[] = d?.edges.map(toFlowEdge) ?? [];
@@ -120,8 +122,24 @@
         class: 'boundary-node-wrapper',
       });
 
-      // Context child nodes for sibling (non-focused) groups only
-      if (!group.isFocused) {
+      if (isNoFocus) {
+        // In no-focus mode, render ALL groups' nodes as active (full opacity)
+        // Skip the group whose nodes are already in activeNodes (from currentDiagram)
+        const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
+        if (group.childDiagramId !== currentDiagramId) {
+          for (const cn of group.childNodes) {
+            activeNodes.push(toFlowNode(cn));
+          }
+          // Also include edges from sibling diagrams
+          const siblingDiagram = s.diagrams[group.childDiagramId];
+          if (siblingDiagram) {
+            for (const e of siblingDiagram.edges) {
+              activeEdges.push(toFlowEdge(e));
+            }
+          }
+        }
+      } else if (!group.isFocused) {
+        // Context child nodes for sibling (non-focused) groups only
         for (const cn of group.childNodes) {
           contextNodes.push({
             id: `ctx-${cn.id}`,
@@ -147,22 +165,29 @@
 
     // Collect cross-group edges from parent diagram
     if (parent) {
-      const activeNodeIds = new Set(d?.nodes.map((n) => n.id) ?? []);
+      const allActiveNodeIds = new Set(activeNodes.map((n) => n.id));
       for (const e of parent.edges) {
         if (!e.sourceGroupId && !e.targetGroupId) continue;
-        const srcInActive = activeNodeIds.has(e.source);
-        const tgtInActive = activeNodeIds.has(e.target);
-        const srcInContext =
-          !srcInActive &&
-          boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.source));
-        const tgtInContext =
-          !tgtInActive &&
-          boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.target));
-        if ((srcInActive || srcInContext) && (tgtInActive || tgtInContext)) {
-          const flowEdge = toFlowEdge(e);
-          flowEdge.source = srcInActive ? e.source : `ctx-${e.source}`;
-          flowEdge.target = tgtInActive ? e.target : `ctx-${e.target}`;
-          activeEdges.push(flowEdge);
+        const srcInActive = allActiveNodeIds.has(e.source);
+        const tgtInActive = allActiveNodeIds.has(e.target);
+        if (isNoFocus) {
+          // In no-focus mode, all nodes are active — just remap IDs directly
+          if (srcInActive && tgtInActive) {
+            activeEdges.push(toFlowEdge(e));
+          }
+        } else {
+          const srcInContext =
+            !srcInActive &&
+            boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.source));
+          const tgtInContext =
+            !tgtInActive &&
+            boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.target));
+          if ((srcInActive || srcInContext) && (tgtInActive || tgtInContext)) {
+            const flowEdge = toFlowEdge(e);
+            flowEdge.source = srcInActive ? e.source : `ctx-${e.source}`;
+            flowEdge.target = tgtInActive ? e.target : `ctx-${e.target}`;
+            activeEdges.push(flowEdge);
+          }
         }
       }
     }
