@@ -24,3 +24,14 @@ The system SHALL remove focus from all groups when the user single-clicks on the
 #### Scenario: Click a group after no-focus mode restores single focus
 - **WHEN** the user is in no-focus mode (all groups appear focused) and clicks on a node or boundary area of a specific group
 - **THEN** that group becomes the sole focused group and all other groups revert to unfocused styling
+
+### Requirement: Node placement and edge creation are disabled in no-focus mode
+The system SHALL prevent node placement and edge creation when no group is focused. Any pending node type selection SHALL be cleared when entering no-focus mode. Connection attempts SHALL be rejected until the user clicks a group to restore focus.
+
+#### Scenario: Pending node type cleared on entering no-focus mode
+- **WHEN** the user has selected a node type from the palette and then clicks outside all boundaries
+- **THEN** the pending node type is cleared and no node is placed
+
+#### Scenario: Connection rejected in no-focus mode
+- **WHEN** the user attempts to create a connection between nodes while in no-focus mode
+- **THEN** the connection is not created
