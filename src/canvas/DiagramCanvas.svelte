@@ -225,8 +225,9 @@
   }
 
   function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }) {
-    if (node.id.startsWith('ctx-') || node.id.startsWith('boundary-')) return;
-    setSelected(node.id);
+    if (node.id.startsWith('boundary-')) return;
+    const realId = node.id.startsWith('ctx-') ? node.id.slice(4) : node.id;
+    setSelected(realId);
   }
 
   function handleEdgeClick({ edge }: { edge: Edge; event: MouseEvent }) {

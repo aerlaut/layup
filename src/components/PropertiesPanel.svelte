@@ -1,72 +1,73 @@
 <script lang="ts">
-  import { diagramStore, currentDiagram, updateNode, updateEdge, deleteNode, deleteEdge, setSelected } from '../stores/diagramStore';
+  import {
+    selectedElement,
+    updateNodeInDiagram,
+    updateEdgeInDiagram,
+    deleteNodeFromDiagram,
+    deleteEdgeFromDiagram,
+    setSelected,
+  } from '../stores/diagramStore';
   import type { C4Node, C4Edge } from '../types';
 
-  export let selectedId: string | null;
+  $: sel = $selectedElement;
 
-  $: diagram = $currentDiagram;
-
-  $: selectedNode = selectedId
-    ? (diagram?.nodes.find((n) => n.id === selectedId) ?? null)
-    : null;
-
-  $: selectedEdge = selectedId && !selectedNode
-    ? (diagram?.edges.find((e) => e.id === selectedId) ?? null)
-    : null;
+  $: selectedNode = sel?.type === 'node' ? sel.node : null;
+  $: selectedEdge = sel?.type === 'edge' ? sel.edge : null;
+  $: diagramId = sel?.diagramId ?? null;
 
   function handleNodeLabelChange(e: Event) {
-    if (!selectedNode) return;
-    updateNode(selectedNode.id, { label: (e.target as HTMLInputElement).value });
+    if (!selectedNode || !diagramId) return;
+    updateNodeInDiagram(diagramId, selectedNode.id, { label: (e.target as HTMLInputElement).value });
   }
 
   function handleNodeDescChange(e: Event) {
-    if (!selectedNode) return;
-    updateNode(selectedNode.id, { description: (e.target as HTMLInputElement).value });
+    if (!selectedNode || !diagramId) return;
+    updateNodeInDiagram(diagramId, selectedNode.id, { description: (e.target as HTMLInputElement).value });
   }
 
   function handleNodeTechChange(e: Event) {
-    if (!selectedNode) return;
-    updateNode(selectedNode.id, { technology: (e.target as HTMLInputElement).value });
+    if (!selectedNode || !diagramId) return;
+    updateNodeInDiagram(diagramId, selectedNode.id, { technology: (e.target as HTMLInputElement).value });
   }
 
   function handleEdgeLabelChange(e: Event) {
-    if (!selectedEdge) return;
-    updateEdge(selectedEdge.id, { label: (e.target as HTMLInputElement).value });
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { label: (e.target as HTMLInputElement).value });
   }
 
   function handleEdgeDescChange(e: Event) {
-    if (!selectedEdge) return;
-    updateEdge(selectedEdge.id, { description: (e.target as HTMLInputElement).value });
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { description: (e.target as HTMLInputElement).value });
   }
 
   function handleEdgeTechChange(e: Event) {
-    if (!selectedEdge) return;
-    updateEdge(selectedEdge.id, { technology: (e.target as HTMLInputElement).value });
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { technology: (e.target as HTMLInputElement).value });
   }
 
   function handleMarkerStartChange(e: Event) {
-    if (!selectedEdge) return;
-    updateEdge(selectedEdge.id, { markerStart: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { markerStart: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
   }
 
   function handleMarkerEndChange(e: Event) {
-    if (!selectedEdge) return;
-    updateEdge(selectedEdge.id, { markerEnd: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { markerEnd: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
   }
 
   function handleLineStyleChange(e: Event) {
-    if (!selectedEdge) return;
-    updateEdge(selectedEdge.id, { lineStyle: (e.target as HTMLSelectElement).value as import('../types').LineStyle });
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { lineStyle: (e.target as HTMLSelectElement).value as import('../types').LineStyle });
   }
 
   function handleDeleteNode() {
-    if (!selectedNode) return;
-    deleteNode(selectedNode.id);
+    if (!selectedNode || !diagramId) return;
+    deleteNodeFromDiagram(diagramId, selectedNode.id);
   }
 
   function handleDeleteEdge() {
-    if (!selectedEdge) return;
-    deleteEdge(selectedEdge.id);
+    if (!selectedEdge || !diagramId) return;
+    deleteEdgeFromDiagram(diagramId, selectedEdge.id);
   }
 </script>
 

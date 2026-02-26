@@ -123,6 +123,103 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
     });
 });
 
+/** Resolved selection: finds the selected node or edge across visible diagrams */
+export interface SelectedNodeResult { type: 'node'; node: C4Node; diagramId: string }
+export interface SelectedEdgeResult { type: 'edge'; edge: C4Edge; diagramId: string }
+export type SelectedElementResult = SelectedNodeResult | SelectedEdgeResult;
+
+export const selectedElement = derived(diagramStore, ($s): SelectedElementResult | null => {
+  const id = $s.selectedId;
+  if (!id) return null;
+
+  const current = getCurrentDiagram($s);
+
+  // Check current diagram
+  const node = current.nodes.find((n) => n.id === id);
+  if (node) return { type: 'node', node, diagramId: current.id };
+  const edge = current.edges.find((e) => e.id === id);
+  if (edge) return { type: 'edge', edge, diagramId: current.id };
+
+  // Check sibling diagrams (for context nodes) and parent edges
+  if ($s.navigationStack.length > 1) {
+    const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2];
+    const parentDiagram = $s.diagrams[parentDiagramId];
+    if (parentDiagram) {
+      for (const pNode of parentDiagram.nodes) {
+        if (pNode.childDiagramId && pNode.childDiagramId !== current.id) {
+          const siblingDiagram = $s.diagrams[pNode.childDiagramId];
+          if (siblingDiagram) {
+            const sibNode = siblingDiagram.nodes.find((n) => n.id === id);
+            if (sibNode) return { type: 'node', node: sibNode, diagramId: siblingDiagram.id };
+            const sibEdge = siblingDiagram.edges.find((e) => e.id === id);
+            if (sibEdge) return { type: 'edge', edge: sibEdge, diagramId: siblingDiagram.id };
+          }
+        }
+      }
+      // Cross-group edges live on the parent diagram
+      const parentEdge = parentDiagram.edges.find((e) => e.id === id);
+      if (parentEdge) return { type: 'edge', edge: parentEdge, diagramId: parentDiagramId };
+    }
+  }
+
+  return null;
+});
+
+export function updateNodeInDiagram(diagramId: string, nodeId: string, patch: Partial<C4Node>): void {
+  diagramStore.update((s) => {
+    const diagram = s.diagrams[diagramId];
+    if (!diagram) return s;
+    diagram.nodes = diagram.nodes.map((n) =>
+      n.id === nodeId ? { ...n, ...patch } : n
+    );
+    return { ...s };
+  });
+}
+
+export function updateEdgeInDiagram(diagramId: string, edgeId: string, patch: Partial<C4Edge>): void {
+  diagramStore.update((s) => {
+    const diagram = s.diagrams[diagramId];
+    if (!diagram) return s;
+    diagram.edges = diagram.edges.map((e) =>
+      e.id === edgeId ? { ...e, ...patch } : e
+    );
+    return { ...s };
+  });
+}
+
+export function deleteNodeFromDiagram(diagramId: string, nodeId: string): void {
+  diagramStore.update((s) => {
+    const diagram = s.diagrams[diagramId];
+    if (!diagram) return s;
+    const node = diagram.nodes.find((n) => n.id === nodeId);
+    const diagrams = { ...s.diagrams };
+    if (node?.childDiagramId) {
+      delete diagrams[node.childDiagramId];
+    }
+    diagram.nodes = diagram.nodes.filter((n) => n.id !== nodeId);
+    diagram.edges = diagram.edges.filter(
+      (e) => e.source !== nodeId && e.target !== nodeId
+    );
+    return {
+      ...s,
+      diagrams,
+      selectedId: s.selectedId === nodeId ? null : s.selectedId,
+    };
+  });
+}
+
+export function deleteEdgeFromDiagram(diagramId: string, edgeId: string): void {
+  diagramStore.update((s) => {
+    const diagram = s.diagrams[diagramId];
+    if (!diagram) return s;
+    diagram.edges = diagram.edges.filter((e) => e.id !== edgeId);
+    return {
+      ...s,
+      selectedId: s.selectedId === edgeId ? null : s.selectedId,
+    };
+  });
+}
+
 // ─── Overlap prevention ───────────────────────────────────────────────────────
 
 /** Check if two node bounding boxes intersect */

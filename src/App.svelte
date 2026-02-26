@@ -7,7 +7,6 @@
   import {
     diagramStore,
     currentDiagram,
-    selectedId,
     pendingNodeType,
     addNode,
     setPendingNodeType,
@@ -90,7 +89,7 @@
     </div>
 
     <div class="app-panel">
-      <PropertiesPanel selectedId={$selectedId} />
+      <PropertiesPanel />
     </div>
   </div>
 </div>
