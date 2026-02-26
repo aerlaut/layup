@@ -6,8 +6,8 @@
 
 ## 2. SVG Marker Definitions
 
-- [ ] 2.1 Add SVG `<defs>` block inside the SvelteFlow component with marker definitions for `arrow` and `dot` (both start and end variants)
-- [ ] 2.2 Verify markers render correctly at different zoom levels using `markerUnits="strokeWidth"`
+- [x] 2.1 Add SVG `<defs>` block inside the SvelteFlow component with marker definitions for `arrow` and `dot` (both start and end variants)
+- [x] 2.2 Verify markers render correctly at different zoom levels using `markerUnits="strokeWidth"`
 
 ## 3. Edge Rendering (C4Edge.svelte)
 
