@@ -11,15 +11,20 @@
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
 
+  import { get } from 'svelte/store';
   import {
+    diagramStore,
     currentDiagram,
     contextBoundaries,
+    parentDiagram,
     addEdge as storeAddEdge,
+    addEdgeToDiagram,
     deleteNode as storeDeleteNode,
     deleteEdge as storeDeleteEdge,
     setSelected,
     updateNodePositions,
     drillDown,
+    drillUp,
     pendingNodeType,
   } from '../stores/diagramStore';
   import type { C4Node, C4Edge } from '../types';
@@ -88,6 +93,7 @@
   $effect(() => {
     const d = $currentDiagram;
     const boundaries = $contextBoundaries;
+    const parent = $parentDiagram;
 
     const activeNodes: Node[] = d?.nodes.map(toFlowNode) ?? [];
     const activeEdges: Edge[] = d?.edges.map(toFlowEdge) ?? [];
@@ -137,6 +143,28 @@
       }
     }
 
+    // Collect cross-group edges from parent diagram
+    if (parent) {
+      const activeNodeIds = new Set(d?.nodes.map((n) => n.id) ?? []);
+      for (const e of parent.edges) {
+        if (!e.sourceGroupId && !e.targetGroupId) continue;
+        const srcInActive = activeNodeIds.has(e.source);
+        const tgtInActive = activeNodeIds.has(e.target);
+        const srcInContext =
+          !srcInActive &&
+          boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.source));
+        const tgtInContext =
+          !tgtInActive &&
+          boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.target));
+        if ((srcInActive || srcInContext) && (tgtInActive || tgtInContext)) {
+          const flowEdge = toFlowEdge(e);
+          flowEdge.source = srcInActive ? e.source : `ctx-${e.source}`;
+          flowEdge.target = tgtInActive ? e.target : `ctx-${e.target}`;
+          activeEdges.push(flowEdge);
+        }
+      }
+    }
+
     // Render order: boundaries first (back), then context nodes, then active nodes (front)
     nodes = [...boundaryNodes, ...contextNodes, ...activeNodes];
     edges = activeEdges;
@@ -148,17 +176,52 @@
   // ─── Event handlers ──────────────────────────────────────────────────────────
 
   function handleConnect(conn: Connection) {
-    const newEdge: C4Edge = {
-      id: `edge-${Date.now()}`,
-      source: conn.source,
-      target: conn.target,
-      sourceHandle: conn.sourceHandle ?? undefined,
-      targetHandle: conn.targetHandle ?? undefined,
-      label: '',
-      description: '',
-      technology: '',
-    };
-    storeAddEdge(newEdge);
+    const srcId = conn.source;
+    const tgtId = conn.target;
+    const isCtxSrc = srcId.startsWith('ctx-');
+    const isCtxTgt = tgtId.startsWith('ctx-');
+
+    if (isCtxSrc || isCtxTgt) {
+      // Cross-group edge: store on parent diagram
+      const s = get(diagramStore);
+      if (s.navigationStack.length <= 1) return;
+      const parentDiagramId = s.navigationStack[s.navigationStack.length - 2];
+      const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
+      const realSrcId = isCtxSrc ? srcId.slice(4) : srcId;
+      const realTgtId = isCtxTgt ? tgtId.slice(4) : tgtId;
+      const boundaries = $contextBoundaries;
+
+      const sourceGroupId = isCtxSrc
+        ? boundaries.find((g) => g.childNodes.some((n) => n.id === realSrcId))?.childDiagramId
+        : currentDiagramId;
+      const targetGroupId = isCtxTgt
+        ? boundaries.find((g) => g.childNodes.some((n) => n.id === realTgtId))?.childDiagramId
+        : currentDiagramId;
+
+      addEdgeToDiagram(parentDiagramId, {
+        id: `edge-${Date.now()}`,
+        source: realSrcId,
+        target: realTgtId,
+        sourceHandle: conn.sourceHandle ?? undefined,
+        targetHandle: conn.targetHandle ?? undefined,
+        label: '',
+        description: '',
+        technology: '',
+        sourceGroupId,
+        targetGroupId,
+      });
+    } else {
+      storeAddEdge({
+        id: `edge-${Date.now()}`,
+        source: srcId,
+        target: tgtId,
+        sourceHandle: conn.sourceHandle ?? undefined,
+        targetHandle: conn.targetHandle ?? undefined,
+        label: '',
+        description: '',
+        technology: '',
+      });
+    }
   }
 
   function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }) {

@@ -29,6 +29,10 @@ export interface C4Edge {
   markerEnd?: MarkerType;
   lineStyle?: LineStyle;
   waypoints?: Array<{ x: number; y: number }>;
+  /** Set when source node is in a different group (cross-group edge) */
+  sourceGroupId?: string;
+  /** Set when target node is in a different group (cross-group edge) */
+  targetGroupId?: string;
 }
 
 export interface DiagramLevel {
@@ -62,4 +66,6 @@ export interface BoundaryGroup {
   isFocused: boolean;
   childNodes: C4Node[];
   boundingBox: { x: number; y: number; width: number; height: number };
+  /** The child diagram ID for this group */
+  childDiagramId: string;
 }

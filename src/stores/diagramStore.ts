@@ -92,6 +92,12 @@ function computeBoundingBox(
   };
 }
 
+export const parentDiagram = derived(diagramStore, ($s): DiagramLevel | null => {
+  if ($s.navigationStack.length <= 1) return null;
+  const parentId = $s.navigationStack[$s.navigationStack.length - 2];
+  return $s.diagrams[parentId] ?? null;
+});
+
 export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => {
   if ($s.navigationStack.length <= 1) return [];
   const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2];
@@ -112,6 +118,7 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
         isFocused,
         childNodes,
         boundingBox,
+        childDiagramId: n.childDiagramId!,
       };
     });
 });
@@ -169,6 +176,22 @@ export function addEdge(edge: C4Edge): void {
   diagramStore.update((s) => {
     const current = getCurrentDiagram(s);
     current.edges = [...current.edges, normalized];
+    return { ...s, selectedId: normalized.id };
+  });
+}
+
+export function addEdgeToDiagram(diagramId: string, edge: C4Edge): void {
+  const normalized: C4Edge = {
+    markerStart: 'none',
+    markerEnd: 'arrow',
+    lineStyle: 'solid',
+    waypoints: [],
+    ...edge,
+  };
+  diagramStore.update((s) => {
+    const diagram = s.diagrams[diagramId];
+    if (!diagram) return s;
+    diagram.edges = [...diagram.edges, normalized];
     return { ...s, selectedId: normalized.id };
   });
 }
