@@ -38,8 +38,8 @@
 
 ## 7. Integration Testing
 
-- [ ] 7.1 Test creating edges between different handle combinations (right→left, bottom→top, left→right) and verify correct routing
-- [ ] 7.2 Test all marker combinations (arrow/dot/none × start/end) render correctly
-- [ ] 7.3 Test all line styles (solid/dashed/dotted) render correctly
-- [ ] 7.4 Test waypoint add/move/delete workflow end-to-end
+- [x] 7.1 Test creating edges between different handle combinations (right→left, bottom→top, left→right) and verify correct routing
+- [x] 7.2 Test all marker combinations (arrow/dot/none × start/end) render correctly
+- [x] 7.3 Test all line styles (solid/dashed/dotted) render correctly
+- [x] 7.4 Test waypoint add/move/delete workflow end-to-end
 - [x] 7.5 Run `npm run build` and `npm run check` to verify no type errors or build failures
