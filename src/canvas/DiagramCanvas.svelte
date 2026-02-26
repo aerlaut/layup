@@ -197,8 +197,21 @@
     edges = activeEdges;
   });
 
-  // screenToFlowPosition provided by FlowHelper child component
+  // Helpers provided by FlowHelper child component (inside SvelteFlow context)
   let screenToFlowPosition: ((pos: { x: number; y: number }) => { x: number; y: number }) | undefined;
+  let flowFitView: ((options?: { duration?: number }) => void) | undefined;
+
+  // Track navigation stack length to detect drill-down/drill-up (not focus switches)
+  let prevNavStackLength = $state(0);
+  $effect(() => {
+    const s = get(diagramStore);
+    const currentLength = s.navigationStack.length;
+    if (prevNavStackLength !== 0 && currentLength !== prevNavStackLength && flowFitView) {
+      // Navigation changed (drill down/up) — refit viewport
+      flowFitView({ duration: 200 });
+    }
+    prevNavStackLength = currentLength;
+  });
 
   // ─── Event handlers ──────────────────────────────────────────────────────────
 
@@ -375,7 +388,7 @@
     bind:edges
     {nodeTypes}
     {edgeTypes}
-    fitView
+    fitView={prevNavStackLength === 0}
     minZoom={0.2}
     maxZoom={2}
     zoomOnDoubleClick={false}
@@ -390,7 +403,7 @@
     <Background />
     <Controls />
     <MiniMap />
-    <FlowHelper onReady={(fn) => { screenToFlowPosition = fn; }} />
+    <FlowHelper onReady={(fns) => { screenToFlowPosition = fns.screenToFlowPosition; flowFitView = fns.fitView; }} />
 
     <!-- SVG marker definitions for edge start/end markers -->
     <svg style="position: absolute; width: 0; height: 0;">
