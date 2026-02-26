@@ -20,12 +20,7 @@
     background: transparent;
     opacity: 0.5;
     position: relative;
-    pointer-events: all;
-    cursor: grab;
-  }
-
-  .boundary-node:active {
-    cursor: grabbing;
+    pointer-events: none;
   }
 
   .boundary-node.focused {
@@ -45,6 +40,12 @@
     letter-spacing: 0.06em;
     color: #64748b;
     user-select: none;
+    pointer-events: all;
+    cursor: grab;
+  }
+
+  .boundary-label:active {
+    cursor: grabbing;
   }
 
   .boundary-node.focused .boundary-label {
