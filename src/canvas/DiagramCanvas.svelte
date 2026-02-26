@@ -500,6 +500,7 @@
     maxZoom={2}
     zoomOnDoubleClick={false}
     connectionMode={ConnectionMode.Loose}
+    connectionRadius={40}
     deleteKey="Delete"
     onconnect={handleConnect}
     onnodeclick={handleNodeClick}
