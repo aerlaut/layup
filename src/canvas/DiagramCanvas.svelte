@@ -26,6 +26,8 @@
     drillDown,
     drillUp,
     pendingNodeType,
+    switchFocusToGroup,
+    clearGroupFocus,
   } from '../stores/diagramStore';
   import type { C4Node, C4Edge } from '../types';
   import PersonNode from '../elements/PersonNode.svelte';
@@ -176,6 +178,10 @@
   // ─── Event handlers ──────────────────────────────────────────────────────────
 
   function handleConnect(conn: Connection) {
+    // Reject connections in no-focus mode
+    const state = get(diagramStore);
+    if (state.focusedParentNodeId === null && state.navigationStack.length > 1) return;
+
     const srcId = conn.source;
     const tgtId = conn.target;
     const isCtxSrc = srcId.startsWith('ctx-');
@@ -226,8 +232,29 @@
 
   function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }) {
     if (node.id.startsWith('boundary-')) return;
-    const realId = node.id.startsWith('ctx-') ? node.id.slice(4) : node.id;
-    setSelected(realId);
+    if (node.id.startsWith('ctx-')) {
+      const realId = node.id.slice(4);
+      // Find which group this context node belongs to and switch focus
+      const boundaries = $contextBoundaries;
+      const group = boundaries.find((g) => g.childNodes.some((n) => n.id === realId));
+      if (group) {
+        switchFocusToGroup(group.parentNodeId);
+        setSelected(realId);
+      }
+      return;
+    }
+    // In no-focus mode, clicking an active node should focus its group
+    const s = get(diagramStore);
+    if (s.focusedParentNodeId === null && s.navigationStack.length > 1) {
+      const boundaries = $contextBoundaries;
+      const group = boundaries.find((g) => g.childNodes.some((n) => n.id === node.id));
+      if (group) {
+        switchFocusToGroup(group.parentNodeId);
+        setSelected(node.id);
+        return;
+      }
+    }
+    setSelected(node.id);
   }
 
   function handleEdgeClick({ edge }: { edge: Edge; event: MouseEvent }) {
@@ -235,11 +262,38 @@
   }
 
   function handlePaneClick({ event }: { event: MouseEvent }) {
+    const s = get(diagramStore);
+    const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
+
     const pending = $pendingNodeType;
-    if (pending && screenToFlowPosition) {
+    if (pending && screenToFlowPosition && !isNoFocus) {
       const pos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       dispatch('place', pos);
     }
+
+    // Check if click is within an unfocused boundary to switch focus
+    if (screenToFlowPosition && s.navigationStack.length > 1) {
+      const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const boundaries = $contextBoundaries;
+      const clickedGroup = boundaries.find((g) => {
+        if (g.isFocused && !isNoFocus) return false; // skip the focused group unless in no-focus mode
+        const bb = g.boundingBox;
+        return (
+          flowPos.x >= bb.x &&
+          flowPos.x <= bb.x + bb.width &&
+          flowPos.y >= bb.y &&
+          flowPos.y <= bb.y + bb.height
+        );
+      });
+      if (clickedGroup) {
+        switchFocusToGroup(clickedGroup.parentNodeId);
+        return;
+      }
+      // Click outside all boundaries — enter no-focus mode
+      clearGroupFocus();
+      return;
+    }
+
     setSelected(null);
   }
 
