@@ -428,6 +428,7 @@ export function addEdge(edge: C4Edge): void {
     markerStart: 'none',
     markerEnd: 'arrow',
     lineStyle: 'solid',
+    lineType: 'bezier',
     waypoints: [],
     ...edge,
   };
@@ -443,6 +444,7 @@ export function addEdgeToDiagram(diagramId: string, edge: C4Edge): void {
     markerStart: 'none',
     markerEnd: 'arrow',
     lineStyle: 'solid',
+    lineType: 'bezier',
     waypoints: [],
     ...edge,
   };

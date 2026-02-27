@@ -86,6 +86,7 @@
         markerStart: e.markerStart ?? 'none',
         markerEnd: e.markerEnd ?? 'arrow',
         lineStyle: e.lineStyle ?? 'solid',
+        lineType: e.lineType ?? 'bezier',
         waypoints: e.waypoints ?? [],
         color: e.color,
       },
