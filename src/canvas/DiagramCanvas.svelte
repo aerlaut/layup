@@ -319,14 +319,14 @@
 
   function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }) {
     if (node.id.startsWith('boundary-')) {
-      // Clicking a boundary selects the group (boundary itself)
+      // Clicking a boundary selects the parent node (so its color can be edited)
       const parentNodeId = node.id.replace('boundary-', '');
       const s = get(diagramStore);
       if (s.focusedParentNodeId === null && s.navigationStack.length > 1) {
         // In no-focus mode, switch focus to this group
         switchFocusToGroup(parentNodeId);
       }
-      // Don't set selectedId to boundary — just focus the group
+      setSelected(parentNodeId);
       return;
     }
     if (node.id.startsWith('ctx-')) {

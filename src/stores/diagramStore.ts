@@ -145,6 +145,10 @@ export const selectedElement = derived(diagramStore, ($s): SelectedElementResult
     const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2];
     const parentDiagram = $s.diagrams[parentDiagramId];
     if (parentDiagram) {
+      // Check parent diagram nodes themselves (e.g. boundary parent nodes)
+      const parentNode = parentDiagram.nodes.find((n) => n.id === id);
+      if (parentNode) return { type: 'node', node: parentNode, diagramId: parentDiagramId };
+
       for (const pNode of parentDiagram.nodes) {
         if (pNode.childDiagramId && pNode.childDiagramId !== current.id) {
           const siblingDiagram = $s.diagrams[pNode.childDiagramId];
