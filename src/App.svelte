@@ -7,12 +7,8 @@
   import {
     diagramStore,
     currentDiagram,
-    pendingNodeType,
-    addNode,
-    setPendingNodeType,
   } from './stores/diagramStore';
   import { isNearStorageLimit } from './utils/persistence';
-  import type { C4Node, C4NodeType } from './types';
 
   let importError: string | null = null;
   let showStorageWarning = false;
@@ -26,34 +22,7 @@
     importError = null;
   }
 
-  // Handle canvas placement: when a node type is pending and canvas is clicked,
-  // we need to know the viewport position. DiagramCanvas handles the pane click
-  // event but we need to route it here to actually add the node.
-  // We use a custom event dispatched from DiagramCanvas for placement.
-  function handleCanvasPlace(event: CustomEvent<{ x: number; y: number }>) {
-    const pending = $pendingNodeType;
-    if (!pending) return;
-    const newNode: C4Node = {
-      id: `node-${Date.now()}`,
-      type: pending,
-      label: defaultLabel(pending),
-      description: '',
-      technology: '',
-      position: event.detail,
-    };
-    addNode(newNode);
-  }
 
-  function defaultLabel(type: C4NodeType): string {
-    const labels: Record<C4NodeType, string> = {
-      person: 'Person',
-      system: 'Software System',
-      container: 'Container',
-      component: 'Component',
-      'code-element': 'Code Element',
-    };
-    return labels[type];
-  }
 </script>
 
 <div class="app-shell">
@@ -83,7 +52,7 @@
     <div class="app-canvas">
       {#key $currentDiagram?.id}
         <div class="canvas-fade" in:fade={{ duration: 150 }}>
-          <DiagramCanvas on:place={handleCanvasPlace} />
+          <DiagramCanvas />
         </div>
       {/key}
     </div>
