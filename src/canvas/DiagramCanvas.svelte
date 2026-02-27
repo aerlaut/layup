@@ -22,6 +22,8 @@
     addEdgeToDiagram,
     deleteNode as storeDeleteNode,
     deleteEdge as storeDeleteEdge,
+    updateEdge as storeUpdateEdge,
+    updateEdgeInDiagram,
     setSelected,
     updateNodePositions,
     updateNodePositionsInDiagram,
@@ -318,6 +320,30 @@
     }
   }
 
+  function handleReconnect(oldEdge: Edge, newConnection: Connection) {
+    const s = get(diagramStore);
+    const edgeId = oldEdge.id;
+
+    const patch: Partial<C4Edge> = {
+      source: newConnection.source,
+      target: newConnection.target,
+      sourceHandle: newConnection.sourceHandle ?? undefined,
+      targetHandle: newConnection.targetHandle ?? undefined,
+    };
+
+    // Check if this is a cross-group edge (stored on parent diagram)
+    if (s.navigationStack.length > 1) {
+      const parentDiagramId = s.navigationStack[s.navigationStack.length - 2];
+      const parentDiag = s.diagrams[parentDiagramId];
+      if (parentDiag?.edges.some((e) => e.id === edgeId)) {
+        updateEdgeInDiagram(parentDiagramId, edgeId, patch);
+        return;
+      }
+    }
+
+    storeUpdateEdge(edgeId, patch);
+  }
+
   function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }) {
     if (node.id.startsWith('boundary-')) {
       // Clicking a boundary selects the parent node (so its color can be edited)
@@ -523,6 +549,7 @@
     connectionRadius={40}
     deleteKey="Delete"
     onconnect={handleConnect}
+    onreconnect={handleReconnect}
     onnodeclick={handleNodeClick}
     onedgeclick={handleEdgeClick}
     onpaneclick={handlePaneClick}
