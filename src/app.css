@@ -97,6 +97,12 @@ label {
   opacity: 0.7;
 }
 
+/* Selected node highlight ring */
+.svelte-flow__node.selected:not(.boundary-node-wrapper) {
+  box-shadow: 0 0 0 2.5px var(--color-primary), var(--shadow-sm) !important;
+  border-radius: 8px;
+}
+
 /* Boundary node wrapper: no pointer events so clicks pass through to pane */
 .svelte-flow__node.boundary-node-wrapper {
   pointer-events: none;
