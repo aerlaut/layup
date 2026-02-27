@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getBezierPath, getStraightPath, getSmoothStepPath, EdgeLabel, BaseEdge, type EdgeProps, Position } from '@xyflow/svelte';
+  import { getBezierPath, getStraightPath, getSmoothStepPath, EdgeLabel, BaseEdge, EdgeReconnectAnchor, type EdgeProps, Position } from '@xyflow/svelte';
   import type { MarkerType, LineStyle, LineType } from '../types';
   import { updateEdge } from '../stores/diagramStore';
   import { EDGE_DEFAULT_COLOR } from '../utils/colors';
@@ -14,6 +14,7 @@
     targetPosition = Position.Top,
     data = {},
     label,
+    selected,
   }: EdgeProps & {
     data?: {
       description?: string;
@@ -101,6 +102,9 @@
   const path = $derived(edgePath[0]);
   const labelX = $derived(edgePath[1]);
   const labelY = $derived(edgePath[2]);
+
+  // Reconnection state
+  let reconnecting = $state(false);
 
   // Dragging state for waypoints
   let draggingIdx = $state<number | null>(null);
@@ -265,13 +269,29 @@
   </defs>
 </svg>
 
-<BaseEdge
-  {id}
-  {path}
-  markerStart={markerStartUrl}
-  markerEnd={markerEndUrl}
-  style={edgeStyle}
-/>
+{#if !reconnecting}
+  <BaseEdge
+    {id}
+    {path}
+    markerStart={markerStartUrl}
+    markerEnd={markerEndUrl}
+    style={edgeStyle}
+  />
+{/if}
+
+<!-- Reconnect anchors (visible when edge is selected) -->
+{#if selected}
+  <EdgeReconnectAnchor
+    bind:reconnecting
+    type="source"
+    position={{ x: sourceX, y: sourceY }}
+  />
+  <EdgeReconnectAnchor
+    bind:reconnecting
+    type="target"
+    position={{ x: targetX, y: targetY }}
+  />
+{/if}
 
 <!-- Waypoint handles -->
 {#each waypoints as wp, idx}
