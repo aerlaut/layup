@@ -8,6 +8,7 @@
     setSelected,
   } from '../stores/diagramStore';
   import type { C4Node, C4Edge } from '../types';
+  import { NODE_DEFAULT_COLORS, EDGE_DEFAULT_COLOR } from '../utils/colors';
 
   $: sel = $selectedElement;
 
@@ -28,6 +29,11 @@
   function handleNodeTechChange(e: Event) {
     if (!selectedNode || !diagramId) return;
     updateNodeInDiagram(diagramId, selectedNode.id, { technology: (e.target as HTMLInputElement).value });
+  }
+
+  function handleNodeColorChange(e: Event) {
+    if (!selectedNode || !diagramId) return;
+    updateNodeInDiagram(diagramId, selectedNode.id, { color: (e.target as HTMLInputElement).value });
   }
 
   function handleEdgeLabelChange(e: Event) {
@@ -58,6 +64,11 @@
   function handleLineStyleChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
     updateEdgeInDiagram(diagramId, selectedEdge.id, { lineStyle: (e.target as HTMLSelectElement).value as import('../types').LineStyle });
+  }
+
+  function handleEdgeColorChange(e: Event) {
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { color: (e.target as HTMLInputElement).value });
   }
 
   function handleDeleteNode() {
@@ -107,6 +118,18 @@
           />
         </div>
       {/if}
+      <div class="field">
+        <label for="node-color">Color</label>
+        <div class="color-field">
+          <input
+            id="node-color"
+            type="color"
+            value={selectedNode.color ?? NODE_DEFAULT_COLORS[selectedNode.type]}
+            on:input={handleNodeColorChange}
+          />
+          <span class="color-value">{selectedNode.color ?? NODE_DEFAULT_COLORS[selectedNode.type]}</span>
+        </div>
+      </div>
       <button class="danger-btn" on:click={handleDeleteNode}>Delete Element</button>
     </div>
 
@@ -166,6 +189,18 @@
           <option value="dotted">Dotted</option>
         </select>
       </div>
+      <div class="field">
+        <label for="edge-color">Color</label>
+        <div class="color-field">
+          <input
+            id="edge-color"
+            type="color"
+            value={selectedEdge.color ?? EDGE_DEFAULT_COLOR}
+            on:input={handleEdgeColorChange}
+          />
+          <span class="color-value">{selectedEdge.color ?? EDGE_DEFAULT_COLOR}</span>
+        </div>
+      </div>
       <button class="danger-btn" on:click={handleDeleteEdge}>Delete Relationship</button>
     </div>
 
@@ -224,6 +259,28 @@
   textarea {
     resize: vertical;
     min-height: 60px;
+  }
+
+  .color-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .color-field input[type="color"] {
+    width: 36px;
+    height: 28px;
+    padding: 2px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .color-value {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-family: monospace;
   }
 
   .danger-btn {
