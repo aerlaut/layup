@@ -30,6 +30,7 @@
     drillDown,
     drillUp,
     pendingNodeType,
+    selectedId,
     switchFocusToGroup,
     clearGroupFocus,
   } from '../stores/diagramStore';
@@ -106,11 +107,10 @@
     const d = $currentDiagram;
     const boundaries = $contextBoundaries;
     const parent = $parentDiagram;
+    const selId = $selectedId;
     const s = get(diagramStore);
     const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
-
     const activeNodes: Node[] = d?.nodes.map((n) => toFlowNode(n, selId)) ?? [];
-    const selId = s.selectedId;
     const activeEdges: Edge[] = d?.edges.map((e) => toFlowEdge(e, selId)) ?? [];
 
     const boundaryNodes: Node[] = [];
