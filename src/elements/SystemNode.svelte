@@ -1,35 +1,37 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
+  import { getColorVariants, NODE_DEFAULT_COLORS } from '../utils/colors';
 
   let {
     data,
   }: {
-    data: { label: string; description?: string; technology?: string; childDiagramId?: string };
+    data: { label: string; description?: string; technology?: string; childDiagramId?: string; color?: string };
     [key: string]: unknown;
   } = $props();
+
+  const colors = $derived(getColorVariants(data.color ?? NODE_DEFAULT_COLORS.system));
 </script>
 
-<div class="system-node">
+<div class="system-node" style="background: {colors.bg}; border-color: {colors.primary};">
   <Handle id="top-target" type="target" position={Position.Top} />
   <Handle id="left-target" type="target" position={Position.Left} />
   <Handle id="left-source" type="source" position={Position.Left} />
   <Handle id="right-target" type="target" position={Position.Right} />
   <Handle id="right-source" type="source" position={Position.Right} />
-  <div class="node-type-badge">Software System</div>
-  <div class="node-label">{data.label}</div>
+  <div class="node-type-badge" style="color: {colors.muted};">Software System</div>
+  <div class="node-label" style="color: {colors.text};">{data.label}</div>
   {#if data.description}
-    <div class="node-desc">{data.description}</div>
+    <div class="node-desc" style="color: {colors.muted};">{data.description}</div>
   {/if}
   {#if data.childDiagramId}
-    <div class="drill-indicator" title="Double-click to drill in">▸</div>
+    <div class="drill-indicator" style="color: {colors.primary};" title="Double-click to drill in">▸</div>
   {/if}
   <Handle id="bottom-source" type="source" position={Position.Bottom} />
 </div>
 
 <style>
   .system-node {
-    background: #f0fdf4;
-    border: 2px solid #22c55e;
+    border: 2px solid;
     border-radius: 6px;
     padding: 12px 16px;
     text-align: center;
@@ -44,19 +46,16 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #16a34a;
     margin-bottom: 4px;
   }
 
   .node-label {
     font-weight: 700;
     font-size: 0.85rem;
-    color: #14532d;
   }
 
   .node-desc {
     font-size: 0.7rem;
-    color: #16a34a;
     margin-top: 4px;
   }
 
@@ -65,7 +64,6 @@
     bottom: 4px;
     right: 6px;
     font-size: 0.7rem;
-    color: #22c55e;
     opacity: 0.7;
   }
 </style>

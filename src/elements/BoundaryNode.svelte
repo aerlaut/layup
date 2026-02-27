@@ -2,22 +2,23 @@
   let {
     data,
   }: {
-    data: { label: string; isFocused: boolean };
+    data: { label: string; isFocused: boolean; color?: string };
     [key: string]: unknown;
   } = $props();
+
+  const borderColor = $derived(data.color ?? '#3b82f6');
 </script>
 
-<div class="boundary-node">
-  <span class="boundary-label">{data.label}</span>
+<div class="boundary-node" style="border-color: {borderColor}; background: {borderColor}0a;">
+  <span class="boundary-label" style="color: {borderColor};">{data.label}</span>
 </div>
 
 <style>
   .boundary-node {
     width: 100%;
     height: 100%;
-    border: 1.5px solid #3b82f6;
+    border: 1.5px solid;
     border-radius: 10px;
-    background: rgba(59, 130, 246, 0.04);
     opacity: 0.5;
     position: relative;
     pointer-events: none;
@@ -31,7 +32,6 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #3b82f6;
     user-select: none;
     pointer-events: all;
     cursor: grab;
@@ -40,5 +40,4 @@
   .boundary-label:active {
     cursor: grabbing;
   }
-
 </style>
