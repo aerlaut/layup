@@ -11,6 +11,8 @@ export interface C4Node {
   position: { x: number; y: number };
   /** ID of the child DiagramLevel this node drills into */
   childDiagramId?: string;
+  /** Custom color (hex) for this node; uses type default if omitted */
+  color?: string;
 }
 
 export type MarkerType = 'arrow' | 'dot' | 'none';
@@ -33,6 +35,8 @@ export interface C4Edge {
   sourceGroupId?: string;
   /** Set when target node is in a different group (cross-group edge) */
   targetGroupId?: string;
+  /** Custom color (hex) for this edge; uses default gray if omitted */
+  color?: string;
 }
 
 export interface DiagramLevel {
