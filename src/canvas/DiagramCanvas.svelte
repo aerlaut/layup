@@ -58,11 +58,12 @@
     c4edge: C4EdgeComponent,
   } as const;
 
-  function toFlowNode(n: C4Node): Node {
+  function toFlowNode(n: C4Node, selectedId?: string | null): Node {
     return {
       id: n.id,
       type: n.type,
       position: n.position,
+      selected: n.id === selectedId,
       data: {
         label: n.label,
         description: n.description,
@@ -108,7 +109,7 @@
     const s = get(diagramStore);
     const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
 
-    const activeNodes: Node[] = d?.nodes.map(toFlowNode) ?? [];
+    const activeNodes: Node[] = d?.nodes.map((n) => toFlowNode(n, selId)) ?? [];
     const selId = s.selectedId;
     const activeEdges: Edge[] = d?.edges.map((e) => toFlowEdge(e, selId)) ?? [];
 
@@ -144,7 +145,7 @@
         const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
         if (group.childDiagramId !== currentDiagramId) {
           for (const cn of group.childNodes) {
-            const flowNode = toFlowNode(cn);
+            const flowNode = toFlowNode(cn, selId);
             flowNode.parentId = boundaryId;
             flowNode.position = {
               x: cn.position.x - bBox.x,
