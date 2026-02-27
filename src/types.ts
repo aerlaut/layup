@@ -17,6 +17,7 @@ export interface C4Node {
 
 export type MarkerType = 'arrow' | 'dot' | 'none';
 export type LineStyle = 'solid' | 'dashed' | 'dotted';
+export type LineType = 'bezier' | 'straight' | 'step' | 'smoothstep';
 
 export interface C4Edge {
   id: string;
@@ -30,6 +31,7 @@ export interface C4Edge {
   markerStart?: MarkerType;
   markerEnd?: MarkerType;
   lineStyle?: LineStyle;
+  lineType?: LineType;
   waypoints?: Array<{ x: number; y: number }>;
   /** Set when source node is in a different group (cross-group edge) */
   sourceGroupId?: string;
