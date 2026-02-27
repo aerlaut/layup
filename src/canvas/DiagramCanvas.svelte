@@ -31,7 +31,8 @@
     switchFocusToGroup,
     clearGroupFocus,
   } from '../stores/diagramStore';
-  import type { C4Node, C4Edge } from '../types';
+  import type { C4Node, C4Edge, C4NodeType } from '../types';
+  import { NODE_DEFAULT_COLORS } from '../utils/colors';
   import PersonNode from '../elements/PersonNode.svelte';
   import SystemNode from '../elements/SystemNode.svelte';
   import ContainerNode from '../elements/ContainerNode.svelte';
@@ -65,6 +66,7 @@
         description: n.description,
         technology: n.technology,
         childDiagramId: n.childDiagramId,
+        color: n.color,
       },
     };
   }
@@ -85,6 +87,7 @@
         markerEnd: e.markerEnd ?? 'arrow',
         lineStyle: e.lineStyle ?? 'solid',
         waypoints: e.waypoints ?? [],
+        color: e.color,
       },
     };
   }
@@ -111,13 +114,19 @@
       const boundaryId = `boundary-${group.parentNodeId}`;
       const bBox = group.boundingBox;
 
+      // Look up parent node to get its color for the boundary
+      const parentDiagramId = s.navigationStack[s.navigationStack.length - 2];
+      const pDiagram = s.diagrams[parentDiagramId];
+      const parentNode = pDiagram?.nodes.find((n) => n.id === group.parentNodeId);
+      const boundaryColor = parentNode?.color ?? NODE_DEFAULT_COLORS[(parentNode?.type ?? 'system') as C4NodeType];
+
       // Boundary rectangle node (behind all content)
       boundaryNodes.push({
         id: boundaryId,
         type: 'boundary',
         position: { x: bBox.x, y: bBox.y },
         style: `width: ${bBox.width}px; height: ${bBox.height}px;`,
-        data: { label: group.parentLabel, isFocused: group.isFocused },
+        data: { label: group.parentLabel, isFocused: group.isFocused, color: boundaryColor },
         selectable: true,
         draggable: true,
         connectable: false,
