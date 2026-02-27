@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
   import {
     SvelteFlow,
     Background,
@@ -18,6 +17,8 @@
     currentDiagram,
     contextBoundaries,
     parentDiagram,
+    addNode as storeAddNode,
+    addNodeToDiagram,
     addEdge as storeAddEdge,
     addEdgeToDiagram,
     deleteNode as storeDeleteNode,
@@ -29,7 +30,6 @@
     updateNodePositionsInDiagram,
     drillDown,
     drillUp,
-    pendingNodeType,
     selectedId,
     switchFocusToGroup,
     clearGroupFocus,
@@ -43,8 +43,6 @@
   import BoundaryNode from '../elements/BoundaryNode.svelte';
   import C4EdgeComponent from '../elements/C4Edge.svelte';
   import FlowHelper from './FlowHelper.svelte';
-
-  const dispatch = createEventDispatcher<{ place: { x: number; y: number } }>();
 
   const nodeTypes = {
     person: PersonNode,
@@ -393,12 +391,6 @@
     const s = get(diagramStore);
     const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
 
-    const pending = $pendingNodeType;
-    if (pending && screenToFlowPosition && !isNoFocus) {
-      const pos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      dispatch('place', pos);
-    }
-
     // Check if click is within an unfocused boundary to switch focus
     if (screenToFlowPosition && s.navigationStack.length > 1) {
       const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
@@ -537,9 +529,67 @@
     if (!c4node || c4node.type === 'person') return;
     drillDown(nodeId);
   }
+
+  // ─── Drag-and-drop from palette ─────────────────────────────────────────────
+
+  function defaultLabel(type: C4NodeType): string {
+    const labels: Record<C4NodeType, string> = {
+      person: 'Person',
+      system: 'Software System',
+      container: 'Container',
+      component: 'Component',
+      'code-element': 'Code Element',
+    };
+    return labels[type];
+  }
+
+  function handleDragOver(e: DragEvent) {
+    if (!e.dataTransfer?.types.includes('application/c4-node-type')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleDrop(e: DragEvent) {
+    if (!e.dataTransfer) return;
+    const nodeType = e.dataTransfer.getData('application/c4-node-type') as C4NodeType;
+    if (!nodeType || !screenToFlowPosition) return;
+    e.preventDefault();
+
+    const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const s = get(diagramStore);
+    const isAtRoot = s.navigationStack.length === 1;
+
+    const newNode: C4Node = {
+      id: `node-${Date.now()}`,
+      type: nodeType,
+      label: defaultLabel(nodeType),
+      description: '',
+      technology: '',
+      position: flowPos,
+    };
+
+    if (isAtRoot) {
+      // At root level: drop anywhere
+      storeAddNode(newNode);
+    } else {
+      // In drill-down view: must drop inside a boundary group
+      const boundaries = $contextBoundaries;
+      const targetGroup = boundaries.find((g) => {
+        const bb = g.boundingBox;
+        return (
+          flowPos.x >= bb.x &&
+          flowPos.x <= bb.x + bb.width &&
+          flowPos.y >= bb.y &&
+          flowPos.y <= bb.y + bb.height
+        );
+      });
+      if (!targetGroup) return; // Drop outside boundaries — do nothing
+      addNodeToDiagram(targetGroup.childDiagramId, newNode);
+    }
+  }
 </script>
 
-<div class="canvas-wrapper" role="presentation" ondblclick={handleDblClick}>
+<div class="canvas-wrapper" role="presentation" ondblclick={handleDblClick} ondragover={handleDragOver} ondrop={handleDrop}>
   <SvelteFlow
     bind:nodes
     bind:edges
