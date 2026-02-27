@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getBezierPath, EdgeLabel, BaseEdge, type EdgeProps, Position } from '@xyflow/svelte';
-  import type { MarkerType, LineStyle } from '../types';
+  import { getBezierPath, getStraightPath, getSmoothStepPath, EdgeLabel, BaseEdge, type EdgeProps, Position } from '@xyflow/svelte';
+  import type { MarkerType, LineStyle, LineType } from '../types';
   import { updateEdge } from '../stores/diagramStore';
   import { EDGE_DEFAULT_COLOR } from '../utils/colors';
 
@@ -21,6 +21,7 @@
       markerStart?: MarkerType;
       markerEnd?: MarkerType;
       lineStyle?: LineStyle;
+      lineType?: LineType;
       waypoints?: Array<{ x: number; y: number }>;
       color?: string;
     };
@@ -30,6 +31,7 @@
   const markerStart = $derived(data?.markerStart ?? 'none');
   const markerEnd = $derived(data?.markerEnd ?? 'arrow');
   const lineStyle = $derived(data?.lineStyle ?? 'solid');
+  const lineType = $derived(data?.lineType ?? 'bezier');
   const waypoints = $derived(data?.waypoints ?? []);
   const edgeColor = $derived(data?.color ?? EDGE_DEFAULT_COLOR);
 
@@ -57,7 +59,7 @@
     `stroke: ${edgeColor};` + (dashArray ? ` stroke-dasharray: ${dashArray};` : '')
   );
 
-  // Compute path: if waypoints exist use smoothstep segments, else bezier
+  // Compute path based on lineType; waypoints override with polyline
   const edgePath = $derived.by(() => {
     if (waypoints.length > 0) {
       // Build a polyline path through source → waypoints → target
@@ -82,7 +84,18 @@
       const ly = (points[midIdx - 1].y + points[midIdx].y) / 2;
       return [d, lx, ly] as [string, number, number];
     }
-    return getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+    const pathParams = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
+    switch (lineType) {
+      case 'straight':
+        return getStraightPath({ sourceX, sourceY, targetX, targetY });
+      case 'step':
+        return getSmoothStepPath({ ...pathParams, borderRadius: 0 });
+      case 'smoothstep':
+        return getSmoothStepPath({ ...pathParams });
+      case 'bezier':
+      default:
+        return getBezierPath(pathParams);
+    }
   });
 
   const path = $derived(edgePath[0]);
