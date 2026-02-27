@@ -57,7 +57,9 @@
   );
 
   const edgeStyle = $derived(
-    `stroke: ${edgeColor};` + (dashArray ? ` stroke-dasharray: ${dashArray};` : '')
+    `stroke: ${edgeColor};` +
+    (dashArray ? ` stroke-dasharray: ${dashArray};` : '') +
+    (selected ? ` stroke-width: 3; filter: drop-shadow(0 0 3px ${edgeColor});` : '')
   );
 
   // Compute path based on lineType; waypoints override with polyline
