@@ -73,7 +73,7 @@
     };
   }
 
-  function toFlowEdge(e: C4Edge): Edge {
+  function toFlowEdge(e: C4Edge, selectedId: string | null): Edge {
     return {
       id: e.id,
       source: e.source,
@@ -82,6 +82,7 @@
       targetHandle: e.targetHandle,
       type: 'c4edge',
       label: e.label,
+      selected: e.id === selectedId,
       data: {
         description: e.description,
         technology: e.technology,
@@ -108,7 +109,8 @@
     const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
 
     const activeNodes: Node[] = d?.nodes.map(toFlowNode) ?? [];
-    const activeEdges: Edge[] = d?.edges.map(toFlowEdge) ?? [];
+    const selId = s.selectedId;
+    const activeEdges: Edge[] = d?.edges.map((e) => toFlowEdge(e, selId)) ?? [];
 
     const boundaryNodes: Node[] = [];
     const contextNodes: Node[] = [];
@@ -154,7 +156,7 @@
           const siblingDiagram = s.diagrams[group.childDiagramId];
           if (siblingDiagram) {
             for (const e of siblingDiagram.edges) {
-              activeEdges.push(toFlowEdge(e));
+              activeEdges.push(toFlowEdge(e, selId));
             }
           }
         } else {
@@ -206,7 +208,7 @@
         const siblingDiagram = s.diagrams[group.childDiagramId];
         if (siblingDiagram) {
           for (const e of siblingDiagram.edges) {
-            const flowEdge = toFlowEdge(e);
+            const flowEdge = toFlowEdge(e, selId);
             flowEdge.source = `ctx-${e.source}`;
             flowEdge.target = `ctx-${e.target}`;
             activeEdges.push(flowEdge);
@@ -225,7 +227,7 @@
         if (isNoFocus) {
           // In no-focus mode, all nodes are active — just remap IDs directly
           if (srcInActive && tgtInActive) {
-            activeEdges.push(toFlowEdge(e));
+            activeEdges.push(toFlowEdge(e, selId));
           }
         } else {
           const srcInContext =
@@ -235,7 +237,7 @@
             !tgtInActive &&
             boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.target));
           if ((srcInActive || srcInContext) && (tgtInActive || tgtInContext)) {
-            const flowEdge = toFlowEdge(e);
+            const flowEdge = toFlowEdge(e, selId);
             flowEdge.source = srcInActive ? e.source : `ctx-${e.source}`;
             flowEdge.target = tgtInActive ? e.target : `ctx-${e.target}`;
             activeEdges.push(flowEdge);
