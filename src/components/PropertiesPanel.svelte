@@ -8,7 +8,7 @@
     setSelected,
   } from '../stores/diagramStore';
   import type { C4Node, C4Edge } from '../types';
-  import { NODE_DEFAULT_COLORS, EDGE_DEFAULT_COLOR } from '../utils/colors';
+  import { NODE_DEFAULT_COLORS, EDGE_DEFAULT_COLOR, PASTEL_PALETTE } from '../utils/colors';
 
   $: sel = $selectedElement;
 
@@ -34,6 +34,11 @@
   function handleNodeColorChange(e: Event) {
     if (!selectedNode || !diagramId) return;
     updateNodeInDiagram(diagramId, selectedNode.id, { color: (e.target as HTMLInputElement).value });
+  }
+
+  function setNodeColor(color: string) {
+    if (!selectedNode || !diagramId) return;
+    updateNodeInDiagram(diagramId, selectedNode.id, { color });
   }
 
   function handleEdgeLabelChange(e: Event) {
@@ -69,6 +74,11 @@
   function handleEdgeColorChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
     updateEdgeInDiagram(diagramId, selectedEdge.id, { color: (e.target as HTMLInputElement).value });
+  }
+
+  function setEdgeColor(color: string) {
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { color });
   }
 
   function handleDeleteNode() {
@@ -119,8 +129,19 @@
         </div>
       {/if}
       <div class="field">
-        <label for="node-color">Color</label>
-        <div class="color-field">
+        <label>Color</label>
+        <div class="color-swatches">
+          {#each PASTEL_PALETTE as swatch}
+            <button
+              class="swatch"
+              class:active={(selectedNode.color ?? NODE_DEFAULT_COLORS[selectedNode.type]) === swatch.color}
+              style="background: {swatch.color};"
+              title={swatch.label}
+              on:click={() => setNodeColor(swatch.color)}
+            ></button>
+          {/each}
+        </div>
+        <div class="color-custom">
           <input
             id="node-color"
             type="color"
@@ -190,8 +211,19 @@
         </select>
       </div>
       <div class="field">
-        <label for="edge-color">Color</label>
-        <div class="color-field">
+        <label>Color</label>
+        <div class="color-swatches">
+          {#each PASTEL_PALETTE as swatch}
+            <button
+              class="swatch"
+              class:active={(selectedEdge.color ?? EDGE_DEFAULT_COLOR) === swatch.color}
+              style="background: {swatch.color};"
+              title={swatch.label}
+              on:click={() => setEdgeColor(swatch.color)}
+            ></button>
+          {/each}
+        </div>
+        <div class="color-custom">
           <input
             id="edge-color"
             type="color"
@@ -261,16 +293,44 @@
     min-height: 60px;
   }
 
-  .color-field {
+  .color-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .swatch {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    padding: 0;
+    cursor: pointer;
+    transition: border-color 0.12s, transform 0.12s;
+  }
+
+  .swatch:hover {
+    transform: scale(1.15);
+    border-color: var(--color-text-muted);
+  }
+
+  .swatch.active {
+    border-color: var(--color-text);
+    box-shadow: 0 0 0 1px var(--color-surface), 0 0 0 3px var(--color-text);
+  }
+
+  .color-custom {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-top: 4px;
   }
 
-  .color-field input[type="color"] {
-    width: 36px;
-    height: 28px;
-    padding: 2px;
+  .color-custom input[type="color"] {
+    width: 28px;
+    height: 22px;
+    padding: 1px;
     border: 1px solid var(--color-border);
     border-radius: 4px;
     cursor: pointer;
@@ -278,7 +338,7 @@
   }
 
   .color-value {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--color-text-muted);
     font-family: monospace;
   }

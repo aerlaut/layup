@@ -12,6 +12,24 @@ export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
 /** Default edge color */
 export const EDGE_DEFAULT_COLOR = '#6b7280';
 
+/** Curated pastel palette for quick color selection */
+export const PASTEL_PALETTE: { color: string; label: string }[] = [
+  { color: '#f87171', label: 'Red' },
+  { color: '#fb923c', label: 'Orange' },
+  { color: '#fbbf24', label: 'Amber' },
+  { color: '#a3e635', label: 'Lime' },
+  { color: '#34d399', label: 'Emerald' },
+  { color: '#22d3ee', label: 'Cyan' },
+  { color: '#60a5fa', label: 'Blue' },
+  { color: '#818cf8', label: 'Indigo' },
+  { color: '#a78bfa', label: 'Violet' },
+  { color: '#c084fc', label: 'Purple' },
+  { color: '#e879f9', label: 'Fuchsia' },
+  { color: '#fb7185', label: 'Rose' },
+  { color: '#9ca3af', label: 'Gray' },
+  { color: '#6b7280', label: 'Dark Gray' },
+];
+
 /**
  * Parse a hex color string (#RGB or #RRGGBB) into { r, g, b } (0-255).
  */
