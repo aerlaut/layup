@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentDiagram, setPendingNodeType, pendingNodeType } from '../stores/diagramStore';
+  import { currentDiagram } from '../stores/diagramStore';
   import type { C4NodeType, C4LevelType } from '../types';
 
   type PaletteEntry = {
@@ -27,12 +27,10 @@
   $: allowedTypes = LEVEL_TYPES[currentLevel] ?? [];
   $: entries = ALL_ENTRIES.filter((e) => allowedTypes.includes(e.type));
 
-  function handlePaletteClick(type: C4NodeType) {
-    if ($pendingNodeType === type) {
-      setPendingNodeType(null); // toggle off
-    } else {
-      setPendingNodeType(type);
-    }
+  function handleDragStart(event: DragEvent, type: C4NodeType) {
+    if (!event.dataTransfer) return;
+    event.dataTransfer.setData('application/c4-node-type', type);
+    event.dataTransfer.effectAllowed = 'copy';
   }
 </script>
 
@@ -40,20 +38,20 @@
   <div class="palette-header">Elements</div>
   <div class="palette-list">
     {#each entries as entry (entry.type)}
-      <button
+      <div
         class="palette-item"
-        class:active={$pendingNodeType === entry.type}
-        on:click={() => handlePaletteClick(entry.type)}
+        draggable="true"
+        on:dragstart={(e) => handleDragStart(e, entry.type)}
         title={entry.description}
+        role="button"
+        tabindex="0"
       >
         <span class="item-label">{entry.label}</span>
         <span class="item-desc">{entry.description}</span>
-      </button>
+      </div>
     {/each}
   </div>
-  {#if $pendingNodeType}
-    <div class="pending-hint">Click on the canvas to place</div>
-  {/if}
+  <div class="drag-hint">Drag onto canvas to place</div>
 </div>
 
 <style>
@@ -92,15 +90,17 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     width: 100%;
+    cursor: grab;
+    user-select: none;
   }
 
-  .palette-item:hover, .palette-item.active {
+  .palette-item:hover {
     background: #eff6ff;
     border-color: var(--color-primary);
   }
 
-  .palette-item.active {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  .palette-item:active {
+    cursor: grabbing;
   }
 
   .item-label {
@@ -114,13 +114,13 @@
     color: var(--color-text-muted);
   }
 
-  .pending-hint {
+  .drag-hint {
     margin: 8px;
     padding: 8px;
-    background: #eff6ff;
+    background: #f0f4f8;
     border-radius: var(--border-radius);
     font-size: 0.75rem;
-    color: var(--color-primary);
+    color: var(--color-text-muted);
     text-align: center;
   }
 </style>
