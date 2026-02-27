@@ -2,6 +2,7 @@
   import { getBezierPath, EdgeLabel, BaseEdge, type EdgeProps, Position } from '@xyflow/svelte';
   import type { MarkerType, LineStyle } from '../types';
   import { updateEdge } from '../stores/diagramStore';
+  import { EDGE_DEFAULT_COLOR } from '../utils/colors';
 
   let {
     id,
@@ -21,6 +22,7 @@
       markerEnd?: MarkerType;
       lineStyle?: LineStyle;
       waypoints?: Array<{ x: number; y: number }>;
+      color?: string;
     };
     [key: string]: unknown;
   } = $props();
@@ -29,15 +31,19 @@
   const markerEnd = $derived(data?.markerEnd ?? 'arrow');
   const lineStyle = $derived(data?.lineStyle ?? 'solid');
   const waypoints = $derived(data?.waypoints ?? []);
+  const edgeColor = $derived(data?.color ?? EDGE_DEFAULT_COLOR);
+
+  // Encode color into marker ID so each edge can have its own color
+  const colorSuffix = $derived(edgeColor.replace('#', ''));
 
   const markerStartUrl = $derived(
-    markerStart === 'arrow' ? 'url(#arrow-start)' :
-    markerStart === 'dot' ? 'url(#dot-start)' :
+    markerStart === 'arrow' ? `url(#arrow-start-${colorSuffix})` :
+    markerStart === 'dot' ? `url(#dot-start-${colorSuffix})` :
     undefined
   );
   const markerEndUrl = $derived(
-    markerEnd === 'arrow' ? 'url(#arrow-end)' :
-    markerEnd === 'dot' ? 'url(#dot-end)' :
+    markerEnd === 'arrow' ? `url(#arrow-end-${colorSuffix})` :
+    markerEnd === 'dot' ? `url(#dot-end-${colorSuffix})` :
     undefined
   );
 
@@ -45,6 +51,10 @@
     lineStyle === 'dashed' ? '8 4' :
     lineStyle === 'dotted' ? '2 2' :
     undefined
+  );
+
+  const edgeStyle = $derived(
+    `stroke: ${edgeColor};` + (dashArray ? ` stroke-dasharray: ${dashArray};` : '')
   );
 
   // Compute path: if waypoints exist use smoothstep segments, else bezier
@@ -192,12 +202,62 @@
   aria-label="Double-click to add waypoint"
 />
 
+<!-- Per-edge colored marker definitions -->
+<svg style="position: absolute; width: 0; height: 0;">
+  <defs>
+    <marker
+      id="arrow-end-{colorSuffix}"
+      markerWidth="10"
+      markerHeight="7"
+      refX="9"
+      refY="3.5"
+      orient="auto"
+      markerUnits="strokeWidth"
+    >
+      <polygon points="0 0, 10 3.5, 0 7" fill={edgeColor} />
+    </marker>
+    <marker
+      id="arrow-start-{colorSuffix}"
+      markerWidth="10"
+      markerHeight="7"
+      refX="1"
+      refY="3.5"
+      orient="auto-start-reverse"
+      markerUnits="strokeWidth"
+    >
+      <polygon points="0 0, 10 3.5, 0 7" fill={edgeColor} />
+    </marker>
+    <marker
+      id="dot-end-{colorSuffix}"
+      markerWidth="6"
+      markerHeight="6"
+      refX="3"
+      refY="3"
+      orient="auto"
+      markerUnits="strokeWidth"
+    >
+      <circle cx="3" cy="3" r="2.5" fill={edgeColor} />
+    </marker>
+    <marker
+      id="dot-start-{colorSuffix}"
+      markerWidth="6"
+      markerHeight="6"
+      refX="3"
+      refY="3"
+      orient="auto"
+      markerUnits="strokeWidth"
+    >
+      <circle cx="3" cy="3" r="2.5" fill={edgeColor} />
+    </marker>
+  </defs>
+</svg>
+
 <BaseEdge
   {id}
   {path}
   markerStart={markerStartUrl}
   markerEnd={markerEndUrl}
-  style={dashArray ? `stroke-dasharray: ${dashArray};` : undefined}
+  style={edgeStyle}
 />
 
 <!-- Waypoint handles -->
@@ -206,8 +266,8 @@
     cx={wp.x}
     cy={wp.y}
     r="6"
-    fill={selectedWaypointIdx === idx ? '#1971c2' : '#fff'}
-    stroke="#1971c2"
+    fill={selectedWaypointIdx === idx ? edgeColor : '#fff'}
+    stroke={edgeColor}
     stroke-width="2"
     style="cursor: grab;"
     onmousedown={(e) => handleWaypointMousedown(e, idx)}
