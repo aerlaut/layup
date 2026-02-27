@@ -7,7 +7,7 @@
   } = $props();
 </script>
 
-<div class="boundary-node" class:focused={data.isFocused}>
+<div class="boundary-node">
   <span class="boundary-label">{data.label}</span>
 </div>
 
@@ -21,13 +21,6 @@
     opacity: 0.5;
     position: relative;
     pointer-events: none;
-  }
-
-  .boundary-node.focused {
-    border-style: solid;
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.04);
-    opacity: 0.5;
   }
 
   .boundary-label {
@@ -48,7 +41,4 @@
     cursor: grabbing;
   }
 
-  .boundary-node.focused .boundary-label {
-    color: #3b82f6;
-  }
 </style>
