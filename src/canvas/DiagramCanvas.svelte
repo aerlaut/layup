@@ -200,6 +200,7 @@
               description: cn.description,
               technology: cn.technology,
               childDiagramId: cn.childDiagramId,
+              color: cn.color,
             },
             draggable: false,
             class: 'context-node',
