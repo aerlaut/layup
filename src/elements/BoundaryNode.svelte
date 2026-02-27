@@ -15,9 +15,9 @@
   .boundary-node {
     width: 100%;
     height: 100%;
-    border: 1.5px dashed #94a3b8;
+    border: 1.5px solid #3b82f6;
     border-radius: 10px;
-    background: transparent;
+    background: rgba(59, 130, 246, 0.04);
     opacity: 0.5;
     position: relative;
     pointer-events: none;
@@ -31,7 +31,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #64748b;
+    color: #3b82f6;
     user-select: none;
     pointer-events: all;
     cursor: grab;
