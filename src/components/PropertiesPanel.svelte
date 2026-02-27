@@ -71,6 +71,11 @@
     updateEdgeInDiagram(diagramId, selectedEdge.id, { lineStyle: (e.target as HTMLSelectElement).value as import('../types').LineStyle });
   }
 
+  function handleLineTypeChange(e: Event) {
+    if (!selectedEdge || !diagramId) return;
+    updateEdgeInDiagram(diagramId, selectedEdge.id, { lineType: (e.target as HTMLSelectElement).value as import('../types').LineType });
+  }
+
   function handleEdgeColorChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
     updateEdgeInDiagram(diagramId, selectedEdge.id, { color: (e.target as HTMLInputElement).value });
@@ -200,6 +205,15 @@
           <option value="none">None</option>
           <option value="arrow">Arrow</option>
           <option value="dot">Dot</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="edge-line-type">Line Type</label>
+        <select id="edge-line-type" value={selectedEdge.lineType ?? 'bezier'} on:change={handleLineTypeChange}>
+          <option value="bezier">Bezier</option>
+          <option value="straight">Straight</option>
+          <option value="step">Step</option>
+          <option value="smoothstep">Smooth Step</option>
         </select>
       </div>
       <div class="field">
