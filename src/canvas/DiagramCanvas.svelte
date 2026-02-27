@@ -190,6 +190,16 @@
             class: 'context-node',
           });
         }
+        // Include intra-group edges from sibling diagrams (remapped to ctx- IDs)
+        const siblingDiagram = s.diagrams[group.childDiagramId];
+        if (siblingDiagram) {
+          for (const e of siblingDiagram.edges) {
+            const flowEdge = toFlowEdge(e);
+            flowEdge.source = `ctx-${e.source}`;
+            flowEdge.target = `ctx-${e.target}`;
+            activeEdges.push(flowEdge);
+          }
+        }
       }
     }
 
