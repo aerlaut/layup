@@ -386,7 +386,17 @@ export function addNode(node: C4Node): void {
   diagramStore.update((s) => {
     const current = getCurrentDiagram(s);
     current.nodes = [...current.nodes, node];
-    const newState: DiagramState = { ...s, pendingNodeType: null, selectedId: node.id };
+    const newState: DiagramState = { ...s, selectedId: node.id };
+    return resolveBoundaryOverlaps(newState);
+  });
+}
+
+export function addNodeToDiagram(diagramId: string, node: C4Node): void {
+  diagramStore.update((s) => {
+    const diagram = s.diagrams[diagramId];
+    if (!diagram) return s;
+    diagram.nodes = [...diagram.nodes, node];
+    const newState: DiagramState = { ...s, selectedId: node.id };
     return resolveBoundaryOverlaps(newState);
   });
 }
@@ -602,7 +612,6 @@ export function clearGroupFocus(): void {
     ...s,
     focusedParentNodeId: null,
     selectedId: null,
-    pendingNodeType: null,
   }));
 }
 
