@@ -5,27 +5,51 @@
  * arrays expected by SvelteFlow. Extracted from DiagramCanvas to keep it thin.
  */
 import type { Node, Edge } from '@xyflow/svelte';
-import type { C4Node, C4Edge, C4NodeType, DiagramLevel, DiagramState, BoundaryGroup } from '../types';
-import { NODE_DEFAULT_COLORS } from '../utils/colors';
+import type { Annotation, C4Node, C4Edge, C4NodeType, DiagramLevel, DiagramState, BoundaryGroup } from '../types';
+import { ANNOTATION_DEFAULT_COLORS, NODE_DEFAULT_COLORS } from '../utils/colors';
+import { getAnnotationDiagramId } from '../stores/diagramStore';
 
 // ─── Conversion helpers ───────────────────────────────────────────────────────
 
 export function toFlowNode(n: C4Node, selectedId?: string | null): Node {
-  const isGroup = n.type === 'group';
   return {
     id: n.id,
     type: n.type,
     position: n.position,
     selected: n.id === selectedId,
-    // Groups use a large default size and are not connectable
-    ...(isGroup && { style: 'width: 240px; height: 180px;', zIndex: -1 }),
-    connectable: !isGroup,
     data: {
       label: n.label,
       description: n.description,
       technology: n.technology,
       childDiagramId: n.childDiagramId,
       color: n.color,
+    },
+  };
+}
+
+/**
+ * Convert an Annotation to a SvelteFlow Node.
+ * Annotations are always free-floating: never connectable, never parented to boundaries.
+ */
+export function toFlowAnnotation(a: Annotation, selectedId?: string | null): Node {
+  const isGroup = a.type === 'group';
+  return {
+    id: a.id,
+    type: a.type,
+    position: a.position,
+    selected: a.id === selectedId,
+    // Groups get an explicit resizable size; comments use their natural size
+    ...(isGroup && {
+      style: `width: ${a.width ?? 240}px; height: ${a.height ?? 180}px;`,
+      zIndex: -1,
+    }),
+    ...(!isGroup && { zIndex: 10 }),
+    connectable: false,
+    draggable: true,
+    data: {
+      label: a.label,
+      text: a.text,
+      color: a.color ?? ANNOTATION_DEFAULT_COLORS[a.type],
     },
   };
 }
@@ -197,9 +221,15 @@ export function buildFlowData(
     }
   }
 
-  // Render order: boundaries first (back), then context nodes, then active nodes (front)
+  // ── Annotations — always free-floating, never parented to boundaries ─────────
+  const annotDiagramId = getAnnotationDiagramId(state);
+  const annotDiagram = state.diagrams[annotDiagramId];
+  const annotationNodes: Node[] =
+    (annotDiagram?.annotations ?? []).map((a) => toFlowAnnotation(a, selectedId));
+
+  // Render order: groups (back), boundaries, context, active nodes, comments (front)
   return {
-    nodes: [...boundaryNodes, ...contextNodes, ...activeNodes],
+    nodes: [...annotationNodes.filter((n) => n.type === 'group'), ...boundaryNodes, ...contextNodes, ...activeNodes, ...annotationNodes.filter((n) => n.type !== 'group')],
     edges: activeEdges,
   };
 }
