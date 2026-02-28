@@ -34,8 +34,8 @@ import {
   deleteEdgeFromDiagram,
   loadDiagram,
   resetDiagram,
-} from './diagramStore';
-import type { C4Node, C4Edge, DiagramState } from '../types';
+} from '../../src/stores/diagramStore';
+import type { C4Node, C4Edge, DiagramState } from '../../src/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

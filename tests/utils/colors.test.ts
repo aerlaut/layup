@@ -4,8 +4,8 @@ import {
   PASTEL_PALETTE,
   getColorVariants,
   type ColorVariants,
-} from './colors';
-import type { C4NodeType } from '../types';
+} from '../../src/utils/colors';
+import type { C4NodeType } from '../../src/types';
 
 // ─── NODE_DEFAULT_COLORS ─────────────────────────────────────────────────────
 

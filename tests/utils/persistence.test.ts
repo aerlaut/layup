@@ -6,9 +6,9 @@ import {
   parseDiagramJSON,
   ImportError,
   debounce,
-} from './persistence';
-import { SCHEMA_VERSION } from '../stores/diagramStore';
-import type { DiagramState } from '../types';
+} from '../../src/utils/persistence';
+import { SCHEMA_VERSION } from '../../src/stores/diagramStore';
+import type { DiagramState } from '../../src/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
