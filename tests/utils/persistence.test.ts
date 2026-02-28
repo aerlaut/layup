@@ -32,7 +32,6 @@ function makeValidState(overrides: Partial<DiagramState> = {}): DiagramState {
     navigationStack: ['root'],
     selectedId: null,
     pendingNodeType: null,
-    focusedParentNodeId: null,
     ...overrides,
   };
 }

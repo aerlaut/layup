@@ -22,8 +22,6 @@ import {
   drillUp,
   navigateTo,
   createChildDiagram,
-  switchFocusToGroup,
-  clearGroupFocus,
   setSelected,
   setPendingNodeType,
   updateNodePositions,
@@ -401,12 +399,6 @@ describe('drillDown', () => {
     expect(state.diagrams[childId].label).toBe('My System');
   });
 
-  it('sets focusedParentNodeId', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
-    expect(getState().focusedParentNodeId).toBe('sys1');
-  });
-
   it('clears selectedId', () => {
     addNode(makeNode({ id: 'sys1', type: 'system' }));
     setSelected('sys1');
@@ -467,12 +459,11 @@ describe('drillUp', () => {
     expect(getState().navigationStack).toEqual(['root']);
   });
 
-  it('clears selectedId and focusedParentNodeId', () => {
+  it('clears selectedId', () => {
     addNode(makeNode({ id: 'sys1', type: 'system' }));
     drillDown('sys1');
     drillUp();
     expect(getState().selectedId).toBeNull();
-    expect(getState().focusedParentNodeId).toBeNull();
   });
 
   it('does nothing at root', () => {
@@ -498,38 +489,6 @@ describe('navigateTo', () => {
     const childId = getChildDiagramId('sys1');
     navigateTo('nonexistent');
     expect(getState().navigationStack).toEqual(['root', childId]);
-  });
-});
-
-describe('switchFocusToGroup', () => {
-  it('switches the current diagram to a sibling group', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'sys2', type: 'system', position: { x: 500, y: 0 } }));
-    createChildDiagram('sys1');
-    createChildDiagram('sys2');
-    const child2Id = getChildDiagramId('sys2');
-    drillDown('sys1');
-
-    switchFocusToGroup('sys2');
-    const state = getState();
-    expect(state.navigationStack[state.navigationStack.length - 1]).toBe(child2Id);
-    expect(state.focusedParentNodeId).toBe('sys2');
-  });
-
-  it('does nothing at root', () => {
-    switchFocusToGroup('anything');
-    expect(getState().navigationStack).toEqual(['root']);
-  });
-});
-
-describe('clearGroupFocus', () => {
-  it('clears focusedParentNodeId and selectedId', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
-    expect(getState().focusedParentNodeId).toBe('sys1');
-    clearGroupFocus();
-    expect(getState().focusedParentNodeId).toBeNull();
-    expect(getState().selectedId).toBeNull();
   });
 });
 
@@ -648,7 +607,6 @@ describe('loadDiagram', () => {
       navigationStack: ['custom'],
       selectedId: null,
       pendingNodeType: null,
-      focusedParentNodeId: null,
     };
     loadDiagram(customState);
     const state = getState();
