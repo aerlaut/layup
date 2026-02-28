@@ -75,3 +75,41 @@ export interface BoundaryGroup {
   /** The child diagram ID for this group */
   childDiagramId: string;
 }
+
+// ─── Account / Project / Diagram hierarchy ────────────────────────────────────
+
+export interface Account {
+  id: string;
+  name: string;
+  email?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Wraps a DiagramState with metadata for project-level management */
+export interface DiagramMeta {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  state: DiagramState;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  diagrams: Record<string, DiagramMeta>;
+}
+
+export interface AppState {
+  version: number;
+  account: Account;
+  projects: Record<string, Project>;
+}
+
+/** Which screen the app is currently showing */
+export type AppView =
+  | { screen: 'home' }
+  | { screen: 'editor'; projectId: string; diagramId: string };
