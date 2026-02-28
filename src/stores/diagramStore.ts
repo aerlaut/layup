@@ -134,15 +134,13 @@ export interface SelectedAnnotationResult { type: 'annotation'; annotation: Anno
 export type SelectedElementResult = SelectedNodeResult | SelectedEdgeResult | SelectedAnnotationResult;
 
 /**
- * Returns the diagram ID where annotations are rendered for the current view.
- * At root, annotations live on the root diagram.
- * When drilled in, annotations live on the parent diagram (the visible container level).
+ * Returns the diagram ID where annotations are read and written for the current view.
+ * Annotations are level-scoped — they always live on the currently active diagram,
+ * exactly like C4 nodes. This means drilling in or out switches to a different
+ * annotation set, so each level has its own independent annotations.
  */
 export function getAnnotationDiagramId(state: DiagramState): string {
-  if (state.navigationStack.length <= 1) {
-    return state.navigationStack[0] ?? state.rootId;
-  }
-  return state.navigationStack[state.navigationStack.length - 2] ?? state.rootId;
+  return state.navigationStack[state.navigationStack.length - 1] ?? state.rootId;
 }
 
 export const selectedElement = derived(diagramStore, ($s): SelectedElementResult | null => {
