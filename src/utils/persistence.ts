@@ -1,10 +1,10 @@
 import type { AppState, DiagramState } from '../types';
 import { SCHEMA_VERSION } from '../stores/diagramStore';
 import { APP_STATE_VERSION, createInitialAppState } from '../stores/appStore';
+import { STORAGE_WARN_BYTES } from './constants';
 
 const STORAGE_KEY = 'laverop_diagram';
 const STORAGE_KEY_APP = 'laverop_app';
-const STORAGE_WARN_BYTES = 4 * 1024 * 1024; // 4 MB
 
 // ─── AppState localStorage ────────────────────────────────────────────────────
 

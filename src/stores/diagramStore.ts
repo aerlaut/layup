@@ -1,12 +1,20 @@
 import { writable, derived, get } from 'svelte/store';
 import type { DiagramState, DiagramLevel, C4Node, C4Edge, C4NodeType, C4LevelType, BoundaryGroup } from '../types';
 import { generateId } from '../utils/id';
+import {
+  NODE_DEFAULT_WIDTH,
+  NODE_DEFAULT_HEIGHT,
+  BOUNDARY_PADDING,
+  BOUNDARY_MIN_WIDTH,
+  BOUNDARY_MIN_HEIGHT,
+  SCHEMA_VERSION,
+} from '../utils/constants';
 
-export const SCHEMA_VERSION = 1;
+export { SCHEMA_VERSION };
 
 const ROOT_DIAGRAM_ID = 'root';
 
-function createInitialState(): DiagramState {
+export function createInitialDiagramState(): DiagramState {
   const rootDiagram: DiagramLevel = {
     id: ROOT_DIAGRAM_ID,
     level: 'context',
@@ -27,7 +35,7 @@ function createInitialState(): DiagramState {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const diagramStore = writable<DiagramState>(createInitialState());
+export const diagramStore = writable<DiagramState>(createInitialDiagramState());
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
 
@@ -62,12 +70,6 @@ export const isAtRoot = derived(
   diagramStore,
   ($s) => $s.navigationStack.length === 1
 );
-
-const NODE_DEFAULT_WIDTH = 160;
-const NODE_DEFAULT_HEIGHT = 80;
-const BOUNDARY_PADDING = 40;
-const BOUNDARY_MIN_WIDTH = 220;
-const BOUNDARY_MIN_HEIGHT = 160;
 
 function computeBoundingBox(
   childNodes: C4Node[],
@@ -609,7 +611,7 @@ export function loadDiagram(state: DiagramState): void {
 }
 
 export function resetDiagram(): void {
-  diagramStore.set(createInitialState());
+  diagramStore.set(createInitialDiagramState());
 }
 
 export function switchFocusToGroup(parentNodeId: string): void {
