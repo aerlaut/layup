@@ -248,7 +248,7 @@ export function duplicateDiagram(projectId: string, diagramId: string): string |
     name: `Copy of ${original.name}`,
     createdAt: now,
     updatedAt: now,
-    state: JSON.parse(JSON.stringify(original.state)),
+    state: structuredClone(original.state),
   };
 
   appState.update((s) => {
