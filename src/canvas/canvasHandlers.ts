@@ -42,8 +42,8 @@ export function handleConnect(conn: Connection): void {
   if (isCtxSrc || isCtxTgt) {
     // Cross-group edge: store on the parent diagram
     if (state.navigationStack.length <= 1) return;
-    const parentDiagramId = state.navigationStack[state.navigationStack.length - 2];
-    const currentDiagramId = state.navigationStack[state.navigationStack.length - 1];
+    const parentDiagramId = state.navigationStack[state.navigationStack.length - 2] ?? '';
+    const currentDiagramId = state.navigationStack[state.navigationStack.length - 1] ?? '';
     const realSrcId = isCtxSrc ? srcId.slice(4) : srcId;
     const realTgtId = isCtxTgt ? tgtId.slice(4) : tgtId;
     const boundaries = get(contextBoundaries);
@@ -94,7 +94,7 @@ export function handleReconnect(oldEdge: Edge, newConnection: Connection): void 
   };
   // Cross-group edges are stored on the parent diagram
   if (s.navigationStack.length > 1) {
-    const parentDiagramId = s.navigationStack[s.navigationStack.length - 2];
+    const parentDiagramId = s.navigationStack[s.navigationStack.length - 2] ?? '';
     const parentDiag = s.diagrams[parentDiagramId];
     if (parentDiag?.edges.some((e) => e.id === edgeId)) {
       updateEdgeInDiagram(parentDiagramId, edgeId, patch);
@@ -223,12 +223,12 @@ export function makeHandleNodeDragStop(
           if (!updatesByDiagram.has(diagramId)) updatesByDiagram.set(diagramId, []);
           updatesByDiagram.get(diagramId)!.push({ id: n.id, position: absPosition });
         } else {
-          const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
+          const currentDiagramId = s.navigationStack[s.navigationStack.length - 1] ?? '';
           if (!updatesByDiagram.has(currentDiagramId)) updatesByDiagram.set(currentDiagramId, []);
           updatesByDiagram.get(currentDiagramId)!.push({ id: n.id, position: n.position });
         }
       }
-      const currentDiagramId = s.navigationStack[s.navigationStack.length - 1];
+      const currentDiagramId = s.navigationStack[s.navigationStack.length - 1] ?? '';
       for (const [diagramId, updates] of updatesByDiagram) {
         if (diagramId === currentDiagramId) {
           updateNodePositions(updates);

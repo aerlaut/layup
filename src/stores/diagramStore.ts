@@ -40,8 +40,8 @@ export const diagramStore = writable<DiagramState>(createInitialDiagramState());
 // ─── Selectors ────────────────────────────────────────────────────────────────
 
 export function getCurrentDiagram(state: DiagramState): DiagramLevel {
-  const id = state.navigationStack[state.navigationStack.length - 1];
-  return state.diagrams[id];
+  const id = state.navigationStack[state.navigationStack.length - 1] ?? state.rootId;
+  return state.diagrams[id] as DiagramLevel;
 }
 
 export function getDiagramById(state: DiagramState, id: string): DiagramLevel | undefined {
@@ -97,14 +97,14 @@ function computeBoundingBox(
 
 export const parentDiagram = derived(diagramStore, ($s): DiagramLevel | null => {
   if ($s.navigationStack.length <= 1) return null;
-  const parentId = $s.navigationStack[$s.navigationStack.length - 2];
+  const parentId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
   return $s.diagrams[parentId] ?? null;
 });
 
 export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => {
   if ($s.navigationStack.length <= 1) return [];
-  const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2];
-  const currentDiagramId = $s.navigationStack[$s.navigationStack.length - 1];
+  const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
+  const currentDiagramId = $s.navigationStack[$s.navigationStack.length - 1] ?? '';
   const parentDiagram = $s.diagrams[parentDiagramId];
   if (!parentDiagram) return [];
 
@@ -145,7 +145,7 @@ export const selectedElement = derived(diagramStore, ($s): SelectedElementResult
 
   // Check sibling diagrams (for context nodes) and parent edges
   if ($s.navigationStack.length > 1) {
-    const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2];
+    const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
     const parentDiagram = $s.diagrams[parentDiagramId];
     if (parentDiagram) {
       // Check parent diagram nodes themselves (e.g. boundary parent nodes)
@@ -196,7 +196,7 @@ function withCurrentDiagram(
   state: DiagramState,
   updater: (diagram: DiagramLevel) => DiagramLevel
 ): DiagramState {
-  const id = state.navigationStack[state.navigationStack.length - 1];
+  const id = state.navigationStack[state.navigationStack.length - 1] ?? state.rootId;
   return withDiagram(state, id, updater);
 }
 
@@ -289,13 +289,15 @@ function resolveNodeOverlaps(movedNodeId: string, nodes: C4Node[]): C4Node[] {
     let changed = false;
     for (let i = 0; i < result.length - 1; i++) {
       for (let j = i + 1; j < result.length; j++) {
-        if (!nodesOverlap(result[i], result[j])) continue;
+        const ni = result[i]!;
+        const nj = result[j]!;
+        if (!nodesOverlap(ni, nj)) continue;
         changed = true;
         // The moved node is highest priority (never pushed); otherwise push j away from i
-        if (result[j].id === movedNodeId) {
-          result[i] = pushNodeAway(result[j], result[i]);
+        if (nj.id === movedNodeId) {
+          result[i] = pushNodeAway(nj, ni);
         } else {
-          result[j] = pushNodeAway(result[i], result[j]);
+          result[j] = pushNodeAway(ni, nj);
         }
       }
     }
@@ -323,7 +325,7 @@ function bboxOverlap(
  */
 function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
   if (state.navigationStack.length <= 1) return state;
-  const parentDiagramId = state.navigationStack[state.navigationStack.length - 2];
+  const parentDiagramId = state.navigationStack[state.navigationStack.length - 2] ?? '';
   const parentDiagram = state.diagrams[parentDiagramId];
   if (!parentDiagram) return state;
 
@@ -354,8 +356,8 @@ function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
 
     for (let i = 0; i < groups.length - 1; i++) {
       for (let j = i + 1; j < groups.length; j++) {
-        const a = groups[i];
-        const b = groups[j];
+        const a = groups[i]!;
+        const b = groups[j]!;
         if (!bboxOverlap(a.bbox, b.bbox)) continue;
         changed = true;
 
@@ -382,7 +384,8 @@ function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
           offsetY = (sCy >= lCy ? overlapY : -overlapY) + 10;
         }
 
-        const updatedNodes = newState.diagrams[smaller.childDiagramId].nodes.map((n) => ({
+        const smallerDiagram = newState.diagrams[smaller.childDiagramId]!;
+        const updatedNodes = smallerDiagram.nodes.map((n) => ({
           ...n,
           position: { x: n.position.x + offsetX, y: n.position.y + offsetY },
         }));
@@ -391,7 +394,7 @@ function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
           diagrams: {
             ...newState.diagrams,
             [smaller.childDiagramId]: {
-              ...newState.diagrams[smaller.childDiagramId],
+              ...smallerDiagram,
               nodes: updatedNodes,
             },
           },
@@ -433,7 +436,7 @@ export function updateNode(nodeId: string, patch: Partial<C4Node>): void {
 
 export function deleteNode(nodeId: string): void {
   diagramStore.update((s) => {
-    const currentId = s.navigationStack[s.navigationStack.length - 1];
+    const currentId = s.navigationStack[s.navigationStack.length - 1] ?? s.rootId;
     const current = s.diagrams[currentId];
     if (!current) return s;
     const node = current.nodes.find((n) => n.id === nodeId);
@@ -617,7 +620,7 @@ export function resetDiagram(): void {
 export function switchFocusToGroup(parentNodeId: string): void {
   diagramStore.update((s) => {
     if (s.navigationStack.length <= 1) return s;
-    const parentDiagramId = s.navigationStack[s.navigationStack.length - 2];
+    const parentDiagramId = s.navigationStack[s.navigationStack.length - 2] ?? '';
     const parentDiagram = s.diagrams[parentDiagramId];
     if (!parentDiagram) return s;
     const parentNode = parentDiagram.nodes.find((n) => n.id === parentNodeId);
@@ -659,7 +662,7 @@ export function updateNodePositions(updates: Array<{ id: string; position: { x: 
       nodes: d.nodes.map((n) => (posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n)),
     }));
     // Resolve node overlaps for each moved node
-    const currentId = s.navigationStack[s.navigationStack.length - 1];
+    const currentId = s.navigationStack[s.navigationStack.length - 1] ?? s.rootId;
     for (const { id } of updates) {
       const nodes = newState.diagrams[currentId]?.nodes ?? [];
       if (nodes.some((n) => n.id === id)) {

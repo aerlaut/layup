@@ -45,9 +45,13 @@ export function migrateFromLegacy(): AppState | null {
 
     const appState = createInitialAppState();
     // Replace the default diagram's state with the legacy one
-    const projectId = Object.keys(appState.projects)[0];
-    const diagramId = Object.keys(appState.projects[projectId].diagrams)[0];
-    appState.projects[projectId].diagrams[diagramId].state = diagramState;
+    const projectId = Object.keys(appState.projects)[0] ?? '';
+    const project = appState.projects[projectId];
+    if (!project) return null;
+    const diagramId = Object.keys(project.diagrams)[0] ?? '';
+    const diagram = project.diagrams[diagramId];
+    if (!diagram) return null;
+    diagram.state = diagramState;
 
     // Remove legacy key
     localStorage.removeItem(STORAGE_KEY);

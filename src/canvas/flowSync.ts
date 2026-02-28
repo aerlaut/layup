@@ -80,7 +80,7 @@ export function buildFlowData(
     const bBox = group.boundingBox;
 
     // Look up parent node to get its color for the boundary
-    const parentDiagramId = state.navigationStack[state.navigationStack.length - 2];
+    const parentDiagramId = state.navigationStack[state.navigationStack.length - 2] ?? '';
     const pDiagram = state.diagrams[parentDiagramId];
     const parentNode = pDiagram?.nodes.find((n) => n.id === group.parentNodeId);
     const boundaryColor =

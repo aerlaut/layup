@@ -35,7 +35,10 @@ export const PASTEL_PALETTE: { color: string; label: string }[] = [
  */
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   let h = hex.replace('#', '');
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  if (h.length === 3) {
+    const [r, g, b] = h.split('');
+    h = `${r}${r}${g}${g}${b}${b}`;
+  }
   const num = parseInt(h, 16);
   return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
 }
