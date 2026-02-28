@@ -145,7 +145,7 @@
   };
 
   /** Detect which preset the current edge matches, or 'custom' */
-  const currentPreset = $derived<RelationshipPreset>(() => {
+  const currentPreset = $derived.by((): RelationshipPreset => {
     if (!selectedEdge) return 'custom';
     const ms = selectedEdge.markerStart ?? 'none';
     const me = selectedEdge.markerEnd ?? 'arrow';
@@ -246,7 +246,7 @@
           oninput={handleNodeDescChange}
         ></textarea>
       </div>
-      {#if selectedNode.type !== 'person' && selectedNode.type !== 'external-person' && selectedNode.type !== 'system' && selectedNode.type !== 'external-system' && selectedNode.type !== 'group'}
+      {#if selectedNode.type !== 'person' && selectedNode.type !== 'external-person' && selectedNode.type !== 'system' && selectedNode.type !== 'external-system'}
         <div class="field">
           <label for="node-tech">Technology</label>
           <input
