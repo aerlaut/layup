@@ -86,8 +86,12 @@ export interface FlowData {
 
 /**
  * Build the SvelteFlow node/edge arrays from the current diagram store state.
- * Handles boundary groups, context nodes (ghost copies of sibling group nodes),
- * cross-group edges, and no-focus mode.
+ * Handles boundary groups, all sibling groups' nodes as interactive active nodes,
+ * cross-group edges, and annotations.
+ *
+ * All sibling groups are always fully interactive — there is no "focused" vs
+ * "ghost context" distinction. Every group's nodes are parented to their boundary
+ * rectangle and rendered at full opacity.
  */
 export function buildFlowData(
   state: DiagramState,
@@ -96,12 +100,11 @@ export function buildFlowData(
   parentDiagram: DiagramLevel | null,
   selectedId: string | null,
 ): FlowData {
-  const isNoFocus = state.focusedParentNodeId === null && state.navigationStack.length > 1;
+  const currentDiagramId = state.navigationStack[state.navigationStack.length - 1];
   const activeNodes: Node[] = currentDiagram?.nodes.map((n) => toFlowNode(n, selectedId)) ?? [];
   const activeEdges: Edge[] = currentDiagram?.edges.map((e) => toFlowEdge(e, selectedId)) ?? [];
 
   const boundaryNodes: Node[] = [];
-  const contextNodes: Node[] = [];
 
   for (const group of boundaries) {
     const boundaryId = `boundary-${group.parentNodeId}`;
@@ -120,74 +123,33 @@ export function buildFlowData(
       type: 'boundary',
       position: { x: bBox.x, y: bBox.y },
       style: `width: ${bBox.width}px; height: ${bBox.height}px;`,
-      data: { label: group.parentLabel, isFocused: group.isFocused, color: boundaryColor },
+      data: { label: group.parentLabel, color: boundaryColor },
       selectable: true,
       draggable: true,
       connectable: false,
       class: 'boundary-node-wrapper',
     });
 
-    if (isNoFocus) {
-      // In no-focus mode render ALL groups' nodes as active (full opacity).
-      // The current diagram's nodes are already in activeNodes — just parent them.
-      const currentDiagramId = state.navigationStack[state.navigationStack.length - 1];
-      if (group.childDiagramId !== currentDiagramId) {
-        for (const cn of group.childNodes) {
-          const flowNode = toFlowNode(cn, selectedId);
-          flowNode.parentId = boundaryId;
-          flowNode.position = { x: cn.position.x - bBox.x, y: cn.position.y - bBox.y };
-          activeNodes.push(flowNode);
-        }
-        const siblingDiagram = state.diagrams[group.childDiagramId];
-        if (siblingDiagram) {
-          for (const e of siblingDiagram.edges) {
-            activeEdges.push(toFlowEdge(e, selectedId));
-          }
-        }
-      } else {
-        // Current group nodes — also parent them to their boundary
-        for (const node of activeNodes) {
-          if (group.childNodes.some((cn) => cn.id === node.id)) {
-            node.parentId = boundaryId;
-            node.position = { x: node.position.x - bBox.x, y: node.position.y - bBox.y };
-          }
+    if (group.childDiagramId !== currentDiagramId) {
+      // Sibling group — render its nodes as fully interactive active nodes
+      for (const cn of group.childNodes) {
+        const flowNode = toFlowNode(cn, selectedId);
+        flowNode.parentId = boundaryId;
+        flowNode.position = { x: cn.position.x - bBox.x, y: cn.position.y - bBox.y };
+        activeNodes.push(flowNode);
+      }
+      const siblingDiagram = state.diagrams[group.childDiagramId];
+      if (siblingDiagram) {
+        for (const e of siblingDiagram.edges) {
+          activeEdges.push(toFlowEdge(e, selectedId));
         }
       }
-    } else if (group.isFocused) {
-      // Focused group — parent active nodes to the boundary rectangle
+    } else {
+      // Current group — parent its active nodes to the boundary rectangle
       for (const node of activeNodes) {
         if (group.childNodes.some((cn) => cn.id === node.id)) {
           node.parentId = boundaryId;
           node.position = { x: node.position.x - bBox.x, y: node.position.y - bBox.y };
-        }
-      }
-    } else {
-      // Non-focused sibling group — render as ghost context nodes
-      for (const cn of group.childNodes) {
-        contextNodes.push({
-          id: `ctx-${cn.id}`,
-          type: cn.type,
-          position: { x: cn.position.x - bBox.x, y: cn.position.y - bBox.y },
-          parentId: boundaryId,
-          data: {
-            label: cn.label,
-            description: cn.description,
-            technology: cn.technology,
-            childDiagramId: cn.childDiagramId,
-            color: cn.color,
-          },
-          draggable: false,
-          class: 'context-node',
-        });
-      }
-      // Intra-group edges for sibling diagram (remapped to ctx- IDs)
-      const siblingDiagram = state.diagrams[group.childDiagramId];
-      if (siblingDiagram) {
-        for (const e of siblingDiagram.edges) {
-          const flowEdge = toFlowEdge(e, selectedId);
-          flowEdge.source = `ctx-${e.source}`;
-          flowEdge.target = `ctx-${e.target}`;
-          activeEdges.push(flowEdge);
         }
       }
     }
@@ -198,25 +160,8 @@ export function buildFlowData(
     const allActiveNodeIds = new Set(activeNodes.map((n) => n.id));
     for (const e of parentDiagram.edges) {
       if (!e.sourceGroupId && !e.targetGroupId) continue;
-      const srcInActive = allActiveNodeIds.has(e.source);
-      const tgtInActive = allActiveNodeIds.has(e.target);
-      if (isNoFocus) {
-        if (srcInActive && tgtInActive) {
-          activeEdges.push(toFlowEdge(e, selectedId));
-        }
-      } else {
-        const srcInContext =
-          !srcInActive &&
-          boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.source));
-        const tgtInContext =
-          !tgtInActive &&
-          boundaries.some((g) => !g.isFocused && g.childNodes.some((n) => n.id === e.target));
-        if ((srcInActive || srcInContext) && (tgtInActive || tgtInContext)) {
-          const flowEdge = toFlowEdge(e, selectedId);
-          flowEdge.source = srcInActive ? e.source : `ctx-${e.source}`;
-          flowEdge.target = tgtInActive ? e.target : `ctx-${e.target}`;
-          activeEdges.push(flowEdge);
-        }
+      if (allActiveNodeIds.has(e.source) && allActiveNodeIds.has(e.target)) {
+        activeEdges.push(toFlowEdge(e, selectedId));
       }
     }
   }
@@ -227,9 +172,9 @@ export function buildFlowData(
   const annotationNodes: Node[] =
     (annotDiagram?.annotations ?? []).map((a) => toFlowAnnotation(a, selectedId));
 
-  // Render order: groups (back), boundaries, context, active nodes, notes (front)
+  // Render order: groups (back), boundaries, active nodes, notes (front)
   return {
-    nodes: [...annotationNodes.filter((n) => n.type === 'group'), ...boundaryNodes, ...contextNodes, ...activeNodes, ...annotationNodes.filter((n) => n.type !== 'group')],
+    nodes: [...annotationNodes.filter((n) => n.type === 'group'), ...boundaryNodes, ...activeNodes, ...annotationNodes.filter((n) => n.type !== 'group')],
     edges: activeEdges,
   };
 }
