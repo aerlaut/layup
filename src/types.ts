@@ -8,7 +8,11 @@ export type C4NodeType =
   | "container"
   | "database"
   | "component"
-  | "code-element";
+  | "class"
+  | "abstract-class"
+  | "interface"
+  | "enum"
+  | "record";
 
 /** Types for free-floating annotative elements that are not part of the C4 hierarchy */
 export type AnnotationType = "group" | "note";

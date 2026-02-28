@@ -448,6 +448,16 @@ describe('drillDown', () => {
     addNode(makeNode({ id: 'comp1', type: 'component', position: { x: 900, y: 0 } }));
     drillDown('comp1');
     expect(getCurrentDiagram(getState()).level).toBe('code');
+    drillUp();
+
+    // UML code types — all map to 'code' level (child would be 'code' level too)
+    const umlTypes = ['class', 'abstract-class', 'interface', 'enum', 'record'] as const;
+    umlTypes.forEach((umlType, i) => {
+      addNode(makeNode({ id: `uml-${umlType}`, type: umlType, position: { x: i * 200, y: 300 } }));
+      drillDown(`uml-${umlType}`);
+      expect(getCurrentDiagram(getState()).level).toBe('code');
+      drillUp();
+    });
   });
 });
 

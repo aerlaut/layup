@@ -10,7 +10,11 @@ import type { C4NodeType } from '../../src/types';
 // ─── NODE_DEFAULT_COLORS ─────────────────────────────────────────────────────
 
 describe('NODE_DEFAULT_COLORS', () => {
-  const allNodeTypes: C4NodeType[] = ['person', 'system', 'container', 'component', 'code-element'];
+  const allNodeTypes: C4NodeType[] = [
+    'person', 'external-person', 'system', 'external-system',
+    'container', 'database', 'component',
+    'class', 'abstract-class', 'interface', 'enum', 'record',
+  ];
 
   it('has an entry for every C4 node type', () => {
     for (const type of allNodeTypes) {
