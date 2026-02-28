@@ -1,6 +1,6 @@
-import type { C4NodeType } from '../types';
+import type { AnnotationType, C4NodeType } from '../types';
 
-/** Default primary colors per node type */
+/** Default primary colors per C4 node type */
 export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
   person: '#3b82f6',
   'external-person': '#94a3b8',
@@ -10,7 +10,12 @@ export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
   database: '#0ea5e9',
   component: '#a855f7',
   'code-element': '#6b7280',
+};
+
+/** Default primary colors per annotation type */
+export const ANNOTATION_DEFAULT_COLORS: Record<AnnotationType, string> = {
   group: '#d1d5db',
+  comment: '#fbbf24',
 };
 
 /** Default edge color */

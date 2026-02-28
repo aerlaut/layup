@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { DiagramState, DiagramLevel, C4Node, C4Edge, C4NodeType, C4LevelType, BoundaryGroup } from '../types';
+import type { DiagramState, DiagramLevel, C4Node, C4Edge, C4NodeType, C4LevelType, BoundaryGroup, Annotation, AnnotationType, PaletteItemType } from '../types';
 import { generateId } from '../utils/id';
 import {
   NODE_DEFAULT_WIDTH,
@@ -21,6 +21,7 @@ export function createInitialDiagramState(): DiagramState {
     label: 'System Context',
     nodes: [],
     edges: [],
+    annotations: [],
   };
   return {
     version: SCHEMA_VERSION,
@@ -126,10 +127,23 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
     });
 });
 
-/** Resolved selection: finds the selected node or edge across visible diagrams */
+/** Resolved selection: finds the selected node, edge, or annotation across visible diagrams */
 export interface SelectedNodeResult { type: 'node'; node: C4Node; diagramId: string }
 export interface SelectedEdgeResult { type: 'edge'; edge: C4Edge; diagramId: string }
-export type SelectedElementResult = SelectedNodeResult | SelectedEdgeResult;
+export interface SelectedAnnotationResult { type: 'annotation'; annotation: Annotation; diagramId: string }
+export type SelectedElementResult = SelectedNodeResult | SelectedEdgeResult | SelectedAnnotationResult;
+
+/**
+ * Returns the diagram ID where annotations are rendered for the current view.
+ * At root, annotations live on the root diagram.
+ * When drilled in, annotations live on the parent diagram (the visible container level).
+ */
+export function getAnnotationDiagramId(state: DiagramState): string {
+  if (state.navigationStack.length <= 1) {
+    return state.navigationStack[0] ?? state.rootId;
+  }
+  return state.navigationStack[state.navigationStack.length - 2] ?? state.rootId;
+}
 
 export const selectedElement = derived(diagramStore, ($s): SelectedElementResult | null => {
   const id = $s.selectedId;
@@ -137,7 +151,13 @@ export const selectedElement = derived(diagramStore, ($s): SelectedElementResult
 
   const current = getCurrentDiagram($s);
 
-  // Check current diagram
+  // Check annotations first (they live on the annotation diagram for this view)
+  const annotDiagramId = getAnnotationDiagramId($s);
+  const annotDiagram = $s.diagrams[annotDiagramId];
+  const annotation = annotDiagram?.annotations?.find((a) => a.id === id);
+  if (annotation) return { type: 'annotation', annotation, diagramId: annotDiagramId };
+
+  // Check current diagram nodes/edges
   const node = current.nodes.find((n) => n.id === id);
   if (node) return { type: 'node', node, diagramId: current.id };
   const edge = current.edges.find((e) => e.id === id);
@@ -520,7 +540,6 @@ function childLevelFor(nodeType: C4NodeType): C4LevelType {
     database: 'code',
     component: 'code',
     'code-element': 'code',
-    group: 'code',
   };
   return map[nodeType];
 }
@@ -537,6 +556,7 @@ export function createChildDiagram(nodeId: string): string {
       label: node.label,
       nodes: [],
       edges: [],
+      annotations: [],
     };
     // First update the node's childDiagramId in the current diagram
     const updatedState = withCurrentDiagram(s, (d) => ({
@@ -569,6 +589,7 @@ export function drillDown(nodeId: string): void {
         label: node.label,
         nodes: [],
         edges: [],
+        annotations: [],
       };
       // Patch the node first, then add the child diagram entry
       const updatedState = withCurrentDiagram(s, (d) => ({
@@ -655,7 +676,7 @@ export function setSelected(id: string | null): void {
   diagramStore.update((s) => ({ ...s, selectedId: id }));
 }
 
-export function setPendingNodeType(type: C4NodeType | null): void {
+export function setPendingNodeType(type: PaletteItemType | null): void {
   diagramStore.update((s) => ({ ...s, pendingNodeType: type }));
 }
 
@@ -695,4 +716,59 @@ export function updateNodePositionsInDiagram(
     }));
     return resolveBoundaryOverlaps(newState);
   });
+}
+
+// ─── Annotation actions ───────────────────────────────────────────────────────
+
+/**
+ * Add an annotation to the diagram that is currently visible to the user.
+ * At root: adds to the root diagram.
+ * When drilled in: adds to the parent diagram (the level the user sees the canvas of).
+ */
+export function addAnnotation(annotation: Annotation): void {
+  diagramStore.update((s) => {
+    const diagramId = getAnnotationDiagramId(s);
+    if (!s.diagrams[diagramId]) return s;
+    return {
+      ...withDiagram(s, diagramId, (d) => ({
+        ...d,
+        annotations: [...(d.annotations ?? []), annotation],
+      })),
+      selectedId: annotation.id,
+    };
+  });
+}
+
+export function updateAnnotation(diagramId: string, annotationId: string, patch: Partial<Annotation>): void {
+  diagramStore.update((s) =>
+    withDiagram(s, diagramId, (d) => ({
+      ...d,
+      annotations: (d.annotations ?? []).map((a) => (a.id === annotationId ? { ...a, ...patch } : a)),
+    }))
+  );
+}
+
+export function deleteAnnotation(diagramId: string, annotationId: string): void {
+  diagramStore.update((s) => ({
+    ...withDiagram(s, diagramId, (d) => ({
+      ...d,
+      annotations: (d.annotations ?? []).filter((a) => a.id !== annotationId),
+    })),
+    selectedId: s.selectedId === annotationId ? null : s.selectedId,
+  }));
+}
+
+export function updateAnnotationPositions(
+  diagramId: string,
+  updates: Array<{ id: string; position: { x: number; y: number } }>
+): void {
+  const posMap = new Map(updates.map((u) => [u.id, u.position]));
+  diagramStore.update((s) =>
+    withDiagram(s, diagramId, (d) => ({
+      ...d,
+      annotations: (d.annotations ?? []).map((a) =>
+        posMap.has(a.id) ? { ...a, position: posMap.get(a.id)! } : a
+      ),
+    }))
+  );
 }
