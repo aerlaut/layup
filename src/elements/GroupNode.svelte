@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { updateNode } from '../stores/diagramStore';
-  import { NODE_DEFAULT_COLORS } from '../utils/colors';
+  import { updateAnnotation, getAnnotationDiagramId, diagramStore } from '../stores/diagramStore';
+  import { ANNOTATION_DEFAULT_COLORS } from '../utils/colors';
+  import { get } from 'svelte/store';
 
   let {
     id,
@@ -11,15 +12,18 @@
     [key: string]: unknown;
   } = $props();
 
-  const borderColor = $derived(data.color ?? NODE_DEFAULT_COLORS['group']);
+  const borderColor = $derived(data.color ?? ANNOTATION_DEFAULT_COLORS['group']);
   const bgColor = $derived(`${borderColor}12`);
 
   let editing = $state(false);
   let editValue = $state('');
   let inputEl = $state<HTMLInputElement | undefined>(undefined);
 
+  function getAnnotDiagramId(): string {
+    return getAnnotationDiagramId(get(diagramStore));
+  }
+
   function startEdit(e: MouseEvent) {
-    // Only start edit on direct click of the label area — don't steal canvas dblclicks
     e.stopPropagation();
     editing = true;
     editValue = data.label;
@@ -28,7 +32,7 @@
 
   function commitEdit() {
     if (editing && editValue.trim()) {
-      updateNode(id, { label: editValue.trim() });
+      updateAnnotation(getAnnotDiagramId(), id, { label: editValue.trim() });
     }
     editing = false;
   }
@@ -39,18 +43,18 @@
   }
 </script>
 
-<!--
-  GroupNode renders as a draggable, resizable boundary box.
-  It uses no Handles — groups are not connectable.
-  The `nodrag` class on the label keeps the SvelteFlow drag from triggering
-  when the user clicks the label to edit it.
--->
 <div
   class="group-node"
   style="border-color: {borderColor}; background: {bgColor};"
   role="group"
 >
-  <div class="group-label-area nodrag" ondblclick={startEdit} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') startEdit(e as unknown as MouseEvent); }}>
+  <div
+    class="group-label-area nodrag"
+    ondblclick={startEdit}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => { if (e.key === 'Enter') startEdit(e as unknown as MouseEvent); }}
+  >
     {#if editing}
       <input
         bind:this={inputEl}
@@ -74,10 +78,8 @@
     border: 2px dashed;
     border-radius: 10px;
     position: relative;
-    /* Render behind regular nodes */
     z-index: -1;
     pointer-events: all;
-    /* NodeResizer requires a min size */
     min-width: 200px;
     min-height: 160px;
     box-sizing: border-box;
