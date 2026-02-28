@@ -170,26 +170,50 @@ export const selectedElement = derived(diagramStore, ($s): SelectedElementResult
   return null;
 });
 
+// ─── Immutable update helpers ─────────────────────────────────────────────────
+
+/** Immutably replace a diagram inside a DiagramState */
+function withDiagram(
+  state: DiagramState,
+  diagramId: string,
+  updater: (diagram: DiagramLevel) => DiagramLevel
+): DiagramState {
+  const diagram = state.diagrams[diagramId];
+  if (!diagram) return state;
+  return {
+    ...state,
+    diagrams: {
+      ...state.diagrams,
+      [diagramId]: updater(diagram),
+    },
+  };
+}
+
+/** Immutably replace the current (active) diagram */
+function withCurrentDiagram(
+  state: DiagramState,
+  updater: (diagram: DiagramLevel) => DiagramLevel
+): DiagramState {
+  const id = state.navigationStack[state.navigationStack.length - 1];
+  return withDiagram(state, id, updater);
+}
+
 export function updateNodeInDiagram(diagramId: string, nodeId: string, patch: Partial<C4Node>): void {
-  diagramStore.update((s) => {
-    const diagram = s.diagrams[diagramId];
-    if (!diagram) return s;
-    diagram.nodes = diagram.nodes.map((n) =>
-      n.id === nodeId ? { ...n, ...patch } : n
-    );
-    return { ...s };
-  });
+  diagramStore.update((s) =>
+    withDiagram(s, diagramId, (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)),
+    }))
+  );
 }
 
 export function updateEdgeInDiagram(diagramId: string, edgeId: string, patch: Partial<C4Edge>): void {
-  diagramStore.update((s) => {
-    const diagram = s.diagrams[diagramId];
-    if (!diagram) return s;
-    diagram.edges = diagram.edges.map((e) =>
-      e.id === edgeId ? { ...e, ...patch } : e
-    );
-    return { ...s };
-  });
+  diagramStore.update((s) =>
+    withDiagram(s, diagramId, (d) => ({
+      ...d,
+      edges: d.edges.map((e) => (e.id === edgeId ? { ...e, ...patch } : e)),
+    }))
+  );
 }
 
 export function deleteNodeFromDiagram(diagramId: string, nodeId: string): void {
@@ -197,14 +221,15 @@ export function deleteNodeFromDiagram(diagramId: string, nodeId: string): void {
     const diagram = s.diagrams[diagramId];
     if (!diagram) return s;
     const node = diagram.nodes.find((n) => n.id === nodeId);
-    const diagrams = { ...s.diagrams };
+    const diagrams: DiagramState['diagrams'] = { ...s.diagrams };
     if (node?.childDiagramId) {
       delete diagrams[node.childDiagramId];
     }
-    diagram.nodes = diagram.nodes.filter((n) => n.id !== nodeId);
-    diagram.edges = diagram.edges.filter(
-      (e) => e.source !== nodeId && e.target !== nodeId
-    );
+    diagrams[diagramId] = {
+      ...diagram,
+      nodes: diagram.nodes.filter((n) => n.id !== nodeId),
+      edges: diagram.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+    };
     return {
       ...s,
       diagrams,
@@ -214,15 +239,12 @@ export function deleteNodeFromDiagram(diagramId: string, nodeId: string): void {
 }
 
 export function deleteEdgeFromDiagram(diagramId: string, edgeId: string): void {
-  diagramStore.update((s) => {
-    const diagram = s.diagrams[diagramId];
-    if (!diagram) return s;
-    diagram.edges = diagram.edges.filter((e) => e.id !== edgeId);
-    return {
-      ...s,
-      selectedId: s.selectedId === edgeId ? null : s.selectedId,
-    };
-  });
+  diagramStore.update((s) =>
+    withDiagram({ ...s, selectedId: s.selectedId === edgeId ? null : s.selectedId }, diagramId, (d) => ({
+      ...d,
+      edges: d.edges.filter((e) => e.id !== edgeId),
+    }))
+  );
 }
 
 // ─── Overlap prevention ───────────────────────────────────────────────────────
@@ -385,47 +407,46 @@ function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
 
 export function addNode(node: C4Node): void {
   diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
-    current.nodes = [...current.nodes, node];
-    const newState: DiagramState = { ...s, selectedId: node.id };
-    return resolveBoundaryOverlaps(newState);
+    const newState = withCurrentDiagram(s, (d) => ({ ...d, nodes: [...d.nodes, node] }));
+    return resolveBoundaryOverlaps({ ...newState, selectedId: node.id });
   });
 }
 
 export function addNodeToDiagram(diagramId: string, node: C4Node): void {
   diagramStore.update((s) => {
-    const diagram = s.diagrams[diagramId];
-    if (!diagram) return s;
-    diagram.nodes = [...diagram.nodes, node];
-    const newState: DiagramState = { ...s, selectedId: node.id };
-    return resolveBoundaryOverlaps(newState);
+    if (!s.diagrams[diagramId]) return s;
+    const newState = withDiagram(s, diagramId, (d) => ({ ...d, nodes: [...d.nodes, node] }));
+    return resolveBoundaryOverlaps({ ...newState, selectedId: node.id });
   });
 }
 
 export function updateNode(nodeId: string, patch: Partial<C4Node>): void {
-  diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
-    current.nodes = current.nodes.map((n) =>
-      n.id === nodeId ? { ...n, ...patch } : n
-    );
-    return { ...s };
-  });
+  diagramStore.update((s) =>
+    withCurrentDiagram(s, (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)),
+    }))
+  );
 }
 
 export function deleteNode(nodeId: string): void {
   diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
+    const currentId = s.navigationStack[s.navigationStack.length - 1];
+    const current = s.diagrams[currentId];
+    if (!current) return s;
     const node = current.nodes.find((n) => n.id === nodeId);
+    const diagrams: DiagramState['diagrams'] = {
+      ...s.diagrams,
+      [currentId]: {
+        ...current,
+        nodes: current.nodes.filter((n) => n.id !== nodeId),
+        edges: current.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+      },
+    };
     // Remove child diagram if present
-    const diagrams = { ...s.diagrams };
     if (node?.childDiagramId) {
       delete diagrams[node.childDiagramId];
     }
-    current.nodes = current.nodes.filter((n) => n.id !== nodeId);
-    // Remove edges connected to this node
-    current.edges = current.edges.filter(
-      (e) => e.source !== nodeId && e.target !== nodeId
-    );
     return {
       ...s,
       diagrams,
@@ -434,8 +455,8 @@ export function deleteNode(nodeId: string): void {
   });
 }
 
-export function addEdge(edge: C4Edge): void {
-  const normalized: C4Edge = {
+function normalizeEdge(edge: C4Edge): C4Edge {
+  return {
     markerStart: 'none',
     markerEnd: 'arrow',
     lineStyle: 'solid',
@@ -443,48 +464,41 @@ export function addEdge(edge: C4Edge): void {
     waypoints: [],
     ...edge,
   };
+}
+
+export function addEdge(edge: C4Edge): void {
+  const normalized = normalizeEdge(edge);
   diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
-    current.edges = [...current.edges, normalized];
-    return { ...s, selectedId: normalized.id };
+    const newState = withCurrentDiagram(s, (d) => ({ ...d, edges: [...d.edges, normalized] }));
+    return { ...newState, selectedId: normalized.id };
   });
 }
 
 export function addEdgeToDiagram(diagramId: string, edge: C4Edge): void {
-  const normalized: C4Edge = {
-    markerStart: 'none',
-    markerEnd: 'arrow',
-    lineStyle: 'solid',
-    lineType: 'bezier',
-    waypoints: [],
-    ...edge,
-  };
+  const normalized = normalizeEdge(edge);
   diagramStore.update((s) => {
-    const diagram = s.diagrams[diagramId];
-    if (!diagram) return s;
-    diagram.edges = [...diagram.edges, normalized];
-    return { ...s, selectedId: normalized.id };
+    if (!s.diagrams[diagramId]) return s;
+    const newState = withDiagram(s, diagramId, (d) => ({ ...d, edges: [...d.edges, normalized] }));
+    return { ...newState, selectedId: normalized.id };
   });
 }
 
 export function updateEdge(edgeId: string, patch: Partial<C4Edge>): void {
-  diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
-    current.edges = current.edges.map((e) =>
-      e.id === edgeId ? { ...e, ...patch } : e
-    );
-    return { ...s };
-  });
+  diagramStore.update((s) =>
+    withCurrentDiagram(s, (d) => ({
+      ...d,
+      edges: d.edges.map((e) => (e.id === edgeId ? { ...e, ...patch } : e)),
+    }))
+  );
 }
 
 export function deleteEdge(edgeId: string): void {
   diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
-    current.edges = current.edges.filter((e) => e.id !== edgeId);
-    return {
-      ...s,
-      selectedId: s.selectedId === edgeId ? null : s.selectedId,
-    };
+    const newState = withCurrentDiagram(s, (d) => ({
+      ...d,
+      edges: d.edges.filter((e) => e.id !== edgeId),
+    }));
+    return { ...newState, selectedId: s.selectedId === edgeId ? null : s.selectedId };
   });
 }
 
@@ -506,20 +520,22 @@ export function createChildDiagram(nodeId: string): string {
     const current = getCurrentDiagram(s);
     const node = current.nodes.find((n) => n.id === nodeId);
     if (!node) return s;
-    const childLevel = childLevelFor(node.type);
     const childDiagram: DiagramLevel = {
       id: childId,
-      level: childLevel,
+      level: childLevelFor(node.type),
       label: node.label,
       nodes: [],
       edges: [],
     };
-    current.nodes = current.nodes.map((n) =>
-      n.id === nodeId ? { ...n, childDiagramId: childId } : n
-    );
+    // First update the node's childDiagramId in the current diagram
+    const updatedState = withCurrentDiagram(s, (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, childDiagramId: childId } : n)),
+    }));
+    // Then add the new child diagram (using updatedState.diagrams to preserve the patched node)
     return {
-      ...s,
-      diagrams: { ...s.diagrams, [childId]: childDiagram },
+      ...updatedState,
+      diagrams: { ...updatedState.diagrams, [childId]: childDiagram },
     };
   });
   return childId;
@@ -530,26 +546,33 @@ export function drillDown(nodeId: string): void {
     const current = getCurrentDiagram(s);
     const node = current.nodes.find((n) => n.id === nodeId);
     if (!node) return s;
+
+    let newState = s;
     let childId = node.childDiagramId;
+
     if (!childId) {
-      // Create child diagram inline
       childId = generateId();
-      const childLevel = childLevelFor(node.type);
       const childDiagram: DiagramLevel = {
         id: childId,
-        level: childLevel,
+        level: childLevelFor(node.type),
         label: node.label,
         nodes: [],
         edges: [],
       };
-      current.nodes = current.nodes.map((n) =>
-        n.id === nodeId ? { ...n, childDiagramId: childId } : n
-      );
-      s = { ...s, diagrams: { ...s.diagrams, [childId!]: childDiagram } };
+      // Patch the node first, then add the child diagram entry
+      const updatedState = withCurrentDiagram(s, (d) => ({
+        ...d,
+        nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, childDiagramId: childId } : n)),
+      }));
+      newState = {
+        ...updatedState,
+        diagrams: { ...updatedState.diagrams, [childId]: childDiagram },
+      };
     }
+
     return {
-      ...s,
-      navigationStack: [...s.navigationStack, childId!],
+      ...newState,
+      navigationStack: [...newState.navigationStack, childId],
       selectedId: null,
       focusedParentNodeId: nodeId,
     };
@@ -597,11 +620,12 @@ export function switchFocusToGroup(parentNodeId: string): void {
     if (!parentDiagram) return s;
     const parentNode = parentDiagram.nodes.find((n) => n.id === parentNodeId);
     if (!parentNode?.childDiagramId) return s;
-    const newStack = [...s.navigationStack];
-    newStack[newStack.length - 1] = parentNode.childDiagramId;
     return {
       ...s,
-      navigationStack: newStack,
+      navigationStack: [
+        ...s.navigationStack.slice(0, -1),
+        parentNode.childDiagramId,
+      ],
       focusedParentNodeId: parentNodeId,
       selectedId: null,
     };
@@ -626,20 +650,24 @@ export function setPendingNodeType(type: C4NodeType | null): void {
 
 export function updateNodePositions(updates: Array<{ id: string; position: { x: number; y: number } }>): void {
   diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
     const posMap = new Map(updates.map((u) => [u.id, u.position]));
-    current.nodes = current.nodes.map((n) =>
-      posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n
-    );
+    // Apply position updates immutably then resolve overlaps
+    let newState = withCurrentDiagram(s, (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) => (posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n)),
+    }));
     // Resolve node overlaps for each moved node
+    const currentId = s.navigationStack[s.navigationStack.length - 1];
     for (const { id } of updates) {
-      if (current.nodes.some((n) => n.id === id)) {
-        current.nodes = resolveNodeOverlaps(id, current.nodes);
+      const nodes = newState.diagrams[currentId]?.nodes ?? [];
+      if (nodes.some((n) => n.id === id)) {
+        newState = withDiagram(newState, currentId, (d) => ({
+          ...d,
+          nodes: resolveNodeOverlaps(id, d.nodes),
+        }));
       }
     }
-    let newState = { ...s };
-    newState = resolveBoundaryOverlaps(newState);
-    return newState;
+    return resolveBoundaryOverlaps(newState);
   });
 }
 
@@ -648,14 +676,12 @@ export function updateNodePositionsInDiagram(
   updates: Array<{ id: string; position: { x: number; y: number } }>
 ): void {
   diagramStore.update((s) => {
-    const diagram = s.diagrams[diagramId];
-    if (!diagram) return s;
+    if (!s.diagrams[diagramId]) return s;
     const posMap = new Map(updates.map((u) => [u.id, u.position]));
-    diagram.nodes = diagram.nodes.map((n) =>
-      posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n
-    );
-    let newState = { ...s };
-    newState = resolveBoundaryOverlaps(newState);
-    return newState;
+    const newState = withDiagram(s, diagramId, (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) => (posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n)),
+    }));
+    return resolveBoundaryOverlaps(newState);
   });
 }
