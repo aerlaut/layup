@@ -125,7 +125,7 @@
     zoomOnDoubleClick={false}
     connectionMode={ConnectionMode.Loose}
     connectionRadius={40}
-    deleteKey="Delete"
+    deleteKey={["Delete", "Backspace"]}
     onconnect={handleConnect}
     onreconnect={handleReconnect}
     onnodeclick={handleNodeClick}
