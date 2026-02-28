@@ -3,16 +3,19 @@
     selectedElement,
     updateNodeInDiagram,
     updateEdgeInDiagram,
+    updateAnnotation,
     deleteNodeFromDiagram,
     deleteEdgeFromDiagram,
+    deleteAnnotation,
     setSelected,
   } from '../stores/diagramStore';
-  import type { C4Node, C4Edge } from '../types';
-  import { NODE_DEFAULT_COLORS, EDGE_DEFAULT_COLOR, PASTEL_PALETTE } from '../utils/colors';
+  import type { C4Node, C4Edge, Annotation } from '../types';
+  import { NODE_DEFAULT_COLORS, EDGE_DEFAULT_COLOR, ANNOTATION_DEFAULT_COLORS, PASTEL_PALETTE } from '../utils/colors';
 
   const sel = $derived($selectedElement);
   const selectedNode = $derived(sel?.type === 'node' ? sel.node : null);
   const selectedEdge = $derived(sel?.type === 'edge' ? sel.edge : null);
+  const selectedAnnotation = $derived(sel?.type === 'annotation' ? sel.annotation : null);
   const diagramId = $derived(sel?.diagramId ?? null);
 
   function handleNodeLabelChange(e: Event) {
@@ -93,6 +96,31 @@
   function handleDeleteEdge() {
     if (!selectedEdge || !diagramId) return;
     deleteEdgeFromDiagram(diagramId, selectedEdge.id);
+  }
+
+  function handleAnnotationLabelChange(e: Event) {
+    if (!selectedAnnotation || !diagramId) return;
+    updateAnnotation(diagramId, selectedAnnotation.id, { label: (e.target as HTMLInputElement).value });
+  }
+
+  function handleAnnotationTextChange(e: Event) {
+    if (!selectedAnnotation || !diagramId) return;
+    updateAnnotation(diagramId, selectedAnnotation.id, { text: (e.target as HTMLTextAreaElement).value });
+  }
+
+  function handleAnnotationColorChange(e: Event) {
+    if (!selectedAnnotation || !diagramId) return;
+    updateAnnotation(diagramId, selectedAnnotation.id, { color: (e.target as HTMLInputElement).value });
+  }
+
+  function setAnnotationColor(color: string) {
+    if (!selectedAnnotation || !diagramId) return;
+    updateAnnotation(diagramId, selectedAnnotation.id, { color });
+  }
+
+  function handleDeleteAnnotation() {
+    if (!selectedAnnotation || !diagramId) return;
+    deleteAnnotation(diagramId, selectedAnnotation.id);
   }
 </script>
 
@@ -247,6 +275,58 @@
         </div>
       </div>
       <button class="danger-btn" onclick={handleDeleteEdge}>Delete Relationship</button>
+    </div>
+
+  {:else if selectedAnnotation}
+    <div class="panel-header">
+      <span class="panel-title">Annotation</span>
+      <span class="node-type-chip">{selectedAnnotation.type}</span>
+    </div>
+    <div class="panel-body">
+      <div class="field">
+        <label for="annot-label">Label</label>
+        <input
+          id="annot-label"
+          type="text"
+          value={selectedAnnotation.label}
+          oninput={handleAnnotationLabelChange}
+        />
+      </div>
+      {#if selectedAnnotation.type === 'comment'}
+        <div class="field">
+          <label for="annot-text">Text</label>
+          <textarea
+            id="annot-text"
+            rows="5"
+            value={selectedAnnotation.text ?? ''}
+            oninput={handleAnnotationTextChange}
+          ></textarea>
+        </div>
+      {/if}
+      <div class="field">
+        <label>Color</label>
+        <div class="color-swatches">
+          {#each PASTEL_PALETTE as swatch}
+            <button
+              class="swatch"
+              class:active={(selectedAnnotation.color ?? ANNOTATION_DEFAULT_COLORS[selectedAnnotation.type]) === swatch.color}
+              style="background: {swatch.color};"
+              title={swatch.label}
+              onclick={() => setAnnotationColor(swatch.color)}
+            ></button>
+          {/each}
+        </div>
+        <div class="color-custom">
+          <input
+            id="annot-color"
+            type="color"
+            value={selectedAnnotation.color ?? ANNOTATION_DEFAULT_COLORS[selectedAnnotation.type]}
+            oninput={handleAnnotationColorChange}
+          />
+          <span class="color-value">{selectedAnnotation.color ?? ANNOTATION_DEFAULT_COLORS[selectedAnnotation.type]}</span>
+        </div>
+      </div>
+      <button class="danger-btn" onclick={handleDeleteAnnotation}>Delete Annotation</button>
     </div>
 
   {:else}
