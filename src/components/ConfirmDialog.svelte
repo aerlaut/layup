@@ -1,15 +1,22 @@
 <script lang="ts">
-  export let message: string;
-  export let confirmLabel: string = 'Delete';
-  export let onConfirm: () => void;
-  export let onCancel: () => void;
+  let {
+    message,
+    confirmLabel = 'Delete',
+    onConfirm,
+    onCancel,
+  }: {
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  } = $props();
 </script>
 
 <div class="confirm-dialog">
   <span class="confirm-message">{message}</span>
   <div class="confirm-actions">
-    <button class="confirm-cancel" on:click={onCancel}>Cancel</button>
-    <button class="confirm-delete" on:click={onConfirm}>{confirmLabel}</button>
+    <button class="confirm-cancel" onclick={onCancel}>Cancel</button>
+    <button class="confirm-delete" onclick={onConfirm}>{confirmLabel}</button>
   </div>
 </div>
 
@@ -20,11 +27,11 @@
     justify-content: space-between;
     gap: 12px;
     padding: 10px 14px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+    background: var(--color-danger-bg);
+    border: 1px solid var(--color-danger-border);
     border-radius: var(--border-radius);
     font-size: 0.8rem;
-    color: #991b1b;
+    color: var(--color-danger-text);
   }
 
   .confirm-message {
@@ -54,7 +61,7 @@
   }
 
   .confirm-delete:hover {
-    background: #dc2626;
+    background: var(--color-danger-hover);
     border-color: transparent;
   }
 </style>

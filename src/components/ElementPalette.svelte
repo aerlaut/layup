@@ -23,9 +23,9 @@
     code: ['code-element'],
   };
 
-  $: currentLevel = $currentDiagram?.level ?? 'context';
-  $: allowedTypes = LEVEL_TYPES[currentLevel] ?? [];
-  $: entries = ALL_ENTRIES.filter((e) => allowedTypes.includes(e.type));
+  const currentLevel = $derived($currentDiagram?.level ?? 'context');
+  const allowedTypes = $derived(LEVEL_TYPES[currentLevel] ?? []);
+  const entries = $derived(ALL_ENTRIES.filter((e) => allowedTypes.includes(e.type)));
 
   function handleDragStart(event: DragEvent, type: C4NodeType) {
     if (!event.dataTransfer) return;
@@ -41,7 +41,7 @@
       <div
         class="palette-item"
         draggable="true"
-        on:dragstart={(e) => handleDragStart(e, entry.type)}
+        ondragstart={(e) => handleDragStart(e, entry.type)}
         title={entry.description}
         role="button"
         tabindex="0"
@@ -95,7 +95,7 @@
   }
 
   .palette-item:hover {
-    background: #eff6ff;
+    background: var(--color-primary-bg-light);
     border-color: var(--color-primary);
   }
 
@@ -117,7 +117,7 @@
   .drag-hint {
     margin: 8px;
     padding: 8px;
-    background: #f0f4f8;
+    background: var(--color-hint-bg);
     border-radius: var(--border-radius);
     font-size: 0.75rem;
     color: var(--color-text-muted);
