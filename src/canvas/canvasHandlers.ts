@@ -29,7 +29,7 @@ import {
 } from '../stores/diagramStore';
 
 /** Annotation node types — these bypass C4 hierarchy logic */
-const ANNOTATION_TYPES = new Set<string>(['group', 'comment'] satisfies AnnotationType[]);
+const ANNOTATION_TYPES = new Set<string>(['group', 'note'] satisfies AnnotationType[]);
 import { get } from 'svelte/store';
 import { generateId } from '../utils/id';
 

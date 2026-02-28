@@ -38,7 +38,7 @@ export function toFlowAnnotation(a: Annotation, selectedId?: string | null): Nod
     type: a.type,
     position: a.position,
     selected: a.id === selectedId,
-    // Groups get an explicit resizable size; comments use their natural size
+    // Groups get an explicit resizable size; notes use their natural size
     ...(isGroup && {
       style: `width: ${a.width ?? 240}px; height: ${a.height ?? 180}px;`,
       zIndex: -1,
@@ -227,7 +227,7 @@ export function buildFlowData(
   const annotationNodes: Node[] =
     (annotDiagram?.annotations ?? []).map((a) => toFlowAnnotation(a, selectedId));
 
-  // Render order: groups (back), boundaries, context, active nodes, comments (front)
+  // Render order: groups (back), boundaries, context, active nodes, notes (front)
   return {
     nodes: [...annotationNodes.filter((n) => n.type === 'group'), ...boundaryNodes, ...contextNodes, ...activeNodes, ...annotationNodes.filter((n) => n.type !== 'group')],
     edges: activeEdges,

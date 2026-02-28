@@ -28,7 +28,7 @@ const NODE_DEFAULT_LABELS: Record<C4NodeType, string> = {
 
 const ANNOTATION_DEFAULT_LABELS: Record<AnnotationType, string> = {
   group: 'Group',
-  comment: 'Comment',
+  note: 'Note',
 };
 
 export function handleDragOver(e: DragEvent): void {

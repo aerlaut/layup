@@ -15,7 +15,7 @@ export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
 /** Default primary colors per annotation type */
 export const ANNOTATION_DEFAULT_COLORS: Record<AnnotationType, string> = {
   group: '#d1d5db',
-  comment: '#fbbf24',
+  note: '#fbbf24',
 };
 
 /** Default edge color */

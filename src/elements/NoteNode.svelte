@@ -12,7 +12,7 @@
     [key: string]: unknown;
   } = $props();
 
-  const bg = $derived(data.color ?? ANNOTATION_DEFAULT_COLORS['comment']);
+  const bg = $derived(data.color ?? ANNOTATION_DEFAULT_COLORS['note']);
 
   /** Darken a hex color slightly for the folded-corner shadow effect */
   function darken(hex: string): string {
@@ -85,7 +85,7 @@
 </script>
 
 <div
-  class="comment-node"
+  class="note-node"
   style="background: {bg};"
   role="note"
 >
@@ -96,11 +96,11 @@
   ></div>
 
   <!-- Label / title row -->
-  <div class="comment-label-row">
+  <div class="note-label-row">
     {#if editingLabel}
       <input
         bind:this={labelInputEl}
-        class="comment-label-input"
+        class="note-label-input"
         bind:value={labelValue}
         onblur={commitLabel}
         onkeydown={handleLabelKeyDown}
@@ -108,7 +108,7 @@
       />
     {:else}
       <span
-        class="comment-label nodrag"
+        class="note-label nodrag"
         ondblclick={startEditLabel}
         role="button"
         tabindex="0"
@@ -119,11 +119,11 @@
   </div>
 
   <!-- Body text -->
-  <div class="comment-body">
+  <div class="note-body">
     {#if editingText}
       <textarea
         bind:this={textareaEl}
-        class="comment-textarea nodrag"
+        class="note-textarea nodrag"
         bind:value={textValue}
         onblur={commitText}
         onkeydown={handleTextKeyDown}
@@ -133,7 +133,7 @@
       ></textarea>
     {:else}
       <p
-        class="comment-text nodrag"
+        class="note-text nodrag"
         ondblclick={startEditText}
         role="button"
         tabindex="0"
@@ -145,7 +145,7 @@
 </div>
 
 <style>
-  .comment-node {
+  .note-node {
     position: relative;
     min-width: 160px;
     max-width: 220px;
@@ -169,20 +169,20 @@
     opacity: 0.45;
   }
 
-  .comment-label-row {
+  .note-label-row {
     margin-bottom: 6px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.12);
     padding-bottom: 4px;
   }
 
-  .comment-label {
+  .note-label {
     font-size: 0.75rem;
     font-weight: 700;
     color: rgba(0, 0, 0, 0.75);
     cursor: text;
   }
 
-  .comment-label-input {
+  .note-label-input {
     font-size: 0.75rem;
     font-weight: 700;
     background: transparent;
@@ -194,11 +194,11 @@
     color: rgba(0, 0, 0, 0.75);
   }
 
-  .comment-body {
+  .note-body {
     min-height: 40px;
   }
 
-  .comment-text {
+  .note-text {
     font-size: 0.75rem;
     color: rgba(0, 0, 0, 0.65);
     line-height: 1.5;
@@ -207,7 +207,7 @@
     cursor: text;
   }
 
-  .comment-textarea {
+  .note-textarea {
     font-size: 0.75rem;
     color: rgba(0, 0, 0, 0.75);
     line-height: 1.5;

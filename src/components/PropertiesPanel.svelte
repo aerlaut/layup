@@ -292,7 +292,7 @@
           oninput={handleAnnotationLabelChange}
         />
       </div>
-      {#if selectedAnnotation.type === 'comment'}
+      {#if selectedAnnotation.type === 'note'}
         <div class="field">
           <label for="annot-text">Text</label>
           <textarea

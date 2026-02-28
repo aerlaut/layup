@@ -27,7 +27,7 @@
   import ComponentNode from '../elements/ComponentNode.svelte';
   import BoundaryNode from '../elements/BoundaryNode.svelte';
   import GroupNode from '../elements/GroupNode.svelte';
-  import CommentNode from '../elements/CommentNode.svelte';
+  import NoteNode from '../elements/NoteNode.svelte';
   import C4EdgeComponent from '../elements/C4Edge.svelte';
   import FlowHelper from './FlowHelper.svelte';
   import { buildFlowData } from './flowSync';
@@ -54,7 +54,7 @@
     'code-element': SystemNode,
     boundary: BoundaryNode,
     group: GroupNode,
-    comment: CommentNode,
+    note: NoteNode,
   } as const;
 
   const edgeTypes = {

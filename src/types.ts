@@ -11,7 +11,7 @@ export type C4NodeType =
   | "code-element";
 
 /** Types for free-floating annotative elements that are not part of the C4 hierarchy */
-export type AnnotationType = "group" | "comment";
+export type AnnotationType = "group" | "note";
 
 /** Combined type used by the palette and pending-placement state */
 export type PaletteItemType = C4NodeType | AnnotationType;
@@ -38,7 +38,7 @@ export interface Annotation {
   id: string;
   type: AnnotationType;
   label: string;
-  /** Body text — used by "comment" (post-it) annotations */
+  /** Body text — used by "note" (post-it) annotations */
   text?: string;
   position: { x: number; y: number };
   /** Explicit pixel width (for group boundary box) */
@@ -82,7 +82,7 @@ export interface DiagramLevel {
   label: string;
   nodes: C4Node[];
   edges: C4Edge[];
-  /** Free-floating annotative elements (groups, comments). Never affect C4 hierarchy. */
+  /** Free-floating annotative elements (groups, notes). Never affect C4 hierarchy. */
   annotations: Annotation[];
 }
 

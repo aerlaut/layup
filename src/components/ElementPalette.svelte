@@ -20,7 +20,7 @@
   /** Annotation entries are always shown regardless of the current diagram level */
   const ANNOTATION_ENTRIES: AnnotationPaletteEntry[] = [
     { kind: 'annotation', type: 'group', label: 'Group', description: 'Visual grouping boundary' },
-    { kind: 'annotation', type: 'comment', label: 'Comment', description: 'Post-it style note' },
+    { kind: 'annotation', type: 'note', label: 'Note', description: 'Post-it style note' },
   ];
 
   const LEVEL_TYPES: Record<C4LevelType, C4NodeType[]> = {
