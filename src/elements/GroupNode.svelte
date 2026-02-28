@@ -50,7 +50,7 @@
   style="border-color: {borderColor}; background: {bgColor};"
   role="group"
 >
-  <div class="group-label-area nodrag" ondblclick={startEdit}>
+  <div class="group-label-area nodrag" ondblclick={startEdit} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') startEdit(e as unknown as MouseEvent); }}>
     {#if editing}
       <input
         bind:this={inputEl}
