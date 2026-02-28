@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { isAtRoot, drillUp, currentDiagram, diagramStore } from '../stores/diagramStore';
+  import { isAtRoot, drillUp, diagramStore } from '../stores/diagramStore';
+  import { goHome, activeProject, activeDiagram } from '../stores/appStore';
   import { exportDiagramJSON, importDiagramJSON, ImportError } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
   import { get } from 'svelte/store';
@@ -8,6 +9,10 @@
   export let importError: string | null = null;
 
   let fileInput: HTMLInputElement;
+
+  function handleHome() {
+    goHome();
+  }
 
   function handleExport() {
     exportDiagramJSON(get(diagramStore));
@@ -43,12 +48,23 @@
 
 <div class="toolbar">
   <div class="toolbar-left">
+    <button class="home-btn" on:click={handleHome} title="Back to projects">
+      ← Home
+    </button>
     {#if !$isAtRoot}
       <button class="back-btn" on:click={handleBack} title="Go back (Esc)">
-        ← Back
+        ↑ Up
       </button>
     {/if}
     <span class="app-title">laverop</span>
+    {#if $activeProject}
+      <span class="context-sep">›</span>
+      <span class="context-label project-label" title={$activeProject.name}>{$activeProject.name}</span>
+    {/if}
+    {#if $activeDiagram}
+      <span class="context-sep">›</span>
+      <span class="context-label diagram-label" title={$activeDiagram.name}>{$activeDiagram.name}</span>
+    {/if}
     <BreadcrumbBar />
   </div>
 
@@ -104,15 +120,53 @@
     flex-shrink: 0;
   }
 
+  .home-btn {
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .home-btn:hover {
+    background: var(--color-bg);
+    border-color: var(--color-primary);
+  }
+
   .back-btn {
     background: var(--color-primary);
     color: white;
     border-color: transparent;
     font-weight: 600;
+    flex-shrink: 0;
   }
 
   .back-btn:hover {
     background: var(--color-primary-hover);
     border-color: transparent;
+  }
+
+  .context-sep {
+    color: var(--color-border);
+    font-size: 0.9rem;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .context-label {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+    flex-shrink: 0;
+  }
+
+  .project-label {
+    font-weight: 600;
+  }
+
+  .diagram-label {
+    font-weight: 500;
   }
 </style>
