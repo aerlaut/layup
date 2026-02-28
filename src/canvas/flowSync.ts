@@ -11,11 +11,15 @@ import { NODE_DEFAULT_COLORS } from '../utils/colors';
 // ─── Conversion helpers ───────────────────────────────────────────────────────
 
 export function toFlowNode(n: C4Node, selectedId?: string | null): Node {
+  const isGroup = n.type === 'group';
   return {
     id: n.id,
     type: n.type,
     position: n.position,
     selected: n.id === selectedId,
+    // Groups use a large default size and are not connectable
+    ...(isGroup && { style: 'width: 240px; height: 180px;', zIndex: -1 }),
+    connectable: !isGroup,
     data: {
       label: n.label,
       description: n.description,
