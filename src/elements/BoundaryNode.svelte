@@ -2,7 +2,7 @@
   let {
     data,
   }: {
-    data: { label: string; isFocused: boolean; color?: string };
+    data: { label: string; color?: string };
     [key: string]: unknown;
   } = $props();
 
