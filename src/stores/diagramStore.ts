@@ -30,7 +30,6 @@ export function createInitialDiagramState(): DiagramState {
     navigationStack: [ROOT_DIAGRAM_ID],
     selectedId: null,
     pendingNodeType: null,
-    focusedParentNodeId: null,
   };
 }
 
@@ -114,12 +113,10 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
     .map((n) => {
       const childDiagram = $s.diagrams[n.childDiagramId!];
       const childNodes = childDiagram?.nodes ?? [];
-      const isFocused = $s.focusedParentNodeId === null || n.childDiagramId === currentDiagramId;
       const boundingBox = computeBoundingBox(childNodes, n.position);
       return {
         parentNodeId: n.id,
         parentLabel: n.label,
-        isFocused,
         childNodes,
         boundingBox,
         childDiagramId: n.childDiagramId!,
@@ -604,7 +601,6 @@ export function drillDown(nodeId: string): void {
       ...newState,
       navigationStack: [...newState.navigationStack, childId],
       selectedId: null,
-      focusedParentNodeId: nodeId,
     };
   });
 }
@@ -616,7 +612,6 @@ export function drillUp(): void {
       ...s,
       navigationStack: s.navigationStack.slice(0, -1),
       selectedId: null,
-      focusedParentNodeId: null,
     };
   });
 }
@@ -629,7 +624,6 @@ export function navigateTo(diagramId: string): void {
       ...s,
       navigationStack: s.navigationStack.slice(0, idx + 1),
       selectedId: null,
-      focusedParentNodeId: null,
     };
   });
 }
@@ -640,34 +634,6 @@ export function loadDiagram(state: DiagramState): void {
 
 export function resetDiagram(): void {
   diagramStore.set(createInitialDiagramState());
-}
-
-export function switchFocusToGroup(parentNodeId: string): void {
-  diagramStore.update((s) => {
-    if (s.navigationStack.length <= 1) return s;
-    const parentDiagramId = s.navigationStack[s.navigationStack.length - 2] ?? '';
-    const parentDiagram = s.diagrams[parentDiagramId];
-    if (!parentDiagram) return s;
-    const parentNode = parentDiagram.nodes.find((n) => n.id === parentNodeId);
-    if (!parentNode?.childDiagramId) return s;
-    return {
-      ...s,
-      navigationStack: [
-        ...s.navigationStack.slice(0, -1),
-        parentNode.childDiagramId,
-      ],
-      focusedParentNodeId: parentNodeId,
-      selectedId: null,
-    };
-  });
-}
-
-export function clearGroupFocus(): void {
-  diagramStore.update((s) => ({
-    ...s,
-    focusedParentNodeId: null,
-    selectedId: null,
-  }));
 }
 
 export function setSelected(id: string | null): void {

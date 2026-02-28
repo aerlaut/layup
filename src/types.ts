@@ -98,14 +98,11 @@ export interface DiagramState {
   selectedId: string | null;
   /** If true, user is in "pending place" mode after clicking palette */
   pendingNodeType: PaletteItemType | null;
-  /** ID of the parent node that was drilled into to reach the current diagram, or null if at root */
-  focusedParentNodeId: string | null;
 }
 
 export interface BoundaryGroup {
   parentNodeId: string;
   parentLabel: string;
-  isFocused: boolean;
   childNodes: C4Node[];
   boundingBox: { x: number; y: number; width: number; height: number };
   /** The child diagram ID for this group */
