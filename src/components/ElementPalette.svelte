@@ -1,51 +1,58 @@
 <script lang="ts">
   import { currentDiagram } from '../stores/diagramStore';
-  import type { C4NodeType, C4LevelType } from '../types';
+  import type { AnnotationType, C4NodeType, C4LevelType } from '../types';
 
-  type PaletteEntry = {
-    type: C4NodeType;
-    label: string;
-    description: string;
-  };
+  type C4PaletteEntry = { kind: 'c4'; type: C4NodeType; label: string; description: string };
+  type AnnotationPaletteEntry = { kind: 'annotation'; type: AnnotationType; label: string; description: string };
+  type PaletteEntry = C4PaletteEntry | AnnotationPaletteEntry;
 
-  const ALL_ENTRIES: PaletteEntry[] = [
-    { type: 'person', label: 'Person', description: 'An internal actor/user' },
-    { type: 'external-person', label: 'External Person', description: 'An external actor/user' },
-    { type: 'system', label: 'Software System', description: 'An internal system' },
-    { type: 'external-system', label: 'External System', description: 'A third-party system' },
-    { type: 'container', label: 'Container', description: 'App, service, or runtime' },
-    { type: 'database', label: 'Database', description: 'Data store, file system' },
-    { type: 'component', label: 'Component', description: 'A grouped set of code' },
-    { type: 'code-element', label: 'Code Element', description: 'Class, function, etc.' },
-    { type: 'group', label: 'Group', description: 'Visual grouping boundary' },
+  const C4_ENTRIES: C4PaletteEntry[] = [
+    { kind: 'c4', type: 'person', label: 'Person', description: 'An internal actor/user' },
+    { kind: 'c4', type: 'external-person', label: 'External Person', description: 'An external actor/user' },
+    { kind: 'c4', type: 'system', label: 'Software System', description: 'An internal system' },
+    { kind: 'c4', type: 'external-system', label: 'External System', description: 'A third-party system' },
+    { kind: 'c4', type: 'container', label: 'Container', description: 'App, service, or runtime' },
+    { kind: 'c4', type: 'database', label: 'Database', description: 'Data store, file system' },
+    { kind: 'c4', type: 'component', label: 'Component', description: 'A grouped set of code' },
+    { kind: 'c4', type: 'code-element', label: 'Code Element', description: 'Class, function, etc.' },
+  ];
+
+  /** Annotation entries are always shown regardless of the current diagram level */
+  const ANNOTATION_ENTRIES: AnnotationPaletteEntry[] = [
+    { kind: 'annotation', type: 'group', label: 'Group', description: 'Visual grouping boundary' },
+    { kind: 'annotation', type: 'comment', label: 'Comment', description: 'Post-it style note' },
   ];
 
   const LEVEL_TYPES: Record<C4LevelType, C4NodeType[]> = {
-    context: ['person', 'external-person', 'system', 'external-system', 'group'],
-    container: ['container', 'database', 'group'],
-    component: ['component', 'group'],
-    code: ['code-element', 'group'],
+    context: ['person', 'external-person', 'system', 'external-system'],
+    container: ['container', 'database'],
+    component: ['component'],
+    code: ['code-element'],
   };
 
   const currentLevel = $derived($currentDiagram?.level ?? 'context');
-  const allowedTypes = $derived(LEVEL_TYPES[currentLevel] ?? []);
-  const entries = $derived(ALL_ENTRIES.filter((e) => allowedTypes.includes(e.type)));
+  const allowedC4Types = $derived(LEVEL_TYPES[currentLevel] ?? []);
+  const c4Entries = $derived(C4_ENTRIES.filter((e) => allowedC4Types.includes(e.type)));
 
-  function handleDragStart(event: DragEvent, type: C4NodeType) {
+  function handleDragStart(event: DragEvent, entry: PaletteEntry) {
     if (!event.dataTransfer) return;
-    event.dataTransfer.setData('application/c4-node-type', type);
+    if (entry.kind === 'c4') {
+      event.dataTransfer.setData('application/c4-node-type', entry.type);
+    } else {
+      event.dataTransfer.setData('application/annotation-type', entry.type);
+    }
     event.dataTransfer.effectAllowed = 'copy';
   }
 </script>
 
 <div class="palette">
-  <div class="palette-header">Elements</div>
+  <div class="palette-header">C4 Elements</div>
   <div class="palette-list">
-    {#each entries as entry (entry.type)}
+    {#each c4Entries as entry (entry.type)}
       <div
         class="palette-item"
         draggable="true"
-        ondragstart={(e) => handleDragStart(e, entry.type)}
+        ondragstart={(e) => handleDragStart(e, entry)}
         title={entry.description}
         role="button"
         tabindex="0"
@@ -55,6 +62,24 @@
       </div>
     {/each}
   </div>
+
+  <div class="palette-header annotations-header">Annotations</div>
+  <div class="palette-list">
+    {#each ANNOTATION_ENTRIES as entry (entry.type)}
+      <div
+        class="palette-item annotation-item"
+        draggable="true"
+        ondragstart={(e) => handleDragStart(e, entry)}
+        title={entry.description}
+        role="button"
+        tabindex="0"
+      >
+        <span class="item-label">{entry.label}</span>
+        <span class="item-desc">{entry.description}</span>
+      </div>
+    {/each}
+  </div>
+
   <div class="drag-hint">Drag onto canvas to place</div>
 </div>
 
@@ -101,6 +126,17 @@
   .palette-item:hover {
     background: var(--color-primary-bg-light);
     border-color: var(--color-primary);
+  }
+
+  .annotation-item:hover {
+    background: #fffbeb;
+    border-color: #f59e0b;
+  }
+
+  .annotations-header {
+    margin-top: 4px;
+    border-top: 1px solid var(--color-border);
+    padding-top: 12px;
   }
 
   .palette-item:active {

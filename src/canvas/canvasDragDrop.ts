@@ -4,11 +4,12 @@
  * Palette drag-and-drop handlers for DiagramCanvas. Extracted to keep
  * DiagramCanvas.svelte thin.
  */
-import type { C4Node, C4NodeType } from '../types';
+import type { Annotation, AnnotationType, C4Node, C4NodeType } from '../types';
 import {
   diagramStore,
   addNode as storeAddNode,
   addNodeToDiagram,
+  addAnnotation,
   contextBoundaries,
 } from '../stores/diagramStore';
 import { get } from 'svelte/store';
@@ -23,13 +24,18 @@ const NODE_DEFAULT_LABELS: Record<C4NodeType, string> = {
   database: 'Database',
   component: 'Component',
   'code-element': 'Code Element',
+};
+
+const ANNOTATION_DEFAULT_LABELS: Record<AnnotationType, string> = {
   group: 'Group',
+  comment: 'Comment',
 };
 
 export function handleDragOver(e: DragEvent): void {
-  if (!e.dataTransfer?.types.includes('application/c4-node-type')) return;
+  const types = e.dataTransfer?.types ?? [];
+  if (!types.includes('application/c4-node-type') && !types.includes('application/annotation-type')) return;
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'copy';
+  e.dataTransfer!.dropEffect = 'copy';
 }
 
 export function makeHandleDrop(
@@ -37,9 +43,28 @@ export function makeHandleDrop(
 ): (e: DragEvent) => void {
   return (e: DragEvent) => {
     if (!e.dataTransfer) return;
-    const nodeType = e.dataTransfer.getData('application/c4-node-type') as C4NodeType;
     const screenToFlowPosition = getScreenToFlowPosition();
-    if (!nodeType || !screenToFlowPosition) return;
+    if (!screenToFlowPosition) return;
+
+    // ── Annotation drop (no boundary constraint) ──────────────────────────────
+    const annotationType = e.dataTransfer.getData('application/annotation-type') as AnnotationType | '';
+    if (annotationType) {
+      e.preventDefault();
+      const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const newAnnotation: Annotation = {
+        id: generateId(),
+        type: annotationType,
+        label: ANNOTATION_DEFAULT_LABELS[annotationType],
+        text: '',
+        position: flowPos,
+      };
+      addAnnotation(newAnnotation);
+      return;
+    }
+
+    // ── C4 node drop (boundary-constrained when drilled in) ───────────────────
+    const nodeType = e.dataTransfer.getData('application/c4-node-type') as C4NodeType | '';
+    if (!nodeType) return;
     e.preventDefault();
 
     const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
