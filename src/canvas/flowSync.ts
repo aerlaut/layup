@@ -23,6 +23,7 @@ export function toFlowNode(n: C4Node, selectedId?: string | null): Node {
       technology: n.technology,
       childDiagramId: n.childDiagramId,
       color: n.color,
+      members: n.members,
     },
   };
 }
@@ -30,20 +31,22 @@ export function toFlowNode(n: C4Node, selectedId?: string | null): Node {
 /**
  * Convert an Annotation to a SvelteFlow Node.
  * Annotations are always free-floating: never connectable, never parented to boundaries.
+ * Groups and packages are resizable containers rendered behind content (zIndex -1).
+ * Notes are rendered in front (zIndex 10).
  */
 export function toFlowAnnotation(a: Annotation, selectedId?: string | null): Node {
-  const isGroup = a.type === 'group';
+  const isContainer = a.type === 'group' || a.type === 'package';
   return {
     id: a.id,
     type: a.type,
     position: a.position,
     selected: a.id === selectedId,
-    // Groups get an explicit resizable size; notes use their natural size
-    ...(isGroup && {
+    // Container annotations (group, package) get explicit resizable sizes and sit behind content
+    ...(isContainer && {
       style: `width: ${a.width ?? 240}px; height: ${a.height ?? 180}px;`,
       zIndex: -1,
     }),
-    ...(!isGroup && { zIndex: 10 }),
+    ...(!isContainer && { zIndex: 10 }),
     connectable: false,
     draggable: true,
     data: {
@@ -73,6 +76,10 @@ export function toFlowEdge(e: C4Edge, selectedId: string | null): Edge {
       lineType: e.lineType ?? 'bezier',
       waypoints: e.waypoints ?? [],
       color: e.color,
+      multiplicitySource: e.multiplicitySource,
+      multiplicityTarget: e.multiplicityTarget,
+      roleSource: e.roleSource,
+      roleTarget: e.roleTarget,
     },
   };
 }
@@ -172,9 +179,11 @@ export function buildFlowData(
   const annotationNodes: Node[] =
     (annotDiagram?.annotations ?? []).map((a) => toFlowAnnotation(a, selectedId));
 
-  // Render order: groups (back), boundaries, active nodes, notes (front)
+  // Render order: containers (group/package — back), boundaries, active nodes, notes (front)
+  const containerAnnotations = annotationNodes.filter((n) => n.type === 'group' || n.type === 'package');
+  const foregroundAnnotations = annotationNodes.filter((n) => n.type !== 'group' && n.type !== 'package');
   return {
-    nodes: [...annotationNodes.filter((n) => n.type === 'group'), ...boundaryNodes, ...activeNodes, ...annotationNodes.filter((n) => n.type !== 'group')],
+    nodes: [...containerAnnotations, ...boundaryNodes, ...activeNodes, ...foregroundAnnotations],
     edges: activeEdges,
   };
 }

@@ -33,6 +33,7 @@ const NODE_DEFAULT_LABELS: Record<C4NodeType, string> = {
 const ANNOTATION_DEFAULT_LABELS: Record<AnnotationType, string> = {
   group: 'Group',
   note: 'Note',
+  package: 'Package',
 };
 
 export function handleDragOver(e: DragEvent): void {
