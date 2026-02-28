@@ -70,7 +70,7 @@
   let flowFitView: ((options?: { duration?: number }) => void) | undefined;
 
   // Build event handlers that need access to screenToFlowPosition
-  const handlePaneClick = makeHandlePaneClick(() => screenToFlowPosition);
+  const handlePaneClick = makeHandlePaneClick();
   const handleNodeDragStop = makeHandleNodeDragStop(() => nodes);
   const handleDblClick = makeHandleDblClick(
     () => screenToFlowPosition,

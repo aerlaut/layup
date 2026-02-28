@@ -13,6 +13,8 @@ import {
   addEdgeToDiagram,
   deleteNode as storeDeleteNode,
   deleteEdge as storeDeleteEdge,
+  deleteNodeFromDiagram,
+  deleteEdgeFromDiagram,
   deleteAnnotation,
   updateEdge as storeUpdateEdge,
   updateEdgeInDiagram,
@@ -23,8 +25,6 @@ import {
   getAnnotationDiagramId,
   drillDown,
   drillUp,
-  switchFocusToGroup,
-  clearGroupFocus,
   contextBoundaries,
 } from '../stores/diagramStore';
 
@@ -37,44 +37,51 @@ import { generateId } from '../utils/id';
 
 export function handleConnect(conn: Connection): void {
   const state = get(diagramStore);
-  // Reject connections in no-focus mode (when multiple groups are visible)
-  if (state.focusedParentNodeId === null && state.navigationStack.length > 1) return;
-
   const srcId = conn.source;
   const tgtId = conn.target;
-  const isCtxSrc = srcId.startsWith('ctx-');
-  const isCtxTgt = tgtId.startsWith('ctx-');
 
-  if (isCtxSrc || isCtxTgt) {
-    // Cross-group edge: store on the parent diagram
-    if (state.navigationStack.length <= 1) return;
-    const parentDiagramId = state.navigationStack[state.navigationStack.length - 2] ?? '';
-    const currentDiagramId = state.navigationStack[state.navigationStack.length - 1] ?? '';
-    const realSrcId = isCtxSrc ? srcId.slice(4) : srcId;
-    const realTgtId = isCtxTgt ? tgtId.slice(4) : tgtId;
-    const boundaries = get(contextBoundaries);
-
-    const sourceGroupId = isCtxSrc
-      ? boundaries.find((g) => g.childNodes.some((n) => n.id === realSrcId))?.childDiagramId
-      : currentDiagramId;
-    const targetGroupId = isCtxTgt
-      ? boundaries.find((g) => g.childNodes.some((n) => n.id === realTgtId))?.childDiagramId
-      : currentDiagramId;
-
-    addEdgeToDiagram(parentDiagramId, {
+  if (state.navigationStack.length <= 1) {
+    // At root level: simple intra-diagram edge
+    storeAddEdge({
       id: generateId(),
-      source: realSrcId,
-      target: realTgtId,
+      source: srcId,
+      target: tgtId,
       sourceHandle: conn.sourceHandle ?? undefined,
       targetHandle: conn.targetHandle ?? undefined,
       label: '',
       description: '',
       technology: '',
-      sourceGroupId,
-      targetGroupId,
+    });
+    return;
+  }
+
+  // Drilled in: determine which child diagram each node belongs to
+  const boundaries = get(contextBoundaries);
+  const currentDiagramId = state.navigationStack[state.navigationStack.length - 1] ?? '';
+  const parentDiagramId = state.navigationStack[state.navigationStack.length - 2] ?? '';
+
+  const srcGroup = boundaries.find((g) => g.childNodes.some((n) => n.id === srcId));
+  const tgtGroup = boundaries.find((g) => g.childNodes.some((n) => n.id === tgtId));
+  const srcDiagramId = srcGroup?.childDiagramId ?? currentDiagramId;
+  const tgtDiagramId = tgtGroup?.childDiagramId ?? currentDiagramId;
+
+  if (srcDiagramId !== tgtDiagramId) {
+    // Cross-group edge: store on the parent diagram
+    addEdgeToDiagram(parentDiagramId, {
+      id: generateId(),
+      source: srcId,
+      target: tgtId,
+      sourceHandle: conn.sourceHandle ?? undefined,
+      targetHandle: conn.targetHandle ?? undefined,
+      label: '',
+      description: '',
+      technology: '',
+      sourceGroupId: srcDiagramId,
+      targetGroupId: tgtDiagramId,
     });
   } else {
-    storeAddEdge({
+    // Intra-group edge: store on the group's child diagram
+    addEdgeToDiagram(srcDiagramId, {
       id: generateId(),
       source: srcId,
       target: tgtId,
@@ -114,34 +121,9 @@ export function handleReconnect(oldEdge: Edge, newConnection: Connection): void 
 
 export function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }): void {
   if (node.id.startsWith('boundary-')) {
-    const parentNodeId = node.id.replace('boundary-', '');
-    const s = get(diagramStore);
-    if (s.focusedParentNodeId === null && s.navigationStack.length > 1) {
-      switchFocusToGroup(parentNodeId);
-    }
-    setSelected(parentNodeId);
+    // Clicking a boundary selects its parent node in the parent diagram
+    setSelected(node.id.replace('boundary-', ''));
     return;
-  }
-  if (node.id.startsWith('ctx-')) {
-    const realId = node.id.slice(4);
-    const boundaries = get(contextBoundaries);
-    const group = boundaries.find((g) => g.childNodes.some((n) => n.id === realId));
-    if (group) {
-      switchFocusToGroup(group.parentNodeId);
-      setSelected(realId);
-    }
-    return;
-  }
-  // In no-focus mode, clicking an active node focuses its group
-  const s = get(diagramStore);
-  if (s.focusedParentNodeId === null && s.navigationStack.length > 1) {
-    const boundaries = get(contextBoundaries);
-    const group = boundaries.find((g) => g.childNodes.some((n) => n.id === node.id));
-    if (group) {
-      switchFocusToGroup(group.parentNodeId);
-      setSelected(node.id);
-      return;
-    }
   }
   setSelected(node.id);
 }
@@ -154,31 +136,8 @@ export function handleEdgeClick({ edge }: { edge: Edge; event: MouseEvent }): vo
 
 // ─── Pane click ───────────────────────────────────────────────────────────────
 
-export function makeHandlePaneClick(
-  getScreenToFlowPosition: () => ((pos: { x: number; y: number }) => { x: number; y: number }) | undefined,
-): (ev: { event: MouseEvent }) => void {
-  return ({ event }: { event: MouseEvent }) => {
-    const s = get(diagramStore);
-    const isNoFocus = s.focusedParentNodeId === null && s.navigationStack.length > 1;
-    const screenToFlowPosition = getScreenToFlowPosition();
-
-    if (screenToFlowPosition && s.navigationStack.length > 1) {
-      const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      const boundaries = get(contextBoundaries);
-      const clickedGroup = boundaries.find((g) => {
-        if (g.isFocused && !isNoFocus) return false;
-        const bb = g.boundingBox;
-        return flowPos.x >= bb.x && flowPos.x <= bb.x + bb.width &&
-               flowPos.y >= bb.y && flowPos.y <= bb.y + bb.height;
-      });
-      if (clickedGroup) {
-        switchFocusToGroup(clickedGroup.parentNodeId);
-        return;
-      }
-      clearGroupFocus();
-      return;
-    }
-
+export function makeHandlePaneClick(): (ev: { event: MouseEvent }) => void {
+  return () => {
     setSelected(null);
   };
 }
@@ -265,15 +224,45 @@ export function makeHandleNodeDragStop(
 export function handleDelete({ nodes: delNodes, edges: delEdges }: { nodes: Node[]; edges: Edge[] }): void {
   const s = get(diagramStore);
   const annotDiagramId = getAnnotationDiagramId(s);
+  const currentDiagramId = s.navigationStack[s.navigationStack.length - 1] ?? '';
+  const boundaries = get(contextBoundaries);
+
   for (const n of delNodes) {
     if (n.id.startsWith('boundary-')) continue;
     if (ANNOTATION_TYPES.has(n.type ?? '')) {
       deleteAnnotation(annotDiagramId, n.id);
     } else {
-      storeDeleteNode(n.id);
+      // Check if this node belongs to a sibling group's diagram
+      const group = boundaries.find((g) => g.childNodes.some((cn) => cn.id === n.id));
+      if (group && group.childDiagramId !== currentDiagramId) {
+        deleteNodeFromDiagram(group.childDiagramId, n.id);
+      } else {
+        storeDeleteNode(n.id);
+      }
     }
   }
-  for (const e of delEdges) storeDeleteEdge(e.id);
+
+  for (const e of delEdges) {
+    // Cross-group edges live on the parent diagram
+    if (s.navigationStack.length > 1) {
+      const parentDiagramId = s.navigationStack[s.navigationStack.length - 2] ?? '';
+      if (s.diagrams[parentDiagramId]?.edges.some((pe) => pe.id === e.id)) {
+        deleteEdgeFromDiagram(parentDiagramId, e.id);
+        continue;
+      }
+      // Intra-group edges for sibling diagrams
+      const siblingGroup = boundaries.find(
+        (g) =>
+          g.childDiagramId !== currentDiagramId &&
+          s.diagrams[g.childDiagramId]?.edges.some((se) => se.id === e.id),
+      );
+      if (siblingGroup) {
+        deleteEdgeFromDiagram(siblingGroup.childDiagramId, e.id);
+        continue;
+      }
+    }
+    storeDeleteEdge(e.id);
+  }
 }
 
 // ─── Double-click (drill down/up) ─────────────────────────────────────────────
