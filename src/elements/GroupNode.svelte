@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { NodeResizer } from '@xyflow/svelte';
+  import type { ResizeDragEvent, ResizeParamsWithDirection } from '@xyflow/svelte';
   import { updateAnnotation, getAnnotationDiagramId, diagramStore } from '../stores/diagramStore';
   import { ANNOTATION_DEFAULT_COLORS } from '../utils/colors';
   import { get } from 'svelte/store';
@@ -21,6 +23,14 @@
 
   function getAnnotDiagramId(): string {
     return getAnnotationDiagramId(get(diagramStore));
+  }
+
+  function handleResizeEnd(_event: ResizeDragEvent, params: ResizeParamsWithDirection) {
+    updateAnnotation(getAnnotDiagramId(), id, {
+      width: Math.round(params.width),
+      height: Math.round(params.height),
+      position: { x: params.x, y: params.y },
+    });
   }
 
   function startEdit(e: MouseEvent) {
@@ -48,6 +58,13 @@
   style="border-color: {borderColor}; background: {bgColor};"
   role="group"
 >
+  <NodeResizer
+    minWidth={120}
+    minHeight={80}
+    lineStyle="border-color: {borderColor}; opacity: 0.6;"
+    handleStyle="background: {borderColor}; border-color: {borderColor}; opacity: 0.8;"
+    onResizeEnd={handleResizeEnd}
+  />
   <div
     class="group-label-area nodrag"
     ondblclick={startEdit}
