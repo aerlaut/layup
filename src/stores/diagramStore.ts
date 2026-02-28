@@ -511,10 +511,14 @@ export function deleteEdge(edgeId: string): void {
 function childLevelFor(nodeType: C4NodeType): C4LevelType {
   const map: Record<C4NodeType, C4LevelType> = {
     person: 'component',
+    'external-person': 'component',
     system: 'container',
+    'external-system': 'container',
     container: 'component',
+    database: 'code',
     component: 'code',
     'code-element': 'code',
+    group: 'code',
   };
   return map[nodeType];
 }
