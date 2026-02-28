@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import type { DiagramState, DiagramLevel, C4Node, C4Edge, C4NodeType, C4LevelType, BoundaryGroup } from '../types';
+import { generateId } from '../utils/id';
 
 export const SCHEMA_VERSION = 1;
 
@@ -500,7 +501,7 @@ function childLevelFor(nodeType: C4NodeType): C4LevelType {
 }
 
 export function createChildDiagram(nodeId: string): string {
-  const childId = `diagram-${nodeId}`;
+  const childId = generateId();
   diagramStore.update((s) => {
     const current = getCurrentDiagram(s);
     const node = current.nodes.find((n) => n.id === nodeId);
@@ -532,7 +533,7 @@ export function drillDown(nodeId: string): void {
     let childId = node.childDiagramId;
     if (!childId) {
       // Create child diagram inline
-      childId = `diagram-${nodeId}`;
+      childId = generateId();
       const childLevel = childLevelFor(node.type);
       const childDiagram: DiagramLevel = {
         id: childId,

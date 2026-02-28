@@ -36,6 +36,7 @@
   } from '../stores/diagramStore';
   import type { C4Node, C4Edge, C4NodeType } from '../types';
   import { NODE_DEFAULT_COLORS } from '../utils/colors';
+  import { generateId } from '../utils/id';
   import PersonNode from '../elements/PersonNode.svelte';
   import SystemNode from '../elements/SystemNode.svelte';
   import ContainerNode from '../elements/ContainerNode.svelte';
@@ -297,7 +298,7 @@
         : currentDiagramId;
 
       addEdgeToDiagram(parentDiagramId, {
-        id: `edge-${Date.now()}`,
+        id: generateId(),
         source: realSrcId,
         target: realTgtId,
         sourceHandle: conn.sourceHandle ?? undefined,
@@ -310,7 +311,7 @@
       });
     } else {
       storeAddEdge({
-        id: `edge-${Date.now()}`,
+        id: generateId(),
         source: srcId,
         target: tgtId,
         sourceHandle: conn.sourceHandle ?? undefined,
@@ -560,7 +561,7 @@
     const isAtRoot = s.navigationStack.length === 1;
 
     const newNode: C4Node = {
-      id: `node-${Date.now()}`,
+      id: generateId(),
       type: nodeType,
       label: defaultLabel(nodeType),
       description: '',

@@ -1,18 +1,9 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Account, AppState, AppView, DiagramMeta, Project } from '../types';
 import { diagramStore, loadDiagram, resetDiagram, SCHEMA_VERSION } from './diagramStore';
+import { generateId } from '../utils/id';
 
 export const APP_STATE_VERSION = 1;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function generateId(): string {
-  // crypto.randomUUID may not be available in all test envs; fallback
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
 
 function createDefaultAccount(): Account {
   const now = Date.now();
