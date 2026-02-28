@@ -8,8 +8,13 @@ export type C4NodeType =
   | "container"
   | "database"
   | "component"
-  | "code-element"
-  | "group";
+  | "code-element";
+
+/** Types for free-floating annotative elements that are not part of the C4 hierarchy */
+export type AnnotationType = "group" | "comment";
+
+/** Combined type used by the palette and pending-placement state */
+export type PaletteItemType = C4NodeType | AnnotationType;
 
 export interface C4Node {
   id: string;
@@ -21,6 +26,26 @@ export interface C4Node {
   /** ID of the child DiagramLevel this node drills into */
   childDiagramId?: string;
   /** Custom color (hex) for this node; uses type default if omitted */
+  color?: string;
+}
+
+/**
+ * A free-floating annotative element. Annotations are stored separately from
+ * C4 nodes and are never subject to boundary grouping, overlap resolution,
+ * or drill-down navigation. They can be placed anywhere on the canvas.
+ */
+export interface Annotation {
+  id: string;
+  type: AnnotationType;
+  label: string;
+  /** Body text — used by "comment" (post-it) annotations */
+  text?: string;
+  position: { x: number; y: number };
+  /** Explicit pixel width (for group boundary box) */
+  width?: number;
+  /** Explicit pixel height (for group boundary box) */
+  height?: number;
+  /** Custom color (hex) */
   color?: string;
 }
 
@@ -57,6 +82,8 @@ export interface DiagramLevel {
   label: string;
   nodes: C4Node[];
   edges: C4Edge[];
+  /** Free-floating annotative elements (groups, comments). Never affect C4 hierarchy. */
+  annotations: Annotation[];
 }
 
 export interface DiagramState {
@@ -70,7 +97,7 @@ export interface DiagramState {
   /** Currently selected node or edge ID, or null */
   selectedId: string | null;
   /** If true, user is in "pending place" mode after clicking palette */
-  pendingNodeType: C4NodeType | null;
+  pendingNodeType: PaletteItemType | null;
   /** ID of the parent node that was drilled into to reach the current diagram, or null if at root */
   focusedParentNodeId: string | null;
 }
