@@ -1,6 +1,15 @@
 export type C4LevelType = "context" | "container" | "component" | "code";
 
-export type C4NodeType = "person" | "system" | "container" | "component" | "code-element";
+export type C4NodeType =
+  | "person"
+  | "external-person"
+  | "system"
+  | "external-system"
+  | "container"
+  | "database"
+  | "component"
+  | "code-element"
+  | "group";
 
 export interface C4Node {
   id: string;

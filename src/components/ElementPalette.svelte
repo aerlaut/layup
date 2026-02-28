@@ -9,18 +9,22 @@
   };
 
   const ALL_ENTRIES: PaletteEntry[] = [
-    { type: 'person', label: 'Person', description: 'An actor/user' },
-    { type: 'system', label: 'Software System', description: 'A system boundary' },
-    { type: 'container', label: 'Container', description: 'App, service, DB' },
+    { type: 'person', label: 'Person', description: 'An internal actor/user' },
+    { type: 'external-person', label: 'External Person', description: 'An external actor/user' },
+    { type: 'system', label: 'Software System', description: 'An internal system' },
+    { type: 'external-system', label: 'External System', description: 'A third-party system' },
+    { type: 'container', label: 'Container', description: 'App, service, or runtime' },
+    { type: 'database', label: 'Database', description: 'Data store, file system' },
     { type: 'component', label: 'Component', description: 'A grouped set of code' },
     { type: 'code-element', label: 'Code Element', description: 'Class, function, etc.' },
+    { type: 'group', label: 'Group', description: 'Visual grouping boundary' },
   ];
 
   const LEVEL_TYPES: Record<C4LevelType, C4NodeType[]> = {
-    context: ['person', 'system'],
-    container: ['container'],
-    component: ['component'],
-    code: ['code-element'],
+    context: ['person', 'external-person', 'system', 'external-system', 'group'],
+    container: ['container', 'database', 'group'],
+    component: ['component', 'group'],
+    code: ['code-element', 'group'],
   };
 
   const currentLevel = $derived($currentDiagram?.level ?? 'context');

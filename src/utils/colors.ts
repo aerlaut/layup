@@ -3,10 +3,14 @@ import type { C4NodeType } from '../types';
 /** Default primary colors per node type */
 export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
   person: '#3b82f6',
+  'external-person': '#94a3b8',
   system: '#22c55e',
+  'external-system': '#64748b',
   container: '#f59e0b',
+  database: '#0ea5e9',
   component: '#a855f7',
   'code-element': '#6b7280',
+  group: '#d1d5db',
 };
 
 /** Default edge color */

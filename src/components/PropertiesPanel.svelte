@@ -121,7 +121,7 @@
           oninput={handleNodeDescChange}
         ></textarea>
       </div>
-      {#if selectedNode.type !== 'person' && selectedNode.type !== 'system'}
+      {#if selectedNode.type !== 'person' && selectedNode.type !== 'external-person' && selectedNode.type !== 'system' && selectedNode.type !== 'external-system' && selectedNode.type !== 'group'}
         <div class="field">
           <label for="node-tech">Technology</label>
           <input

@@ -16,10 +16,14 @@ import { generateId } from '../utils/id';
 
 const NODE_DEFAULT_LABELS: Record<C4NodeType, string> = {
   person: 'Person',
+  'external-person': 'External Person',
   system: 'Software System',
+  'external-system': 'External System',
   container: 'Container',
+  database: 'Database',
   component: 'Component',
   'code-element': 'Code Element',
+  group: 'Group',
 };
 
 export function handleDragOver(e: DragEvent): void {

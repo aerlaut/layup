@@ -19,10 +19,14 @@
     selectedId,
   } from '../stores/diagramStore';
   import PersonNode from '../elements/PersonNode.svelte';
+  import ExternalPersonNode from '../elements/ExternalPersonNode.svelte';
   import SystemNode from '../elements/SystemNode.svelte';
+  import ExternalSystemNode from '../elements/ExternalSystemNode.svelte';
   import ContainerNode from '../elements/ContainerNode.svelte';
+  import DatabaseNode from '../elements/DatabaseNode.svelte';
   import ComponentNode from '../elements/ComponentNode.svelte';
   import BoundaryNode from '../elements/BoundaryNode.svelte';
+  import GroupNode from '../elements/GroupNode.svelte';
   import C4EdgeComponent from '../elements/C4Edge.svelte';
   import FlowHelper from './FlowHelper.svelte';
   import { buildFlowData } from './flowSync';
@@ -40,11 +44,15 @@
 
   const nodeTypes = {
     person: PersonNode,
+    'external-person': ExternalPersonNode,
     system: SystemNode,
+    'external-system': ExternalSystemNode,
     container: ContainerNode,
+    database: DatabaseNode,
     component: ComponentNode,
     'code-element': SystemNode,
     boundary: BoundaryNode,
+    group: GroupNode,
   } as const;
 
   const edgeTypes = {

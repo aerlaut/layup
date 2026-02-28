@@ -253,6 +253,8 @@ export function deleteEdgeFromDiagram(diagramId: string, edgeId: string): void {
 
 /** Check if two node bounding boxes intersect */
 function nodesOverlap(a: C4Node, b: C4Node): boolean {
+  // Groups are purely visual — never participate in overlap resolution
+  if (a.type === 'group' || b.type === 'group') return false;
   return (
     a.position.x < b.position.x + NODE_DEFAULT_WIDTH &&
     a.position.x + NODE_DEFAULT_WIDTH > b.position.x &&
@@ -511,10 +513,14 @@ export function deleteEdge(edgeId: string): void {
 function childLevelFor(nodeType: C4NodeType): C4LevelType {
   const map: Record<C4NodeType, C4LevelType> = {
     person: 'component',
+    'external-person': 'component',
     system: 'container',
+    'external-system': 'container',
     container: 'component',
+    database: 'code',
     component: 'code',
     'code-element': 'code',
+    group: 'code',
   };
   return map[nodeType];
 }
