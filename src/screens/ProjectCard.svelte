@@ -98,7 +98,7 @@
     <div class="project-actions">
       <button class="menu-btn" on:click={handleMenuToggle} title="Project actions">⋯</button>
       {#if showMenu}
-        <div class="menu-dropdown" on:click|stopPropagation>
+        <div class="menu-dropdown" on:click|stopPropagation role="menu">
           <button class="menu-item" on:click={handleRenameStart}>Rename</button>
           <button class="menu-item danger" on:click={handleDeleteRequest}>Delete</button>
         </div>

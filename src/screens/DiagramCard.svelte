@@ -108,7 +108,7 @@
   </div>
 
   {#if showDeleteConfirm}
-    <div class="diagram-confirm" on:click|stopPropagation>
+    <div class="diagram-confirm" on:click|stopPropagation role="presentation">
       <ConfirmDialog
         message="Delete this diagram?"
         onConfirm={handleDeleteConfirm}
@@ -119,7 +119,7 @@
     <div class="diagram-menu-wrapper">
       <button class="menu-btn" on:click={handleMenuToggle} title="Actions">⋯</button>
       {#if showMenu}
-        <div class="menu-dropdown" on:click|stopPropagation>
+        <div class="menu-dropdown" on:click|stopPropagation role="menu">
           <button class="menu-item" on:click={handleRenameStart}>Rename</button>
           <button class="menu-item" on:click={handleDuplicate}>Duplicate</button>
           <button class="menu-item danger" on:click={handleDeleteRequest}>Delete</button>
