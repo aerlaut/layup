@@ -6,24 +6,30 @@
  * the event handler. Extracted from DiagramCanvas to keep it thin.
  */
 import type { Node, Edge, Connection } from '@xyflow/svelte';
-import type { C4Edge } from '../types';
+import type { AnnotationType, C4Edge } from '../types';
 import {
   diagramStore,
   addEdge as storeAddEdge,
   addEdgeToDiagram,
   deleteNode as storeDeleteNode,
   deleteEdge as storeDeleteEdge,
+  deleteAnnotation,
   updateEdge as storeUpdateEdge,
   updateEdgeInDiagram,
   setSelected,
   updateNodePositions,
   updateNodePositionsInDiagram,
+  updateAnnotationPositions,
+  getAnnotationDiagramId,
   drillDown,
   drillUp,
   switchFocusToGroup,
   clearGroupFocus,
   contextBoundaries,
 } from '../stores/diagramStore';
+
+/** Annotation node types — these bypass C4 hierarchy logic */
+const ANNOTATION_TYPES = new Set<string>(['group', 'comment'] satisfies AnnotationType[]);
 import { get } from 'svelte/store';
 import { generateId } from '../utils/id';
 
@@ -205,10 +211,19 @@ export function makeHandleNodeDragStop(
       updateNodePositionsInDiagram(group.childDiagramId, childUpdates);
     }
 
-    // Regular node drags: convert relative (to boundary) → absolute positions
+    // Regular node drags: split annotations from C4 nodes, then route separately
     if (regularDrags.length > 0) {
+      const annotDiagramId = getAnnotationDiagramId(s);
+      const annotUpdates: Array<{ id: string; position: { x: number; y: number } }> = [];
       const updatesByDiagram = new Map<string, Array<{ id: string; position: { x: number; y: number } }>>();
+
       for (const n of regularDrags) {
+        // Annotations are never parented to boundaries — update their store directly
+        if (ANNOTATION_TYPES.has(n.type ?? '')) {
+          annotUpdates.push({ id: n.id, position: n.position });
+          continue;
+        }
+
         if (n.parentId?.startsWith('boundary-')) {
           const boundaryFlowNode = allNodes.find((bn) => bn.id === n.parentId);
           if (!boundaryFlowNode) continue;
@@ -228,6 +243,11 @@ export function makeHandleNodeDragStop(
           updatesByDiagram.get(currentDiagramId)!.push({ id: n.id, position: n.position });
         }
       }
+
+      if (annotUpdates.length > 0) {
+        updateAnnotationPositions(annotDiagramId, annotUpdates);
+      }
+
       const currentDiagramId = s.navigationStack[s.navigationStack.length - 1] ?? '';
       for (const [diagramId, updates] of updatesByDiagram) {
         if (diagramId === currentDiagramId) {
@@ -243,9 +263,15 @@ export function makeHandleNodeDragStop(
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
 export function handleDelete({ nodes: delNodes, edges: delEdges }: { nodes: Node[]; edges: Edge[] }): void {
+  const s = get(diagramStore);
+  const annotDiagramId = getAnnotationDiagramId(s);
   for (const n of delNodes) {
     if (n.id.startsWith('boundary-')) continue;
-    storeDeleteNode(n.id);
+    if (ANNOTATION_TYPES.has(n.type ?? '')) {
+      deleteAnnotation(annotDiagramId, n.id);
+    } else {
+      storeDeleteNode(n.id);
+    }
   }
   for (const e of delEdges) storeDeleteEdge(e.id);
 }
@@ -278,6 +304,7 @@ export function makeHandleDblClick(
     const nodeId = nodeEl.getAttribute('data-id');
     if (!nodeId) return;
     const c4node = getCurrentDiagramNodes().find((n) => n.id === nodeId);
+    // Annotations never drill down; person nodes never drill down either
     if (!c4node || c4node.type === 'person') return;
     drillDown(nodeId);
   };
