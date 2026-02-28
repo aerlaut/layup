@@ -1,6 +1,9 @@
 import {
   saveToLocalStorage,
   loadFromLocalStorage,
+  saveAppState,
+  loadAppState,
+  migrateFromLegacy,
   getLocalStorageUsageBytes,
   isNearStorageLimit,
   parseDiagramJSON,
@@ -8,7 +11,8 @@ import {
   debounce,
 } from '../../src/utils/persistence';
 import { SCHEMA_VERSION } from '../../src/stores/diagramStore';
-import type { DiagramState } from '../../src/types';
+import { createInitialAppState, APP_STATE_VERSION } from '../../src/stores/appStore';
+import type { AppState, DiagramState } from '../../src/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -151,6 +155,107 @@ describe('isNearStorageLimit', () => {
   it('returns false for small data', () => {
     saveToLocalStorage(makeValidState());
     expect(isNearStorageLimit()).toBe(false);
+  });
+});
+
+// ─── AppState localStorage ────────────────────────────────────────────────────
+
+describe('saveAppState / loadAppState', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('round-trips an AppState', () => {
+    const state = createInitialAppState();
+    saveAppState(state);
+    const loaded = loadAppState();
+    expect(loaded).toEqual(state);
+  });
+
+  it('returns null when nothing is stored', () => {
+    expect(loadAppState()).toBeNull();
+  });
+
+  it('returns null on corrupted data', () => {
+    localStorage.setItem('laverop_app', '{broken json');
+    expect(loadAppState()).toBeNull();
+  });
+
+  it('returns null when stored value is not an object', () => {
+    localStorage.setItem('laverop_app', '"hello"');
+    expect(loadAppState()).toBeNull();
+  });
+
+  it('returns null when version is missing', () => {
+    localStorage.setItem('laverop_app', JSON.stringify({ account: {}, projects: {} }));
+    expect(loadAppState()).toBeNull();
+  });
+});
+
+// ─── migrateFromLegacy ────────────────────────────────────────────────────────
+
+describe('migrateFromLegacy', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('returns null when no legacy data exists', () => {
+    expect(migrateFromLegacy()).toBeNull();
+  });
+
+  it('wraps legacy DiagramState in an AppState', () => {
+    const legacyState = makeValidState();
+    localStorage.setItem('laverop_diagram', JSON.stringify(legacyState));
+
+    const migrated = migrateFromLegacy();
+    expect(migrated).not.toBeNull();
+    expect(migrated!.version).toBe(APP_STATE_VERSION);
+    expect(migrated!.account).toBeDefined();
+
+    const projects = Object.values(migrated!.projects);
+    expect(projects).toHaveLength(1);
+    const diagrams = Object.values(projects[0].diagrams);
+    expect(diagrams).toHaveLength(1);
+    expect(diagrams[0].state).toEqual(legacyState);
+  });
+
+  it('deletes the legacy key after migration', () => {
+    const legacyState = makeValidState();
+    localStorage.setItem('laverop_diagram', JSON.stringify(legacyState));
+
+    migrateFromLegacy();
+    expect(localStorage.getItem('laverop_diagram')).toBeNull();
+  });
+
+  it('returns null on corrupted legacy data', () => {
+    localStorage.setItem('laverop_diagram', '{broken');
+    expect(migrateFromLegacy()).toBeNull();
+  });
+
+  it('returns null when legacy data is not a valid DiagramState', () => {
+    localStorage.setItem('laverop_diagram', JSON.stringify({ foo: 'bar' }));
+    expect(migrateFromLegacy()).toBeNull();
+  });
+});
+
+// ─── getLocalStorageUsageBytes with AppState ──────────────────────────────────
+
+describe('getLocalStorageUsageBytes with AppState key', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('returns size from laverop_app key', () => {
+    const state = createInitialAppState();
+    saveAppState(state);
+    const bytes = getLocalStorageUsageBytes();
+    expect(bytes).toBeGreaterThan(0);
+  });
+
+  it('falls back to legacy key if app key missing', () => {
+    saveToLocalStorage(makeValidState());
+    const bytes = getLocalStorageUsageBytes();
+    expect(bytes).toBeGreaterThan(0);
   });
 });
 

@@ -1,11 +1,67 @@
-import type { DiagramState } from '../types';
+import type { AppState, DiagramState } from '../types';
 import { SCHEMA_VERSION } from '../stores/diagramStore';
+import { APP_STATE_VERSION, createInitialAppState } from '../stores/appStore';
 
 const STORAGE_KEY = 'laverop_diagram';
+const STORAGE_KEY_APP = 'laverop_app';
 const STORAGE_WARN_BYTES = 4 * 1024 * 1024; // 4 MB
 
-// ─── localStorage ─────────────────────────────────────────────────────────────
+// ─── AppState localStorage ────────────────────────────────────────────────────
 
+export function saveAppState(state: AppState): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_APP, JSON.stringify(state));
+  } catch (e) {
+    console.warn('laverop: failed to save app state to localStorage', e);
+  }
+}
+
+export function loadAppState(): AppState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_APP);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AppState;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    if (typeof parsed.version !== 'number') return null;
+    return parsed;
+  } catch (e) {
+    console.warn('laverop: failed to load app state from localStorage', e);
+    return null;
+  }
+}
+
+/**
+ * Migrate from legacy single-diagram format (laverop_diagram) to AppState.
+ * Returns the migrated AppState, or null if no legacy data exists.
+ * Deletes the legacy key on success.
+ */
+export function migrateFromLegacy(): AppState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const diagramState = JSON.parse(raw) as DiagramState;
+    if (typeof diagramState !== 'object' || diagramState === null) return null;
+    if (!diagramState.diagrams || typeof diagramState.rootId !== 'string') return null;
+
+    const appState = createInitialAppState();
+    // Replace the default diagram's state with the legacy one
+    const projectId = Object.keys(appState.projects)[0];
+    const diagramId = Object.keys(appState.projects[projectId].diagrams)[0];
+    appState.projects[projectId].diagrams[diagramId].state = diagramState;
+
+    // Remove legacy key
+    localStorage.removeItem(STORAGE_KEY);
+
+    return appState;
+  } catch (e) {
+    console.warn('laverop: failed to migrate legacy data', e);
+    return null;
+  }
+}
+
+// ─── Legacy localStorage (deprecated — kept for migration) ────────────────────
+
+/** @deprecated Use saveAppState instead */
 export function saveToLocalStorage(state: DiagramState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -14,6 +70,7 @@ export function saveToLocalStorage(state: DiagramState): void {
   }
 }
 
+/** @deprecated Use loadAppState instead */
 export function loadFromLocalStorage(): DiagramState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -28,7 +85,8 @@ export function loadFromLocalStorage(): DiagramState | null {
 
 export function getLocalStorageUsageBytes(): number {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    // Check new key first, fall back to legacy
+    const raw = localStorage.getItem(STORAGE_KEY_APP) ?? localStorage.getItem(STORAGE_KEY);
     if (!raw) return 0;
     return new Blob([raw]).size;
   } catch {
