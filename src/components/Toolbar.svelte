@@ -6,9 +6,9 @@
   import { get } from 'svelte/store';
   import { loadDiagram } from '../stores/diagramStore';
 
-  export let importError: string | null = null;
+  let { importError = $bindable<string | null>(null) }: { importError?: string | null } = $props();
 
-  let fileInput: HTMLInputElement;
+  let fileInput: HTMLInputElement | undefined = $state();
 
   function handleHome() {
     goHome();
@@ -44,15 +44,15 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} />
 
 <div class="toolbar">
   <div class="toolbar-left">
-    <button class="home-btn" on:click={handleHome} title="Back to projects">
+    <button class="home-btn" onclick={handleHome} title="Back to projects">
       ← Home
     </button>
     {#if !$isAtRoot}
-      <button class="back-btn" on:click={handleBack} title="Go back (Esc)">
+      <button class="back-btn" onclick={handleBack} title="Go back (Esc)">
         ↑ Up
       </button>
     {/if}
@@ -69,10 +69,10 @@
   </div>
 
   <div class="toolbar-right">
-    <button on:click={handleExport} title="Export diagram as JSON">
+    <button onclick={handleExport} title="Export diagram as JSON">
       Export JSON
     </button>
-    <button on:click={() => fileInput.click()} title="Import diagram from JSON">
+    <button onclick={() => fileInput?.click()} title="Import diagram from JSON">
       Import JSON
     </button>
     <input
@@ -80,7 +80,7 @@
       type="file"
       accept=".json,application/json"
       style="display:none"
-      on:change={handleImport}
+      onchange={handleImport}
     />
   </div>
 </div>

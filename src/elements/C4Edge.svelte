@@ -72,19 +72,25 @@
         { x: targetX, y: targetY },
       ];
       // Use quadratic curves for smooth corners
-      let d = `M ${points[0].x} ${points[0].y}`;
+      const firstPt = points[0]!;
+      let d = `M ${firstPt.x} ${firstPt.y}`;
       for (let i = 1; i < points.length - 1; i++) {
+        const pi = points[i]!;
+        const pNext = points[i + 1]!;
         const mid = {
-          x: (points[i].x + points[i + 1].x) / 2,
-          y: (points[i].y + points[i + 1].y) / 2,
+          x: (pi.x + pNext.x) / 2,
+          y: (pi.y + pNext.y) / 2,
         };
-        d += ` Q ${points[i].x} ${points[i].y} ${mid.x} ${mid.y}`;
+        d += ` Q ${pi.x} ${pi.y} ${mid.x} ${mid.y}`;
       }
-      d += ` L ${points[points.length - 1].x} ${points[points.length - 1].y}`;
+      const lastPt = points[points.length - 1]!;
+      d += ` L ${lastPt.x} ${lastPt.y}`;
       // Center label on the midpoint of the path
       const midIdx = Math.floor(points.length / 2);
-      const lx = (points[midIdx - 1].x + points[midIdx].x) / 2;
-      const ly = (points[midIdx - 1].y + points[midIdx].y) / 2;
+      const pMid = points[midIdx]!;
+      const pMidPrev = points[midIdx - 1]!;
+      const lx = (pMidPrev.x + pMid.x) / 2;
+      const ly = (pMidPrev.y + pMid.y) / 2;
       return [d, lx, ly] as [string, number, number];
     }
     const pathParams = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition };
@@ -183,7 +189,7 @@
     let bestIdx = waypoints.length; // default: append at end
     let bestDist = Infinity;
     for (let i = 0; i < allPoints.length - 1; i++) {
-      const dist = distToSegment(svgPt, allPoints[i], allPoints[i + 1]);
+      const dist = distToSegment(svgPt, allPoints[i]!, allPoints[i + 1]!);
       if (dist < bestDist) {
         bestDist = dist;
         bestIdx = i;

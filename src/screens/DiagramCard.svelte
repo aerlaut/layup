@@ -3,14 +3,13 @@
   import { openDiagram, deleteDiagram, duplicateDiagram, renameDiagram } from '../stores/appStore';
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
 
-  export let projectId: string;
-  export let diagram: DiagramMeta;
+  let { projectId, diagram }: { projectId: string; diagram: DiagramMeta } = $props();
 
-  let showMenu = false;
-  let isRenaming = false;
-  let renameValue = '';
-  let showDeleteConfirm = false;
-  let renameInput: HTMLInputElement;
+  let showMenu = $state(false);
+  let isRenaming = $state(false);
+  let renameValue = $state('');
+  let showDeleteConfirm = $state(false);
+  let renameInput: HTMLInputElement | undefined = $state();
 
   function formatRelativeTime(timestamp: number): string {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -23,6 +22,8 @@
     if (days < 30) return `${days}d ago`;
     return new Date(timestamp).toLocaleDateString();
   }
+
+  const timeAgo = $derived(formatRelativeTime(diagram.updatedAt));
 
   function handleClick() {
     if (isRenaming || showDeleteConfirm) return;
@@ -39,7 +40,6 @@
     showMenu = false;
     isRenaming = true;
     renameValue = diagram.name;
-    // Focus input after Svelte renders it
     requestAnimationFrame(() => renameInput?.focus());
   }
 
@@ -77,16 +77,20 @@
     showDeleteConfirm = false;
   }
 
-  function handleClickOutsideMenu(e: MouseEvent) {
+  function handleClickOutsideMenu() {
     if (showMenu) showMenu = false;
   }
-
-  $: timeAgo = formatRelativeTime(diagram.updatedAt);
 </script>
 
-<svelte:window on:click={handleClickOutsideMenu} />
+<svelte:window onclick={handleClickOutsideMenu} />
 
-<div class="diagram-card" on:click={handleClick} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && handleClick()}>
+<div
+  class="diagram-card"
+  onclick={handleClick}
+  role="button"
+  tabindex="0"
+  onkeydown={(e) => e.key === 'Enter' && handleClick()}
+>
   <div class="diagram-card-icon">📊</div>
 
   <div class="diagram-card-body">
@@ -97,9 +101,9 @@
         class="rename-input"
         type="text"
         bind:value={renameValue}
-        on:blur={handleRenameConfirm}
-        on:keydown={handleRenameKeyDown}
-        on:click|stopPropagation
+        onblur={handleRenameConfirm}
+        onkeydown={handleRenameKeyDown}
+        onclick={(e) => e.stopPropagation()}
       />
     {:else}
       <span class="diagram-name">{diagram.name}</span>
@@ -108,7 +112,7 @@
   </div>
 
   {#if showDeleteConfirm}
-    <div class="diagram-confirm" on:click|stopPropagation role="presentation">
+    <div class="diagram-confirm" onclick={(e) => e.stopPropagation()} role="presentation">
       <ConfirmDialog
         message="Delete this diagram?"
         onConfirm={handleDeleteConfirm}
@@ -117,12 +121,12 @@
     </div>
   {:else}
     <div class="diagram-menu-wrapper">
-      <button class="menu-btn" on:click={handleMenuToggle} title="Actions">⋯</button>
+      <button class="menu-btn" onclick={handleMenuToggle} title="Actions">⋯</button>
       {#if showMenu}
-        <div class="menu-dropdown" on:click|stopPropagation role="menu">
-          <button class="menu-item" on:click={handleRenameStart}>Rename</button>
-          <button class="menu-item" on:click={handleDuplicate}>Duplicate</button>
-          <button class="menu-item danger" on:click={handleDeleteRequest}>Delete</button>
+        <div class="menu-dropdown" onclick={(e) => e.stopPropagation()} role="menu">
+          <button class="menu-item" onclick={handleRenameStart}>Rename</button>
+          <button class="menu-item" onclick={handleDuplicate}>Duplicate</button>
+          <button class="menu-item danger" onclick={handleDeleteRequest}>Delete</button>
         </div>
       {/if}
     </div>
@@ -238,7 +242,7 @@
   }
 
   .menu-item.danger:hover {
-    background: #fef2f2;
+    background: var(--color-danger-bg);
   }
 
   .diagram-confirm {

@@ -10,11 +10,10 @@
   import type { C4Node, C4Edge } from '../types';
   import { NODE_DEFAULT_COLORS, EDGE_DEFAULT_COLOR, PASTEL_PALETTE } from '../utils/colors';
 
-  $: sel = $selectedElement;
-
-  $: selectedNode = sel?.type === 'node' ? sel.node : null;
-  $: selectedEdge = sel?.type === 'edge' ? sel.edge : null;
-  $: diagramId = sel?.diagramId ?? null;
+  const sel = $derived($selectedElement);
+  const selectedNode = $derived(sel?.type === 'node' ? sel.node : null);
+  const selectedEdge = $derived(sel?.type === 'edge' ? sel.edge : null);
+  const diagramId = $derived(sel?.diagramId ?? null);
 
   function handleNodeLabelChange(e: Event) {
     if (!selectedNode || !diagramId) return;
@@ -110,7 +109,7 @@
           id="node-label"
           type="text"
           value={selectedNode.label}
-          on:input={handleNodeLabelChange}
+          oninput={handleNodeLabelChange}
         />
       </div>
       <div class="field">
@@ -119,7 +118,7 @@
           id="node-desc"
           rows="3"
           value={selectedNode.description ?? ''}
-          on:input={handleNodeDescChange}
+          oninput={handleNodeDescChange}
         ></textarea>
       </div>
       {#if selectedNode.type !== 'person' && selectedNode.type !== 'system'}
@@ -129,7 +128,7 @@
             id="node-tech"
             type="text"
             value={selectedNode.technology ?? ''}
-            on:input={handleNodeTechChange}
+            oninput={handleNodeTechChange}
           />
         </div>
       {/if}
@@ -142,7 +141,7 @@
               class:active={(selectedNode.color ?? NODE_DEFAULT_COLORS[selectedNode.type]) === swatch.color}
               style="background: {swatch.color};"
               title={swatch.label}
-              on:click={() => setNodeColor(swatch.color)}
+              onclick={() => setNodeColor(swatch.color)}
             ></button>
           {/each}
         </div>
@@ -151,12 +150,12 @@
             id="node-color"
             type="color"
             value={selectedNode.color ?? NODE_DEFAULT_COLORS[selectedNode.type]}
-            on:input={handleNodeColorChange}
+            oninput={handleNodeColorChange}
           />
           <span class="color-value">{selectedNode.color ?? NODE_DEFAULT_COLORS[selectedNode.type]}</span>
         </div>
       </div>
-      <button class="danger-btn" on:click={handleDeleteNode}>Delete Element</button>
+      <button class="danger-btn" onclick={handleDeleteNode}>Delete Element</button>
     </div>
 
   {:else if selectedEdge}
@@ -170,7 +169,7 @@
           id="edge-label"
           type="text"
           value={selectedEdge.label ?? ''}
-          on:input={handleEdgeLabelChange}
+          oninput={handleEdgeLabelChange}
         />
       </div>
       <div class="field">
@@ -179,7 +178,7 @@
           id="edge-desc"
           rows="3"
           value={selectedEdge.description ?? ''}
-          on:input={handleEdgeDescChange}
+          oninput={handleEdgeDescChange}
         ></textarea>
       </div>
       <div class="field">
@@ -188,12 +187,12 @@
           id="edge-tech"
           type="text"
           value={selectedEdge.technology ?? ''}
-          on:input={handleEdgeTechChange}
+          oninput={handleEdgeTechChange}
         />
       </div>
       <div class="field">
         <label for="edge-marker-start">Start Marker</label>
-        <select id="edge-marker-start" value={selectedEdge.markerStart ?? 'none'} on:change={handleMarkerStartChange}>
+        <select id="edge-marker-start" value={selectedEdge.markerStart ?? 'none'} onchange={handleMarkerStartChange}>
           <option value="none">None</option>
           <option value="arrow">Arrow</option>
           <option value="dot">Dot</option>
@@ -201,7 +200,7 @@
       </div>
       <div class="field">
         <label for="edge-marker-end">End Marker</label>
-        <select id="edge-marker-end" value={selectedEdge.markerEnd ?? 'arrow'} on:change={handleMarkerEndChange}>
+        <select id="edge-marker-end" value={selectedEdge.markerEnd ?? 'arrow'} onchange={handleMarkerEndChange}>
           <option value="none">None</option>
           <option value="arrow">Arrow</option>
           <option value="dot">Dot</option>
@@ -209,7 +208,7 @@
       </div>
       <div class="field">
         <label for="edge-line-type">Line Type</label>
-        <select id="edge-line-type" value={selectedEdge.lineType ?? 'bezier'} on:change={handleLineTypeChange}>
+        <select id="edge-line-type" value={selectedEdge.lineType ?? 'bezier'} onchange={handleLineTypeChange}>
           <option value="bezier">Bezier</option>
           <option value="straight">Straight</option>
           <option value="step">Step</option>
@@ -218,7 +217,7 @@
       </div>
       <div class="field">
         <label for="edge-line-style">Line Style</label>
-        <select id="edge-line-style" value={selectedEdge.lineStyle ?? 'solid'} on:change={handleLineStyleChange}>
+        <select id="edge-line-style" value={selectedEdge.lineStyle ?? 'solid'} onchange={handleLineStyleChange}>
           <option value="solid">Solid</option>
           <option value="dashed">Dashed</option>
           <option value="dotted">Dotted</option>
@@ -233,7 +232,7 @@
               class:active={(selectedEdge.color ?? EDGE_DEFAULT_COLOR) === swatch.color}
               style="background: {swatch.color};"
               title={swatch.label}
-              on:click={() => setEdgeColor(swatch.color)}
+              onclick={() => setEdgeColor(swatch.color)}
             ></button>
           {/each}
         </div>
@@ -242,12 +241,12 @@
             id="edge-color"
             type="color"
             value={selectedEdge.color ?? EDGE_DEFAULT_COLOR}
-            on:input={handleEdgeColorChange}
+            oninput={handleEdgeColorChange}
           />
           <span class="color-value">{selectedEdge.color ?? EDGE_DEFAULT_COLOR}</span>
         </div>
       </div>
-      <button class="danger-btn" on:click={handleDeleteEdge}>Delete Relationship</button>
+      <button class="danger-btn" onclick={handleDeleteEdge}>Delete Relationship</button>
     </div>
 
   {:else}
@@ -364,7 +363,7 @@
   }
 
   .danger-btn:hover {
-    background: #fef2f2;
+    background: var(--color-danger-bg);
   }
 
   .panel-empty {

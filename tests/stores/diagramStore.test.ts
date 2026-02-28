@@ -60,6 +60,13 @@ function getState(): DiagramState {
   return get(diagramStore);
 }
 
+/** Returns the childDiagramId of a node in the root diagram, asserting it exists. */
+function getChildDiagramId(nodeId: string): string {
+  const node = getState().diagrams['root'].nodes.find((n) => n.id === nodeId);
+  if (!node?.childDiagramId) throw new Error(`Node ${nodeId} has no childDiagramId`);
+  return node.childDiagramId;
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
@@ -76,13 +83,13 @@ describe('getCurrentDiagram', () => {
     expect(current.level).toBe('context');
   });
 
-  it('returns the last diagram in the navigation stack', () => {
+  it('returns the last diagram in the navigation stack after drill-down', () => {
     const node = makeNode({ id: 'sys1', type: 'system', label: 'System' });
     addNode(node);
     drillDown('sys1');
     const state = getState();
-    const current = getCurrentDiagram(state);
-    expect(current.id).toBe('diagram-sys1');
+    const childId = getChildDiagramId('sys1');
+    expect(getCurrentDiagram(state).id).toBe(childId);
   });
 });
 
@@ -169,11 +176,12 @@ describe('addNodeToDiagram', () => {
   it('adds a node to a specific diagram', () => {
     addNode(makeNode({ id: 'sys1', type: 'system' }));
     drillDown('sys1');
+    const childId = getChildDiagramId('sys1');
     const node = makeNode({ id: 'child1' });
-    addNodeToDiagram('diagram-sys1', node);
+    addNodeToDiagram(childId, node);
     const state = getState();
-    expect(state.diagrams['diagram-sys1'].nodes).toHaveLength(1);
-    expect(state.diagrams['diagram-sys1'].nodes[0].id).toBe('child1');
+    expect(state.diagrams[childId].nodes).toHaveLength(1);
+    expect(state.diagrams[childId].nodes[0].id).toBe('child1');
   });
 
   it('does nothing for a non-existent diagram', () => {
@@ -194,7 +202,7 @@ describe('updateNode', () => {
 
   it('does not affect other nodes', () => {
     addNode(makeNode({ id: 'n1', label: 'A' }));
-    addNode(makeNode({ id: 'n2', label: 'B' }));
+    addNode(makeNode({ id: 'n2', label: 'B', position: { x: 300, y: 0 } }));
     updateNode('n1', { label: 'Updated' });
     const current = getCurrentDiagram(getState());
     expect(current.nodes.find((n) => n.id === 'n2')!.label).toBe('B');
@@ -252,9 +260,10 @@ describe('deleteNode', () => {
   it('removes child diagram when deleting a node with childDiagramId', () => {
     addNode(makeNode({ id: 'sys1', type: 'system' }));
     createChildDiagram('sys1');
-    expect(getState().diagrams['diagram-sys1']).toBeDefined();
+    const childId = getChildDiagramId('sys1');
+    expect(getState().diagrams[childId]).toBeDefined();
     deleteNode('sys1');
-    expect(getState().diagrams['diagram-sys1']).toBeUndefined();
+    expect(getState().diagrams[childId]).toBeUndefined();
   });
 });
 
@@ -384,11 +393,12 @@ describe('drillDown', () => {
   it('creates a child diagram and navigates to it', () => {
     addNode(makeNode({ id: 'sys1', type: 'system', label: 'My System' }));
     drillDown('sys1');
+    const childId = getChildDiagramId('sys1');
     const state = getState();
-    expect(state.navigationStack).toEqual(['root', 'diagram-sys1']);
-    expect(state.diagrams['diagram-sys1']).toBeDefined();
-    expect(state.diagrams['diagram-sys1'].level).toBe('container');
-    expect(state.diagrams['diagram-sys1'].label).toBe('My System');
+    expect(state.navigationStack).toEqual(['root', childId]);
+    expect(state.diagrams[childId]).toBeDefined();
+    expect(state.diagrams[childId].level).toBe('container');
+    expect(state.diagrams[childId].label).toBe('My System');
   });
 
   it('sets focusedParentNodeId', () => {
@@ -407,11 +417,12 @@ describe('drillDown', () => {
   it('reuses existing child diagram on subsequent drill-downs', () => {
     addNode(makeNode({ id: 'sys1', type: 'system' }));
     drillDown('sys1');
+    const childId = getChildDiagramId('sys1');
     // Add a node to the child diagram
     addNode(makeNode({ id: 'child1' }));
     drillUp();
     drillDown('sys1');
-    const childDiagram = getState().diagrams['diagram-sys1'];
+    const childDiagram = getState().diagrams[childId];
     expect(childDiagram.nodes).toHaveLength(1);
     expect(childDiagram.nodes[0].id).toBe('child1');
   });
@@ -424,27 +435,27 @@ describe('drillDown', () => {
 
   it('maps node types to correct child levels', () => {
     // system → container
-    addNode(makeNode({ id: 's1', type: 'system' }));
+    addNode(makeNode({ id: 's1', type: 'system', position: { x: 0, y: 0 } }));
     drillDown('s1');
-    expect(getState().diagrams['diagram-s1'].level).toBe('container');
+    expect(getCurrentDiagram(getState()).level).toBe('container');
     drillUp();
 
     // container → component
     addNode(makeNode({ id: 'c1', type: 'container', position: { x: 300, y: 0 } }));
     drillDown('c1');
-    expect(getState().diagrams['diagram-c1'].level).toBe('component');
+    expect(getCurrentDiagram(getState()).level).toBe('component');
     drillUp();
 
     // person → component
     addNode(makeNode({ id: 'p1', type: 'person', position: { x: 600, y: 0 } }));
     drillDown('p1');
-    expect(getState().diagrams['diagram-p1'].level).toBe('component');
+    expect(getCurrentDiagram(getState()).level).toBe('component');
     drillUp();
 
     // component → code
     addNode(makeNode({ id: 'comp1', type: 'component', position: { x: 900, y: 0 } }));
     drillDown('comp1');
-    expect(getState().diagrams['diagram-comp1'].level).toBe('code');
+    expect(getCurrentDiagram(getState()).level).toBe('code');
   });
 });
 
@@ -484,8 +495,9 @@ describe('navigateTo', () => {
   it('does nothing for a diagram not in the stack', () => {
     addNode(makeNode({ id: 'sys1', type: 'system' }));
     drillDown('sys1');
+    const childId = getChildDiagramId('sys1');
     navigateTo('nonexistent');
-    expect(getState().navigationStack).toEqual(['root', 'diagram-sys1']);
+    expect(getState().navigationStack).toEqual(['root', childId]);
   });
 });
 
@@ -495,11 +507,12 @@ describe('switchFocusToGroup', () => {
     addNode(makeNode({ id: 'sys2', type: 'system', position: { x: 500, y: 0 } }));
     createChildDiagram('sys1');
     createChildDiagram('sys2');
+    const child2Id = getChildDiagramId('sys2');
     drillDown('sys1');
 
     switchFocusToGroup('sys2');
     const state = getState();
-    expect(state.navigationStack[state.navigationStack.length - 1]).toBe('diagram-sys2');
+    expect(state.navigationStack[state.navigationStack.length - 1]).toBe(child2Id);
     expect(state.focusedParentNodeId).toBe('sys2');
   });
 
@@ -526,13 +539,21 @@ describe('createChildDiagram', () => {
   it('creates a child diagram and links the parent node', () => {
     addNode(makeNode({ id: 'sys1', type: 'system', label: 'System' }));
     const childId = createChildDiagram('sys1');
-    expect(childId).toBe('diagram-sys1');
     const state = getState();
-    expect(state.diagrams['diagram-sys1']).toBeDefined();
-    expect(state.diagrams['diagram-sys1'].level).toBe('container');
-    expect(state.diagrams['diagram-sys1'].label).toBe('System');
+    expect(childId).toBeTruthy();
+    expect(state.diagrams[childId]).toBeDefined();
+    expect(state.diagrams[childId].level).toBe('container');
+    expect(state.diagrams[childId].label).toBe('System');
     const parentNode = state.diagrams['root'].nodes.find((n) => n.id === 'sys1');
-    expect(parentNode!.childDiagramId).toBe('diagram-sys1');
+    expect(parentNode!.childDiagramId).toBe(childId);
+  });
+
+  it('returns a unique ID each call', () => {
+    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'sys2', type: 'system', position: { x: 300, y: 0 } }));
+    const id1 = createChildDiagram('sys1');
+    const id2 = createChildDiagram('sys2');
+    expect(id1).not.toBe(id2);
   });
 });
 
@@ -649,5 +670,46 @@ describe('resetDiagram', () => {
     expect(getCurrentDiagram(state).edges).toHaveLength(0);
     expect(state.selectedId).toBeNull();
     expect(state.pendingNodeType).toBeNull();
+  });
+});
+
+// ── State immutability ─────────────────────────────────────────────────────────
+
+describe('state immutability', () => {
+  it('addNode does not mutate previous state', () => {
+    const before = getState();
+    const beforeNodes = before.diagrams['root'].nodes;
+    addNode(makeNode({ id: 'n1' }));
+    // The original array reference must be unchanged
+    expect(beforeNodes).toHaveLength(0);
+    expect(getState().diagrams['root'].nodes).toHaveLength(1);
+  });
+
+  it('addEdge does not mutate previous state', () => {
+    addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
+    const before = getState();
+    const beforeEdges = before.diagrams['root'].edges;
+    addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
+    expect(beforeEdges).toHaveLength(0);
+    expect(getState().diagrams['root'].edges).toHaveLength(1);
+  });
+
+  it('updateNode does not mutate previous state', () => {
+    addNode(makeNode({ id: 'n1', label: 'Original' }));
+    const before = getState();
+    const beforeNode = before.diagrams['root'].nodes[0];
+    updateNode('n1', { label: 'Changed' });
+    expect(beforeNode.label).toBe('Original');
+    expect(getState().diagrams['root'].nodes[0].label).toBe('Changed');
+  });
+
+  it('deleteNode does not mutate previous state', () => {
+    addNode(makeNode({ id: 'n1' }));
+    const before = getState();
+    const beforeNodes = before.diagrams['root'].nodes;
+    deleteNode('n1');
+    expect(beforeNodes).toHaveLength(1);
+    expect(getState().diagrams['root'].nodes).toHaveLength(0);
   });
 });

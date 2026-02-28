@@ -1,18 +1,9 @@
 import { writable, derived, get } from 'svelte/store';
 import type { Account, AppState, AppView, DiagramMeta, Project } from '../types';
-import { diagramStore, loadDiagram, resetDiagram, SCHEMA_VERSION } from './diagramStore';
-
-export const APP_STATE_VERSION = 1;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function generateId(): string {
-  // crypto.randomUUID may not be available in all test envs; fallback
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
+import { diagramStore, loadDiagram, resetDiagram, SCHEMA_VERSION, createInitialDiagramState } from './diagramStore';
+import { generateId } from '../utils/id';
+import { APP_STATE_VERSION } from '../utils/constants';
+export { APP_STATE_VERSION };
 
 function createDefaultAccount(): Account {
   const now = Date.now();
@@ -24,27 +15,7 @@ function createDefaultAccount(): Account {
   };
 }
 
-function createFreshDiagramState() {
-  // Inline a fresh DiagramState to avoid circular dependency issues
-  // Mirrors createInitialState() in diagramStore.ts
-  return {
-    version: SCHEMA_VERSION,
-    diagrams: {
-      root: {
-        id: 'root',
-        level: 'context' as const,
-        label: 'System Context',
-        nodes: [],
-        edges: [],
-      },
-    },
-    rootId: 'root',
-    navigationStack: ['root'],
-    selectedId: null,
-    pendingNodeType: null,
-    focusedParentNodeId: null,
-  };
-}
+
 
 export function createInitialAppState(): AppState {
   const now = Date.now();
@@ -57,7 +28,7 @@ export function createInitialAppState(): AppState {
     name: 'Untitled Diagram',
     createdAt: now,
     updatedAt: now,
-    state: createFreshDiagramState(),
+    state: createInitialDiagramState(),
   };
 
   const project: Project = {
@@ -173,7 +144,7 @@ export function createDiagram(projectId: string, name?: string): string | null {
     name: name ?? `Untitled Diagram ${existingCount + 1}`,
     createdAt: now,
     updatedAt: now,
-    state: createFreshDiagramState(),
+    state: createInitialDiagramState(),
   };
 
   appState.update((s) => {
@@ -257,7 +228,7 @@ export function duplicateDiagram(projectId: string, diagramId: string): string |
     name: `Copy of ${original.name}`,
     createdAt: now,
     updatedAt: now,
-    state: JSON.parse(JSON.stringify(original.state)),
+    state: structuredClone(original.state),
   };
 
   appState.update((s) => {

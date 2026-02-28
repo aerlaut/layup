@@ -9,17 +9,15 @@
   import DiagramCanvas from '../canvas/DiagramCanvas.svelte';
   import PropertiesPanel from './PropertiesPanel.svelte';
 
-  let importError: string | null = null;
-  let showStorageWarning = false;
+  let importError: string | null = $state(null);
+  let showStorageWarning = $state(false);
 
   // Check storage usage whenever store changes (only relevant in editor)
-  diagramStore.subscribe(() => {
-    showStorageWarning = isNearStorageLimit();
+  $effect(() => {
+    diagramStore.subscribe(() => {
+      showStorageWarning = isNearStorageLimit();
+    });
   });
-
-  function dismissImportError() {
-    importError = null;
-  }
 </script>
 
 {#if $appView.screen === 'home'}
@@ -29,14 +27,14 @@
     {#if showStorageWarning}
       <div class="storage-warning">
         Storage is approaching the browser limit (~5 MB). Export your diagram to avoid data loss.
-        <button on:click={() => (showStorageWarning = false)}>×</button>
+        <button onclick={() => (showStorageWarning = false)}>×</button>
       </div>
     {/if}
 
     {#if importError}
       <div class="import-error">
         Import failed: {importError}
-        <button on:click={dismissImportError}>×</button>
+        <button onclick={() => (importError = null)}>×</button>
       </div>
     {/if}
 
@@ -84,15 +82,15 @@
   }
 
   .storage-warning {
-    background: #fffbeb;
-    border-bottom: 1px solid #f59e0b;
-    color: #92400e;
+    background: var(--color-warning-bg);
+    border-bottom: 1px solid var(--color-warning-border);
+    color: var(--color-warning-text);
   }
 
   .import-error {
-    background: #fef2f2;
-    border-bottom: 1px solid #ef4444;
-    color: #991b1b;
+    background: var(--color-danger-bg);
+    border-bottom: 1px solid var(--color-danger-border);
+    color: var(--color-danger-text);
   }
 
   .storage-warning button,

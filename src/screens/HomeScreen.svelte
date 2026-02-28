@@ -2,7 +2,7 @@
   import { projectList, createProject, appState } from '../stores/appStore';
   import ProjectCard from './ProjectCard.svelte';
 
-  $: account = $appState.account;
+  const account = $derived($appState.account);
 
   function handleNewProject() {
     createProject();
@@ -23,7 +23,7 @@
     <div class="home-content">
       <div class="home-title-row">
         <h1 class="home-title">Projects</h1>
-        <button class="new-project-btn" on:click={handleNewProject}>
+        <button class="new-project-btn" onclick={handleNewProject}>
           + New Project
         </button>
       </div>
@@ -32,7 +32,7 @@
         <div class="home-empty">
           <p class="empty-title">No projects yet</p>
           <p class="empty-desc">Create your first project to start diagramming.</p>
-          <button class="new-project-btn" on:click={handleNewProject}>
+          <button class="new-project-btn" onclick={handleNewProject}>
             Create your first project
           </button>
         </div>

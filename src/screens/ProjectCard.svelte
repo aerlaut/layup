@@ -4,17 +4,19 @@
   import DiagramCard from './DiagramCard.svelte';
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
 
-  export let project: Project;
+  let { project }: { project: Project } = $props();
 
-  let collapsed = false;
-  let showMenu = false;
-  let isRenaming = false;
-  let renameValue = '';
-  let showDeleteConfirm = false;
-  let renameInput: HTMLInputElement;
+  let collapsed = $state(false);
+  let showMenu = $state(false);
+  let isRenaming = $state(false);
+  let renameValue = $state('');
+  let showDeleteConfirm = $state(false);
+  let renameInput: HTMLInputElement | undefined = $state();
 
-  $: diagramList = Object.values(project.diagrams).sort((a, b) => b.updatedAt - a.updatedAt);
-  $: diagramCount = diagramList.length;
+  const diagramList = $derived(
+    Object.values(project.diagrams).sort((a, b) => b.updatedAt - a.updatedAt)
+  );
+  const diagramCount = $derived(diagramList.length);
 
   function toggleCollapse() {
     if (isRenaming || showDeleteConfirm) return;
@@ -72,10 +74,16 @@
   }
 </script>
 
-<svelte:window on:click={handleClickOutsideMenu} />
+<svelte:window onclick={handleClickOutsideMenu} />
 
 <div class="project-card">
-  <div class="project-header" on:click={toggleCollapse} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && toggleCollapse()}>
+  <div
+    class="project-header"
+    onclick={toggleCollapse}
+    role="button"
+    tabindex="0"
+    onkeydown={(e) => e.key === 'Enter' && toggleCollapse()}
+  >
     <span class="collapse-icon">{collapsed ? '▸' : '▾'}</span>
 
     {#if isRenaming}
@@ -85,9 +93,9 @@
         class="rename-input"
         type="text"
         bind:value={renameValue}
-        on:blur={handleRenameConfirm}
-        on:keydown={handleRenameKeyDown}
-        on:click|stopPropagation
+        onblur={handleRenameConfirm}
+        onkeydown={handleRenameKeyDown}
+        onclick={(e) => e.stopPropagation()}
       />
     {:else}
       <span class="project-name">{project.name}</span>
@@ -96,11 +104,11 @@
     <span class="diagram-count">{diagramCount} diagram{diagramCount !== 1 ? 's' : ''}</span>
 
     <div class="project-actions">
-      <button class="menu-btn" on:click={handleMenuToggle} title="Project actions">⋯</button>
+      <button class="menu-btn" onclick={handleMenuToggle} title="Project actions">⋯</button>
       {#if showMenu}
-        <div class="menu-dropdown" on:click|stopPropagation role="menu">
-          <button class="menu-item" on:click={handleRenameStart}>Rename</button>
-          <button class="menu-item danger" on:click={handleDeleteRequest}>Delete</button>
+        <div class="menu-dropdown" onclick={(e) => e.stopPropagation()} role="menu">
+          <button class="menu-item" onclick={handleRenameStart}>Rename</button>
+          <button class="menu-item danger" onclick={handleDeleteRequest}>Delete</button>
         </div>
       {/if}
     </div>
@@ -123,7 +131,7 @@
           <DiagramCard projectId={project.id} {diagram} />
         {/each}
 
-        <button class="new-diagram-card" on:click={handleNewDiagram}>
+        <button class="new-diagram-card" onclick={handleNewDiagram}>
           <span class="new-icon">+</span>
           <span class="new-label">New Diagram</span>
         </button>
@@ -242,7 +250,7 @@
   }
 
   .menu-item.danger:hover {
-    background: #fef2f2;
+    background: var(--color-danger-bg);
   }
 
   .project-confirm {
@@ -276,7 +284,7 @@
 
   .new-diagram-card:hover {
     border-color: var(--color-primary);
-    background: #eff6ff;
+    background: var(--color-primary-bg-light);
   }
 
   .new-icon {

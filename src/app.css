@@ -27,7 +27,16 @@ html, body, #app {
   --color-text-muted: #6c757d;
   --color-primary: #3b82f6;
   --color-primary-hover: #2563eb;
+  --color-primary-bg-light: #eff6ff;
   --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-text: #991b1b;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #f59e0b;
+  --color-warning-text: #92400e;
+  --color-hint-bg: #f0f4f8;
 
   --toolbar-height: 48px;
   --palette-width: 200px;

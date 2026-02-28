@@ -10,7 +10,7 @@
     <button
       class="crumb"
       class:active={i === $breadcrumbs.length - 1}
-      on:click={() => navigateTo(item.id)}
+      onclick={() => navigateTo(item.id)}
     >
       {item.label}
     </button>
