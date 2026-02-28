@@ -14,7 +14,7 @@
     [key: string]: unknown;
   } = $props();
 
-  const borderColor = $derived(data.color ?? ANNOTATION_DEFAULT_COLORS['group']);
+  const borderColor = $derived(data.color ?? ANNOTATION_DEFAULT_COLORS['package']);
   const bgColor = $derived(`${borderColor}12`);
 
   let editing = $state(false);
@@ -33,7 +33,7 @@
     });
   }
 
-  function startEdit(e: MouseEvent) {
+  function startEdit(e: MouseEvent | KeyboardEvent) {
     e.stopPropagation();
     editing = true;
     editValue = data.label;
@@ -54,79 +54,101 @@
 </script>
 
 <div
-  class="group-node"
+  class="package-node"
   style="border-color: {borderColor}; background: {bgColor};"
   role="group"
 >
   <NodeResizer
-    minWidth={120}
-    minHeight={80}
+    minWidth={160}
+    minHeight={100}
     lineStyle="border-color: {borderColor}; opacity: 0.6;"
     handleStyle="background: {borderColor}; border-color: {borderColor}; opacity: 0.8;"
     onResizeEnd={handleResizeEnd}
   />
+
+  <!-- Package "tab" — the small folder tongue at the top-left -->
   <div
-    class="group-label-area nodrag"
+    class="package-tab nodrag"
+    style="background: {borderColor};"
     ondblclick={startEdit}
+    onkeydown={(e) => { if (e.key === 'Enter') startEdit(e); }}
     role="button"
     tabindex="0"
-    onkeydown={(e) => { if (e.key === 'Enter') startEdit(e as unknown as MouseEvent); }}
   >
     {#if editing}
       <input
         bind:this={inputEl}
-        class="group-label-input"
-        style="color: {borderColor};"
+        class="tab-input"
         bind:value={editValue}
         onblur={commitEdit}
         onkeydown={handleKeyDown}
         onclick={(e) => e.stopPropagation()}
       />
     {:else}
-      <span class="group-label" style="color: {borderColor};">{data.label}</span>
+      <span class="tab-label">{data.label}</span>
     {/if}
   </div>
+
+  <!-- Package body -->
+  <div class="package-body"></div>
 </div>
 
 <style>
-  .group-node {
+  .package-node {
     width: 100%;
     height: 100%;
-    border: 2px dashed;
-    border-radius: 10px;
+    border: 2px solid;
+    border-radius: 0 6px 6px 6px;
     position: relative;
     z-index: -1;
     pointer-events: all;
-    min-width: 200px;
-    min-height: 160px;
+    min-width: 160px;
+    min-height: 100px;
     box-sizing: border-box;
   }
 
-  .group-label-area {
+  /* The folder tab sits flush above the top-left corner of the body */
+  .package-tab {
     position: absolute;
-    top: 8px;
-    left: 14px;
+    /* Raise the tab above the top border by its own height */
+    top: calc(-22px - 2px); /* tab height + border compensation */
+    left: -2px;             /* align with the left border */
+    height: 22px;
+    min-width: 80px;
+    max-width: 50%;
+    border-radius: 4px 4px 0 0;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
     cursor: text;
+    overflow: hidden;
   }
 
-  .group-label {
-    font-size: 0.72rem;
+  .tab-label {
+    font-size: 0.7rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     user-select: none;
   }
 
-  .group-label-input {
-    font-size: 0.72rem;
+  .tab-input {
+    font-size: 0.7rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    color: white;
     background: transparent;
     border: none;
-    border-bottom: 1px solid currentColor;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6);
     outline: none;
     padding: 0;
-    width: 120px;
+    width: 100%;
+    caret-color: white;
+  }
+
+  .package-body {
+    width: 100%;
+    height: 100%;
   }
 </style>
