@@ -14,7 +14,11 @@
     { kind: 'c4', type: 'container', label: 'Container', description: 'App, service, or runtime' },
     { kind: 'c4', type: 'database', label: 'Database', description: 'Data store, file system' },
     { kind: 'c4', type: 'component', label: 'Component', description: 'A grouped set of code' },
-    { kind: 'c4', type: 'code-element', label: 'Code Element', description: 'Class, function, etc.' },
+    { kind: 'c4', type: 'class', label: 'Class', description: 'A concrete class' },
+    { kind: 'c4', type: 'abstract-class', label: 'Abstract Class', description: 'A partial contract' },
+    { kind: 'c4', type: 'interface', label: 'Interface', description: 'A pure contract' },
+    { kind: 'c4', type: 'enum', label: 'Enum', description: 'Fixed set of named constants' },
+    { kind: 'c4', type: 'record', label: 'Record', description: 'Immutable value-holding class' },
   ];
 
   /** Annotation entries are always shown regardless of the current diagram level */
@@ -27,7 +31,7 @@
     context: ['person', 'external-person', 'system', 'external-system'],
     container: ['container', 'database'],
     component: ['component'],
-    code: ['code-element'],
+    code: ['class', 'abstract-class', 'interface', 'enum', 'record'],
   };
 
   const currentLevel = $derived($currentDiagram?.level ?? 'context');

@@ -534,7 +534,11 @@ function childLevelFor(nodeType: C4NodeType): C4LevelType {
     container: 'component',
     database: 'code',
     component: 'code',
-    'code-element': 'code',
+    class: 'code',
+    'abstract-class': 'code',
+    interface: 'code',
+    enum: 'code',
+    record: 'code',
   };
   return map[nodeType];
 }

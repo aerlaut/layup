@@ -25,6 +25,7 @@
   import ContainerNode from '../elements/ContainerNode.svelte';
   import DatabaseNode from '../elements/DatabaseNode.svelte';
   import ComponentNode from '../elements/ComponentNode.svelte';
+  import UmlClassNode from '../elements/UmlClassNode.svelte';
   import BoundaryNode from '../elements/BoundaryNode.svelte';
   import GroupNode from '../elements/GroupNode.svelte';
   import NoteNode from '../elements/NoteNode.svelte';
@@ -51,7 +52,11 @@
     container: ContainerNode,
     database: DatabaseNode,
     component: ComponentNode,
-    'code-element': SystemNode,
+    class: UmlClassNode,
+    'abstract-class': UmlClassNode,
+    interface: UmlClassNode,
+    enum: UmlClassNode,
+    record: UmlClassNode,
     boundary: BoundaryNode,
     group: GroupNode,
     note: NoteNode,

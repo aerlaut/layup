@@ -9,7 +9,11 @@ export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
   container: '#f59e0b',
   database: '#0ea5e9',
   component: '#a855f7',
-  'code-element': '#6b7280',
+  class: '#3b82f6',
+  'abstract-class': '#8b5cf6',
+  interface: '#06b6d4',
+  enum: '#f97316',
+  record: '#10b981',
 };
 
 /** Default primary colors per annotation type */

@@ -23,7 +23,11 @@ const NODE_DEFAULT_LABELS: Record<C4NodeType, string> = {
   container: 'Container',
   database: 'Database',
   component: 'Component',
-  'code-element': 'Code Element',
+  class: 'Class',
+  'abstract-class': 'Abstract Class',
+  interface: 'Interface',
+  enum: 'Enum',
+  record: 'Record',
 };
 
 const ANNOTATION_DEFAULT_LABELS: Record<AnnotationType, string> = {
