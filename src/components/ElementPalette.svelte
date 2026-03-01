@@ -19,6 +19,8 @@
     { kind: 'c4', type: 'interface', label: 'Interface', description: 'A pure contract' },
     { kind: 'c4', type: 'enum', label: 'Enum', description: 'Fixed set of named constants' },
     { kind: 'c4', type: 'record', label: 'Record', description: 'Immutable value-holding class' },
+    { kind: 'c4', type: 'erd-table', label: 'Table', description: 'Database table entity' },
+    { kind: 'c4', type: 'erd-view', label: 'View', description: 'Database view' },
   ];
 
   /** Annotation entries are always shown regardless of the current diagram level */
@@ -32,7 +34,7 @@
     context: ['person', 'external-person', 'system', 'external-system'],
     container: ['container', 'database'],
     component: ['component'],
-    code: ['class', 'abstract-class', 'interface', 'enum', 'record'],
+    code: ['class', 'abstract-class', 'interface', 'enum', 'record', 'erd-table', 'erd-view'],
   };
 
   const currentLevel = $derived($currentDiagram?.level ?? 'context');
