@@ -79,6 +79,9 @@ const UML_CLASS_TYPES = new Set<C4NodeType>([
   'class', 'abstract-class', 'interface', 'enum', 'record',
 ]);
 
+/** ERD node types whose height grows with column count */
+const ERD_NODE_TYPES = new Set<C4NodeType>(['erd-table', 'erd-view']);
+
 /**
  * Estimate the rendered pixel height of a C4Node.
  *
@@ -93,6 +96,16 @@ const UML_CLASS_TYPES = new Set<C4NodeType>([
  * Exported so it can be tested directly.
  */
 export function computeNodeHeight(node: C4Node): number {
+  if (ERD_NODE_TYPES.has(node.type)) {
+    const columns = node.columns ?? [];
+    return (
+      UML_NODE_HEIGHT_BASE +
+      (columns.length > 0
+        ? UML_COMPARTMENT_OVERHEAD + columns.length * UML_MEMBER_ROW_HEIGHT
+        : 0)
+    );
+  }
+
   if (!UML_CLASS_TYPES.has(node.type)) return NODE_DEFAULT_HEIGHT;
 
   const members = node.members ?? [];
@@ -576,6 +589,8 @@ function childLevelFor(nodeType: C4NodeType): C4LevelType {
     interface: 'code',
     enum: 'code',
     record: 'code',
+    'erd-table': 'code',
+    'erd-view': 'code',
   };
   return map[nodeType];
 }

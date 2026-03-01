@@ -12,7 +12,9 @@ export type C4NodeType =
   | "abstract-class"
   | "interface"
   | "enum"
-  | "record";
+  | "record"
+  | "erd-table"
+  | "erd-view";
 
 /** Types for free-floating annotative elements that are not part of the C4 hierarchy */
 export type AnnotationType = "group" | "note" | "package";
@@ -31,8 +33,10 @@ export interface C4Node {
   childDiagramId?: string;
   /** Custom color (hex) for this node; uses type default if omitted */
   color?: string;
-  /** UML class members (attributes and operations). Only meaningful for Code-layer node types. */
+  /** UML class members (attributes and operations). Only meaningful for UML Code-layer node types. */
   members?: ClassMember[];
+  /** ERD table columns. Only meaningful for erd-table / erd-view node types. */
+  columns?: TableColumn[];
 }
 
 /**
@@ -70,6 +74,23 @@ export interface ClassMember {
   params?: string;
   isStatic?: boolean;
   isAbstract?: boolean;
+}
+
+// ─── ERD Table Columns ────────────────────────────────────────────────────────
+
+export interface TableColumn {
+  id: string;
+  /** Column name, e.g. "user_id" */
+  name: string;
+  /** SQL data type string, e.g. "INT", "VARCHAR(255)", "TIMESTAMP" */
+  dataType: string;
+  isPrimaryKey?: boolean;
+  isForeignKey?: boolean;
+  /** Whether the column accepts NULL values (defaults to true when omitted) */
+  isNullable?: boolean;
+  isUnique?: boolean;
+  /** SQL DEFAULT expression, e.g. "NOW()", "'active'" */
+  defaultValue?: string;
 }
 
 export type MarkerType =

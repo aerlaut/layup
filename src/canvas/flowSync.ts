@@ -24,6 +24,7 @@ export function toFlowNode(n: C4Node, selectedId?: string | null): Node {
       childDiagramId: n.childDiagramId,
       color: n.color,
       members: n.members,
+      columns: n.columns,
     },
   };
 }
