@@ -14,6 +14,8 @@ export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
   interface: '#06b6d4',
   enum: '#f97316',
   record: '#10b981',
+  'erd-table': '#0891b2',
+  'erd-view': '#7c3aed',
 };
 
 /** Default primary colors per annotation type */

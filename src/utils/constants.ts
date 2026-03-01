@@ -8,11 +8,11 @@ export const NODE_DEFAULT_HEIGHT = 80;
  * in the diagram store to size boundary groups dynamically.
  *
  * UML_NODE_HEIGHT_BASE   — header compartment: border(4) + padding(18) + stereotype(12) + label(17) + bottom-pad(10) — approximate for a stereotyped class with no members.
- * UML_MEMBER_ROW_HEIGHT  — per member row: 0.7rem × 16px × line-height 1.5 ≈ 16.8px, rounded up.
+ * UML_MEMBER_ROW_HEIGHT  — per member row: 0.7rem × 14px × line-height 1.5 ≈ 14.7px, rounded down.
  * UML_COMPARTMENT_OVERHEAD — per non-empty compartment: border-top(1) + padding-top(4) + padding-bottom(6) + 1px margin.
  */
 export const UML_NODE_HEIGHT_BASE = 52;
-export const UML_MEMBER_ROW_HEIGHT = 18;
+export const UML_MEMBER_ROW_HEIGHT = 14;
 export const UML_COMPARTMENT_OVERHEAD = 12;
 
 /** Padding around boundary groups */

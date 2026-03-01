@@ -9,7 +9,7 @@
     deleteAnnotation,
     setSelected,
   } from '../stores/diagramStore';
-  import type { C4Node, C4Edge, Annotation, ClassMember, MemberVisibility, C4NodeType } from '../types';
+  import type { C4Node, C4Edge, Annotation, ClassMember, MemberVisibility, C4NodeType, TableColumn } from '../types';
   import { NODE_DEFAULT_COLORS, EDGE_DEFAULT_COLOR, ANNOTATION_DEFAULT_COLORS, PASTEL_PALETTE } from '../utils/colors';
   import { generateId } from '../utils/id';
 
@@ -92,7 +92,9 @@
   // ─── UML member helpers ──────────────────────────────────────────────────────
 
   const UML_CLASS_TYPES: C4NodeType[] = ['class', 'abstract-class', 'interface', 'enum', 'record'];
+  const ERD_NODE_TYPES: C4NodeType[] = ['erd-table', 'erd-view'];
   const isUmlClassNode = $derived(selectedNode ? UML_CLASS_TYPES.includes(selectedNode.type) : false);
+  const isErdNode = $derived(selectedNode ? ERD_NODE_TYPES.includes(selectedNode.type) : false);
   const isEnumNode = $derived(selectedNode?.type === 'enum');
   const isAbstractNode = $derived(selectedNode?.type === 'abstract-class' || selectedNode?.type === 'interface');
 
@@ -124,6 +126,41 @@
       const next = idx + dir;
       if (next < 0 || next >= m.length) return m;
       const arr = [...m];
+      [arr[idx], arr[next]] = [arr[next]!, arr[idx]!];
+      return arr;
+    });
+  }
+
+  // ─── ERD column helpers ──────────────────────────────────────────────────────
+
+  function updateColumns(updater: (cols: TableColumn[]) => TableColumn[]) {
+    if (!selectedNode || !diagramId) return;
+    const current = selectedNode.columns ?? [];
+    updateNodeInDiagram(diagramId, selectedNode.id, { columns: updater(current) });
+  }
+
+  function addColumn() {
+    updateColumns((cols) => [
+      ...cols,
+      { id: generateId(), name: 'column', dataType: 'VARCHAR(255)', isNullable: true },
+    ]);
+  }
+
+  function updateColumn(colId: string, patch: Partial<TableColumn>) {
+    updateColumns((cols) => cols.map((c) => (c.id === colId ? { ...c, ...patch } : c)));
+  }
+
+  function deleteColumn(colId: string) {
+    updateColumns((cols) => cols.filter((c) => c.id !== colId));
+  }
+
+  function moveColumn(colId: string, dir: -1 | 1) {
+    updateColumns((cols) => {
+      const idx = cols.findIndex((c) => c.id === colId);
+      if (idx < 0) return cols;
+      const next = idx + dir;
+      if (next < 0 || next >= cols.length) return cols;
+      const arr = [...cols];
       [arr[idx], arr[next]] = [arr[next]!, arr[idx]!];
       return arr;
     });
@@ -348,6 +385,72 @@
             {:else}
               <button class="add-btn" onclick={() => addMember('attribute')}>+ Literal</button>
             {/if}
+          </div>
+        </div>
+      {/if}
+
+      {#if isErdNode}
+        <div class="field members-field">
+          <label>Columns</label>
+          <div class="members-list">
+            {#each (selectedNode.columns ?? []) as col, idx (col.id)}
+              <div class="column-row-editor">
+                <div class="col-row-top">
+                  <input
+                    class="col-name"
+                    type="text"
+                    value={col.name}
+                    placeholder="column_name"
+                    oninput={(e) => updateColumn(col.id, { name: (e.target as HTMLInputElement).value })}
+                    title="Column name"
+                  />
+                  <span class="type-sep">:</span>
+                  <input
+                    class="col-type"
+                    type="text"
+                    value={col.dataType}
+                    placeholder="DATA_TYPE"
+                    oninput={(e) => updateColumn(col.id, { dataType: (e.target as HTMLInputElement).value })}
+                    title="Data type"
+                  />
+                  <div class="member-actions">
+                    <button class="icon-btn" onclick={() => moveColumn(col.id, -1)} disabled={idx === 0} title="Move up">↑</button>
+                    <button class="icon-btn" onclick={() => moveColumn(col.id, 1)} disabled={idx === (selectedNode.columns ?? []).length - 1} title="Move down">↓</button>
+                    <button class="icon-btn danger" onclick={() => deleteColumn(col.id)} title="Delete column">✕</button>
+                  </div>
+                </div>
+                <div class="col-flags">
+                  <label class="flag-label" title="Primary Key">
+                    <input type="checkbox" checked={col.isPrimaryKey === true} onchange={(e) => updateColumn(col.id, { isPrimaryKey: (e.target as HTMLInputElement).checked })} />
+                    <span>PK</span>
+                  </label>
+                  <label class="flag-label" title="Foreign Key">
+                    <input type="checkbox" checked={col.isForeignKey === true} onchange={(e) => updateColumn(col.id, { isForeignKey: (e.target as HTMLInputElement).checked })} />
+                    <span>FK</span>
+                  </label>
+                  <label class="flag-label" title="Not Null">
+                    <input type="checkbox" checked={col.isNullable === false} onchange={(e) => updateColumn(col.id, { isNullable: !(e.target as HTMLInputElement).checked })} />
+                    <span>NN</span>
+                  </label>
+                  <label class="flag-label" title="Unique">
+                    <input type="checkbox" checked={col.isUnique === true} onchange={(e) => updateColumn(col.id, { isUnique: (e.target as HTMLInputElement).checked })} />
+                    <span>UQ</span>
+                  </label>
+                  <span class="default-label">Default:</span>
+                  <input
+                    class="col-default"
+                    type="text"
+                    value={col.defaultValue ?? ''}
+                    placeholder="—"
+                    oninput={(e) => updateColumn(col.id, { defaultValue: (e.target as HTMLInputElement).value || undefined })}
+                    title="Default value"
+                  />
+                </div>
+              </div>
+            {/each}
+          </div>
+          <div class="add-member-btns">
+            <button class="add-btn" onclick={addColumn}>+ Column</button>
           </div>
         </div>
       {/if}
@@ -821,5 +924,57 @@
 
   .ends-grid input {
     font-size: 0.7rem;
+  }
+
+  /* ─── ERD column editor ─── */
+
+  .column-row-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: 4px 6px;
+  }
+
+  .col-row-top {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .col-name {
+    width: 90px;
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .col-type {
+    flex: 1;
+    min-width: 60px;
+    font-size: 0.7rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .col-flags {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .default-label {
+    font-size: 0.62rem;
+    color: var(--color-text-muted);
+    margin-left: 2px;
+    white-space: nowrap;
+  }
+
+  .col-default {
+    width: 64px;
+    font-size: 0.7rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
   }
 </style>

@@ -28,6 +28,8 @@ const NODE_DEFAULT_LABELS: Record<C4NodeType, string> = {
   interface: 'Interface',
   enum: 'Enum',
   record: 'Record',
+  'erd-table': 'Table',
+  'erd-view': 'View',
 };
 
 const ANNOTATION_DEFAULT_LABELS: Record<AnnotationType, string> = {
