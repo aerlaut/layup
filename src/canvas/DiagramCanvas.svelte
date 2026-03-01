@@ -26,6 +26,7 @@
   import DatabaseNode from '../elements/DatabaseNode.svelte';
   import ComponentNode from '../elements/ComponentNode.svelte';
   import UmlClassNode from '../elements/UmlClassNode.svelte';
+  import ErdTableNode from '../elements/ErdTableNode.svelte';
   import BoundaryNode from '../elements/BoundaryNode.svelte';
   import GroupNode from '../elements/GroupNode.svelte';
   import NoteNode from '../elements/NoteNode.svelte';
@@ -58,6 +59,8 @@
     interface: UmlClassNode,
     enum: UmlClassNode,
     record: UmlClassNode,
+    'erd-table': ErdTableNode,
+    'erd-view': ErdTableNode,
     boundary: BoundaryNode,
     group: GroupNode,
     note: NoteNode,
