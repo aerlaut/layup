@@ -268,8 +268,6 @@ export function deleteEdgeFromDiagram(diagramId: string, edgeId: string): void {
 
 /** Check if two node bounding boxes intersect */
 function nodesOverlap(a: C4Node, b: C4Node): boolean {
-  // Groups are purely visual — never participate in overlap resolution
-  if (a.type === 'group' || b.type === 'group') return false;
   return (
     a.position.x < b.position.x + NODE_DEFAULT_WIDTH &&
     a.position.x + NODE_DEFAULT_WIDTH > b.position.x &&

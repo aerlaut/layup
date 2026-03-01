@@ -29,6 +29,7 @@
   import BoundaryNode from '../elements/BoundaryNode.svelte';
   import GroupNode from '../elements/GroupNode.svelte';
   import NoteNode from '../elements/NoteNode.svelte';
+  import PackageNode from '../elements/PackageNode.svelte';
   import C4EdgeComponent from '../elements/C4Edge.svelte';
   import FlowHelper from './FlowHelper.svelte';
   import { buildFlowData } from './flowSync';
@@ -60,6 +61,7 @@
     boundary: BoundaryNode,
     group: GroupNode,
     note: NoteNode,
+    package: PackageNode,
   } as const;
 
   const edgeTypes = {

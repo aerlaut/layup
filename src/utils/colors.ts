@@ -20,6 +20,7 @@ export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
 export const ANNOTATION_DEFAULT_COLORS: Record<AnnotationType, string> = {
   group: '#d1d5db',
   note: '#fbbf24',
+  package: '#a5b4fc',
 };
 
 /** Default edge color */

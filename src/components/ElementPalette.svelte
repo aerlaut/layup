@@ -25,6 +25,7 @@
   const ANNOTATION_ENTRIES: AnnotationPaletteEntry[] = [
     { kind: 'annotation', type: 'group', label: 'Group', description: 'Visual grouping boundary' },
     { kind: 'annotation', type: 'note', label: 'Note', description: 'Post-it style note' },
+    { kind: 'annotation', type: 'package', label: 'Package', description: 'UML namespace / package' },
   ];
 
   const LEVEL_TYPES: Record<C4LevelType, C4NodeType[]> = {

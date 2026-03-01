@@ -25,6 +25,10 @@
       lineType?: LineType;
       waypoints?: Array<{ x: number; y: number }>;
       color?: string;
+      multiplicitySource?: string;
+      multiplicityTarget?: string;
+      roleSource?: string;
+      roleTarget?: string;
     };
     [key: string]: unknown;
   } = $props();
@@ -40,15 +44,67 @@
   const colorSuffix = $derived(edgeColor.replace('#', ''));
 
   const markerStartUrl = $derived(
-    markerStart === 'arrow' ? `url(#arrow-start-${colorSuffix})` :
-    markerStart === 'dot' ? `url(#dot-start-${colorSuffix})` :
+    markerStart === 'arrow'           ? `url(#arrow-start-${colorSuffix})` :
+    markerStart === 'dot'             ? `url(#dot-start-${colorSuffix})` :
+    markerStart === 'open-arrow'      ? `url(#open-arrow-start-${colorSuffix})` :
+    markerStart === 'hollow-triangle' ? `url(#hollow-triangle-start-${colorSuffix})` :
+    markerStart === 'hollow-diamond'  ? `url(#hollow-diamond-start-${colorSuffix})` :
+    markerStart === 'filled-diamond'  ? `url(#filled-diamond-start-${colorSuffix})` :
     undefined
   );
   const markerEndUrl = $derived(
-    markerEnd === 'arrow' ? `url(#arrow-end-${colorSuffix})` :
-    markerEnd === 'dot' ? `url(#dot-end-${colorSuffix})` :
+    markerEnd === 'arrow'           ? `url(#arrow-end-${colorSuffix})` :
+    markerEnd === 'dot'             ? `url(#dot-end-${colorSuffix})` :
+    markerEnd === 'open-arrow'      ? `url(#open-arrow-end-${colorSuffix})` :
+    markerEnd === 'hollow-triangle' ? `url(#hollow-triangle-end-${colorSuffix})` :
+    markerEnd === 'hollow-diamond'  ? `url(#hollow-diamond-end-${colorSuffix})` :
+    markerEnd === 'filled-diamond'  ? `url(#filled-diamond-end-${colorSuffix})` :
     undefined
   );
+
+  // ── End-label positioning ──────────────────────────────────────────────────
+  // Compute positions for multiplicity/role labels near the source and target ends.
+  // We project 28px along the edge from each endpoint, then offset ±13px perpendicular.
+  const ALONG = 28;   // px along the edge from endpoint
+  const PERP  = 13;   // px perpendicular offset from the line
+
+  /** Unit vector from source toward target (or toward first waypoint) */
+  const srcDir = $derived.by(() => {
+    const nextPt = waypoints.length > 0 ? waypoints[0]! : { x: targetX, y: targetY };
+    const dx = nextPt.x - sourceX;
+    const dy = nextPt.y - sourceY;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len, y: dy / len };
+  });
+
+  /** Unit vector from target toward source (or toward last waypoint) */
+  const tgtDir = $derived.by(() => {
+    const prevPt = waypoints.length > 0 ? waypoints[waypoints.length - 1]! : { x: sourceX, y: sourceY };
+    const dx = prevPt.x - targetX;
+    const dy = prevPt.y - targetY;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len, y: dy / len };
+  });
+
+  // Multiplicity: above the line (perpendicular offset: rotate dir 90° CCW → (-dy, dx))
+  const multSrcPos = $derived({
+    x: sourceX + srcDir.x * ALONG - srcDir.y * PERP,
+    y: sourceY + srcDir.y * ALONG + srcDir.x * PERP,
+  });
+  const multTgtPos = $derived({
+    x: targetX + tgtDir.x * ALONG - tgtDir.y * PERP,
+    y: targetY + tgtDir.y * ALONG + tgtDir.x * PERP,
+  });
+
+  // Role names: below the line (perpendicular offset: rotate dir 90° CW → (dy, -dx))
+  const roleSrcPos = $derived({
+    x: sourceX + srcDir.x * ALONG + srcDir.y * PERP,
+    y: sourceY + srcDir.y * ALONG - srcDir.x * PERP,
+  });
+  const roleTgtPos = $derived({
+    x: targetX + tgtDir.x * ALONG + tgtDir.y * PERP,
+    y: targetY + tgtDir.y * ALONG - tgtDir.x * PERP,
+  });
 
   const dashArray = $derived(
     lineStyle === 'dashed' ? '8 4' :
@@ -274,6 +330,102 @@
     >
       <circle cx="3" cy="3" r="2.5" fill={edgeColor} />
     </marker>
+
+    <!-- Open arrow (association / dependency) — two lines, no fill -->
+    <marker
+      id="open-arrow-end-{colorSuffix}"
+      markerWidth="10"
+      markerHeight="8"
+      refX="8"
+      refY="4"
+      orient="auto"
+      markerUnits="strokeWidth"
+    >
+      <polyline points="0 0, 8 4, 0 8" fill="none" stroke={edgeColor} stroke-width="1" />
+    </marker>
+    <marker
+      id="open-arrow-start-{colorSuffix}"
+      markerWidth="10"
+      markerHeight="8"
+      refX="2"
+      refY="4"
+      orient="auto-start-reverse"
+      markerUnits="strokeWidth"
+    >
+      <polyline points="0 0, 8 4, 0 8" fill="none" stroke={edgeColor} stroke-width="1" />
+    </marker>
+
+    <!-- Hollow triangle (generalization / realization) -->
+    <marker
+      id="hollow-triangle-end-{colorSuffix}"
+      markerWidth="10"
+      markerHeight="8"
+      refX="9"
+      refY="4"
+      orient="auto"
+      markerUnits="strokeWidth"
+    >
+      <polygon points="0 0, 9 4, 0 8" fill="white" stroke={edgeColor} stroke-width="1" />
+    </marker>
+    <marker
+      id="hollow-triangle-start-{colorSuffix}"
+      markerWidth="10"
+      markerHeight="8"
+      refX="1"
+      refY="4"
+      orient="auto-start-reverse"
+      markerUnits="strokeWidth"
+    >
+      <polygon points="0 0, 9 4, 0 8" fill="white" stroke={edgeColor} stroke-width="1" />
+    </marker>
+
+    <!-- Hollow diamond (aggregation) -->
+    <marker
+      id="hollow-diamond-end-{colorSuffix}"
+      markerWidth="14"
+      markerHeight="8"
+      refX="13"
+      refY="4"
+      orient="auto"
+      markerUnits="strokeWidth"
+    >
+      <polygon points="0 4, 6 0, 13 4, 6 8" fill="white" stroke={edgeColor} stroke-width="1" />
+    </marker>
+    <marker
+      id="hollow-diamond-start-{colorSuffix}"
+      markerWidth="14"
+      markerHeight="8"
+      refX="1"
+      refY="4"
+      orient="auto-start-reverse"
+      markerUnits="strokeWidth"
+    >
+      <polygon points="0 4, 6 0, 13 4, 6 8" fill="white" stroke={edgeColor} stroke-width="1" />
+    </marker>
+
+    <!-- Filled diamond (composition) -->
+    <marker
+      id="filled-diamond-end-{colorSuffix}"
+      markerWidth="14"
+      markerHeight="8"
+      refX="13"
+      refY="4"
+      orient="auto"
+      markerUnits="strokeWidth"
+    >
+      <polygon points="0 4, 6 0, 13 4, 6 8" fill={edgeColor} stroke={edgeColor} stroke-width="1" />
+    </marker>
+    <marker
+      id="filled-diamond-start-{colorSuffix}"
+      markerWidth="14"
+      markerHeight="8"
+      refX="1"
+      refY="4"
+      orient="auto-start-reverse"
+      markerUnits="strokeWidth"
+    >
+      <polygon points="0 4, 6 0, 13 4, 6 8" fill={edgeColor} stroke={edgeColor} stroke-width="1" />
+    </marker>
   </defs>
 </svg>
 
@@ -320,6 +472,56 @@
     aria-label="Waypoint {idx + 1}"
   />
 {/each}
+
+<!-- Multiplicity labels (above the line, near endpoints) -->
+{#if data?.multiplicitySource}
+  <text
+    x={multSrcPos.x}
+    y={multSrcPos.y}
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-size="10"
+    fill={edgeColor}
+    style="pointer-events: none; user-select: none;"
+  >{data.multiplicitySource}</text>
+{/if}
+{#if data?.multiplicityTarget}
+  <text
+    x={multTgtPos.x}
+    y={multTgtPos.y}
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-size="10"
+    fill={edgeColor}
+    style="pointer-events: none; user-select: none;"
+  >{data.multiplicityTarget}</text>
+{/if}
+
+<!-- Role name labels (below the line, near endpoints) -->
+{#if data?.roleSource}
+  <text
+    x={roleSrcPos.x}
+    y={roleSrcPos.y}
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-size="10"
+    font-style="italic"
+    fill={edgeColor}
+    style="pointer-events: none; user-select: none;"
+  >{data.roleSource}</text>
+{/if}
+{#if data?.roleTarget}
+  <text
+    x={roleTgtPos.x}
+    y={roleTgtPos.y}
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-size="10"
+    font-style="italic"
+    fill={edgeColor}
+    style="pointer-events: none; user-select: none;"
+  >{data.roleTarget}</text>
+{/if}
 
 {#if label || data?.technology}
   <EdgeLabel x={labelX} y={labelY}>

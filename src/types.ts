@@ -15,7 +15,7 @@ export type C4NodeType =
   | "record";
 
 /** Types for free-floating annotative elements that are not part of the C4 hierarchy */
-export type AnnotationType = "group" | "note";
+export type AnnotationType = "group" | "note" | "package";
 
 /** Combined type used by the palette and pending-placement state */
 export type PaletteItemType = C4NodeType | AnnotationType;
@@ -31,6 +31,8 @@ export interface C4Node {
   childDiagramId?: string;
   /** Custom color (hex) for this node; uses type default if omitted */
   color?: string;
+  /** UML class members (attributes and operations). Only meaningful for Code-layer node types. */
+  members?: ClassMember[];
 }
 
 /**
@@ -53,7 +55,31 @@ export interface Annotation {
   color?: string;
 }
 
-export type MarkerType = 'arrow' | 'dot' | 'none';
+// ─── UML Class Members ────────────────────────────────────────────────────────
+
+export type MemberVisibility = '+' | '-' | '#' | '~';
+
+export interface ClassMember {
+  id: string;
+  kind: 'attribute' | 'operation';
+  visibility: MemberVisibility;
+  name: string;
+  /** Field type (attributes) or return type (operations) */
+  type?: string;
+  /** Parameter list string for operations, e.g. "(x: int, y: string)" */
+  params?: string;
+  isStatic?: boolean;
+  isAbstract?: boolean;
+}
+
+export type MarkerType =
+  | 'arrow'
+  | 'dot'
+  | 'none'
+  | 'open-arrow'
+  | 'hollow-triangle'
+  | 'hollow-diamond'
+  | 'filled-diamond';
 export type LineStyle = 'solid' | 'dashed' | 'dotted';
 export type LineType = 'bezier' | 'straight' | 'step' | 'smoothstep';
 
@@ -77,6 +103,14 @@ export interface C4Edge {
   targetGroupId?: string;
   /** Custom color (hex) for this edge; uses default gray if omitted */
   color?: string;
+  /** UML multiplicity label at the source end, e.g. "1", "0..*" */
+  multiplicitySource?: string;
+  /** UML multiplicity label at the target end, e.g. "1", "0..*" */
+  multiplicityTarget?: string;
+  /** UML role name at the source end */
+  roleSource?: string;
+  /** UML role name at the target end */
+  roleTarget?: string;
 }
 
 export interface DiagramLevel {
