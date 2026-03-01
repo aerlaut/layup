@@ -8,6 +8,9 @@ import {
   BOUNDARY_MIN_WIDTH,
   BOUNDARY_MIN_HEIGHT,
   SCHEMA_VERSION,
+  UML_NODE_HEIGHT_BASE,
+  UML_MEMBER_ROW_HEIGHT,
+  UML_COMPARTMENT_OVERHEAD,
 } from '../utils/constants';
 
 export { SCHEMA_VERSION };
@@ -71,6 +74,42 @@ export const isAtRoot = derived(
   ($s) => $s.navigationStack.length === 1
 );
 
+/** UML node types whose height grows with member count */
+const UML_CLASS_TYPES = new Set<C4NodeType>([
+  'class', 'abstract-class', 'interface', 'enum', 'record',
+]);
+
+/**
+ * Estimate the rendered pixel height of a C4Node.
+ *
+ * For non-UML types this is NODE_DEFAULT_HEIGHT (fixed-height cards).
+ * For UML class-node types the height depends on the number of members:
+ *   - A base header height (UML_NODE_HEIGHT_BASE) for the header compartment
+ *   - One UML_COMPARTMENT_OVERHEAD per visible compartment (attributes / operations)
+ *   - One UML_MEMBER_ROW_HEIGHT per member row within those compartments
+ *
+ * Enum nodes never show an operations compartment (matching UmlClassNode.svelte).
+ *
+ * Exported so it can be tested directly.
+ */
+export function computeNodeHeight(node: C4Node): number {
+  if (!UML_CLASS_TYPES.has(node.type)) return NODE_DEFAULT_HEIGHT;
+
+  const members = node.members ?? [];
+  const attributes = members.filter((m) => m.kind === 'attribute');
+  const operations = members.filter((m) => m.kind === 'operation');
+
+  const hasAttributes = attributes.length > 0;
+  // Enums suppress the operations compartment (matches UmlClassNode.svelte isEnum guard)
+  const hasOperations = node.type !== 'enum' && operations.length > 0;
+
+  return (
+    UML_NODE_HEIGHT_BASE +
+    (hasAttributes ? UML_COMPARTMENT_OVERHEAD + attributes.length * UML_MEMBER_ROW_HEIGHT : 0) +
+    (hasOperations ? UML_COMPARTMENT_OVERHEAD + operations.length * UML_MEMBER_ROW_HEIGHT : 0)
+  );
+}
+
 function computeBoundingBox(
   childNodes: C4Node[],
   fallbackPosition: { x: number; y: number }
@@ -86,7 +125,7 @@ function computeBoundingBox(
   const minX = Math.min(...childNodes.map((n) => n.position.x));
   const minY = Math.min(...childNodes.map((n) => n.position.y));
   const maxX = Math.max(...childNodes.map((n) => n.position.x)) + NODE_DEFAULT_WIDTH;
-  const maxY = Math.max(...childNodes.map((n) => n.position.y)) + NODE_DEFAULT_HEIGHT;
+  const maxY = Math.max(...childNodes.map((n) => n.position.y + computeNodeHeight(n)));
   return {
     x: minX - BOUNDARY_PADDING,
     y: minY - BOUNDARY_PADDING,

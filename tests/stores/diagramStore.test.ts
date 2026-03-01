@@ -32,8 +32,17 @@ import {
   deleteEdgeFromDiagram,
   loadDiagram,
   resetDiagram,
+  computeNodeHeight,
+  contextBoundaries,
 } from '../../src/stores/diagramStore';
-import type { C4Node, C4Edge, DiagramState } from '../../src/types';
+import type { C4Node, C4Edge, DiagramState, ClassMember } from '../../src/types';
+import {
+  NODE_DEFAULT_HEIGHT,
+  BOUNDARY_PADDING,
+  UML_NODE_HEIGHT_BASE,
+  UML_MEMBER_ROW_HEIGHT,
+  UML_COMPARTMENT_OVERHEAD,
+} from '../../src/utils/constants';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -679,5 +688,173 @@ describe('state immutability', () => {
     deleteNode('n1');
     expect(beforeNodes).toHaveLength(1);
     expect(getState().diagrams['root'].nodes).toHaveLength(0);
+  });
+});
+
+// ── computeNodeHeight ─────────────────────────────────────────────────────────
+
+describe('computeNodeHeight', () => {
+  function makeClassMember(kind: 'attribute' | 'operation'): ClassMember {
+    return {
+      id: `m-${Math.random().toString(36).slice(2, 8)}`,
+      kind,
+      visibility: '+',
+      name: 'field',
+      type: 'String',
+    };
+  }
+
+  it('returns NODE_DEFAULT_HEIGHT for non-UML node types', () => {
+    const nonUmlTypes: C4Node['type'][] = [
+      'person', 'external-person', 'system', 'external-system',
+      'container', 'database', 'component',
+    ];
+    for (const type of nonUmlTypes) {
+      const node = makeNode({ type, id: `n-${type}` });
+      expect(computeNodeHeight(node)).toBe(NODE_DEFAULT_HEIGHT);
+    }
+  });
+
+  it('returns UML_NODE_HEIGHT_BASE for a UML node with no members', () => {
+    const umlTypes: C4Node['type'][] = ['class', 'abstract-class', 'interface', 'enum', 'record'];
+    for (const type of umlTypes) {
+      const node = makeNode({ type, id: `n-${type}`, members: [] });
+      expect(computeNodeHeight(node)).toBe(UML_NODE_HEIGHT_BASE);
+    }
+  });
+
+  it('adds one compartment overhead + row heights for attributes only', () => {
+    const node = makeNode({
+      type: 'class',
+      members: [makeClassMember('attribute'), makeClassMember('attribute')],
+    });
+    const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 2 * UML_MEMBER_ROW_HEIGHT;
+    expect(computeNodeHeight(node)).toBe(expected);
+  });
+
+  it('adds one compartment overhead + row heights for operations only', () => {
+    const node = makeNode({
+      type: 'class',
+      members: [makeClassMember('operation')],
+    });
+    const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 1 * UML_MEMBER_ROW_HEIGHT;
+    expect(computeNodeHeight(node)).toBe(expected);
+  });
+
+  it('adds two compartment overheads for mixed attributes and operations', () => {
+    const node = makeNode({
+      type: 'class',
+      members: [makeClassMember('attribute'), makeClassMember('operation')],
+    });
+    const expected =
+      UML_NODE_HEIGHT_BASE +
+      2 * UML_COMPARTMENT_OVERHEAD +
+      1 * UML_MEMBER_ROW_HEIGHT + // attribute
+      1 * UML_MEMBER_ROW_HEIGHT;  // operation
+    expect(computeNodeHeight(node)).toBe(expected);
+  });
+
+  it('enum nodes never add an operations compartment', () => {
+    const node = makeNode({
+      type: 'enum',
+      members: [makeClassMember('attribute'), makeClassMember('operation')],
+    });
+    // Only the attribute compartment contributes; operations are suppressed for enums
+    const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 1 * UML_MEMBER_ROW_HEIGHT;
+    expect(computeNodeHeight(node)).toBe(expected);
+  });
+
+  it('height grows proportionally with more members', () => {
+    const few = makeNode({ type: 'class', members: [makeClassMember('attribute')] });
+    const many = makeNode({
+      type: 'class',
+      members: Array.from({ length: 10 }, () => makeClassMember('attribute')),
+    });
+    expect(computeNodeHeight(many)).toBeGreaterThan(computeNodeHeight(few));
+  });
+
+  it('treats undefined members the same as an empty array', () => {
+    const withUndefined = makeNode({ type: 'class', members: undefined });
+    const withEmpty = makeNode({ type: 'class', members: [] });
+    expect(computeNodeHeight(withUndefined)).toBe(computeNodeHeight(withEmpty));
+  });
+});
+
+// ── boundary group height expansion on member add ─────────────────────────────
+
+describe('boundary group expands when UML node members are added', () => {
+  function makeClassMember(kind: 'attribute' | 'operation', index = 0): ClassMember {
+    return {
+      id: `m-${index}-${Math.random().toString(36).slice(2, 6)}`,
+      kind,
+      visibility: '+',
+      name: `field${index}`,
+      type: 'String',
+    };
+  }
+
+  it('boundary bounding-box grows taller as members are added to a Code-layer node', () => {
+    // Scenario: root → component node (comp1). Drill into comp1 so that
+    // contextBoundaries shows comp1 as a boundary group containing its
+    // code-level nodes. Add a class node to comp1's diagram, record the
+    // boundary height, then add many attributes and verify height grows.
+
+    // Root: add a component node
+    addNode(makeNode({ id: 'comp1', type: 'component', label: 'MyComponent', position: { x: 0, y: 0 } }));
+
+    // Drill in — nav stack: [root, comp1_child]
+    drillDown('comp1');
+    const comp1ChildId = getChildDiagramId('comp1');
+
+    // Add a class node with no members to the code-level diagram
+    addNode({
+      id: 'cls1',
+      type: 'class',
+      label: 'MyClass',
+      position: { x: 50, y: 50 },
+      members: [],
+    });
+
+    // contextBoundaries (parent = root) → shows comp1's boundary group
+    const boundaryBefore = get(contextBoundaries).find((b) => b.parentNodeId === 'comp1');
+    expect(boundaryBefore).toBeDefined();
+    const heightBefore = boundaryBefore!.boundingBox.height;
+
+    // Add 10 attributes to cls1 — this is the operation that triggered the bug
+    const members: ClassMember[] = Array.from({ length: 10 }, (_, i) => makeClassMember('attribute', i));
+    updateNodeInDiagram(comp1ChildId, 'cls1', { members });
+
+    // After the update contextBoundaries must recompute with larger height
+    const boundaryAfter = get(contextBoundaries).find((b) => b.parentNodeId === 'comp1');
+    expect(boundaryAfter).toBeDefined();
+    const heightAfter = boundaryAfter!.boundingBox.height;
+
+    expect(heightAfter).toBeGreaterThan(heightBefore);
+  });
+
+  it('boundary height equals expected formula after adding members', () => {
+    addNode(makeNode({ id: 'comp2', type: 'component', label: 'Comp2', position: { x: 0, y: 0 } }));
+    drillDown('comp2');
+    const comp2ChildId = getChildDiagramId('comp2');
+
+    const members: ClassMember[] = [
+      makeClassMember('attribute', 0),
+      makeClassMember('attribute', 1),
+      makeClassMember('operation', 2),
+    ];
+    addNode({ id: 'cls2', type: 'class', label: 'Cls2', position: { x: 0, y: 0 }, members });
+
+    const boundary = get(contextBoundaries).find((b) => b.parentNodeId === 'comp2');
+    expect(boundary).toBeDefined();
+
+    // Expected: bounding box height = BOUNDARY_PADDING*2 + computeNodeHeight(cls2)
+    // computeNodeHeight: UML_NODE_HEIGHT_BASE + 2*overhead + 3*row
+    const expectedNodeHeight =
+      UML_NODE_HEIGHT_BASE +
+      2 * UML_COMPARTMENT_OVERHEAD +  // one attributes compartment + one operations compartment
+      3 * UML_MEMBER_ROW_HEIGHT;
+    const expectedBoxHeight = expectedNodeHeight + BOUNDARY_PADDING * 2;
+
+    expect(boundary!.boundingBox.height).toBe(expectedBoxHeight);
   });
 });
