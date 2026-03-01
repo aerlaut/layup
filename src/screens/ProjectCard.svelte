@@ -145,7 +145,6 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
-    overflow: hidden;
   }
 
   .project-header {
