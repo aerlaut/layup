@@ -87,7 +87,7 @@
     border: 2px solid;
     border-radius: 6px;
     text-align: left;
-    min-width: 200px;
+    min-width: 120px;
     position: relative;
     cursor: pointer;
     user-select: none;
