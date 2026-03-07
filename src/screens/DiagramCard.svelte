@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { DiagramMeta } from '../types';
   import { openDiagram, deleteDiagram, duplicateDiagram, renameDiagram } from '../stores/appStore';
+  import { exportDiagramJSON } from '../utils/persistence';
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
 
   let { projectId, diagram }: { projectId: string; diagram: DiagramMeta } = $props();
@@ -54,6 +55,12 @@
   function handleRenameKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter') handleRenameConfirm();
     if (e.key === 'Escape') { isRenaming = false; }
+  }
+
+  function handleExport(e: MouseEvent) {
+    e.stopPropagation();
+    showMenu = false;
+    exportDiagramJSON(diagram.state, diagram.name);
   }
 
   function handleDuplicate(e: MouseEvent) {
@@ -125,6 +132,7 @@
       {#if showMenu}
         <div class="menu-dropdown" onclick={(e) => e.stopPropagation()} role="menu">
           <button class="menu-item" onclick={handleRenameStart}>Rename</button>
+          <button class="menu-item" onclick={handleExport}>Export</button>
           <button class="menu-item" onclick={handleDuplicate}>Duplicate</button>
           <button class="menu-item danger" onclick={handleDeleteRequest}>Delete</button>
         </div>
