@@ -155,6 +155,21 @@ export const parentDiagram = derived(diagramStore, ($s): DiagramLevel | null => 
   return $s.diagrams[parentId] ?? null;
 });
 
+/**
+ * The C4NodeType of the parent node that owns the currently active diagram,
+ * or null when at the root level. Used by the palette to gate which node
+ * types are offered at the component level (e.g. db-schema vs component).
+ */
+export const parentNodeType = derived(diagramStore, ($s): C4NodeType | null => {
+  if ($s.navigationStack.length <= 1) return null;
+  const parentId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
+  const currentId = $s.navigationStack[$s.navigationStack.length - 1] ?? '';
+  const parent = $s.diagrams[parentId];
+  if (!parent) return null;
+  const ownerNode = parent.nodes.find((n) => n.childDiagramId === currentId);
+  return ownerNode?.type ?? null;
+});
+
 export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => {
   if ($s.navigationStack.length <= 1) return [];
   const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
@@ -588,7 +603,8 @@ function childLevelFor(nodeType: C4NodeType): C4LevelType | undefined {
     system: 'container',
     'external-system': 'container',
     container: 'component',
-    database: 'code',
+    database: 'component',
+    'db-schema': 'code',
     component: 'code',
     // class, abstract-class, interface, enum, record, erd-table, erd-view
     // are intentionally absent — they are not drillable.
