@@ -7,6 +7,7 @@ export type C4NodeType =
   | "external-system"
   | "container"
   | "database"
+  | "db-schema"
   | "component"
   | "class"
   | "abstract-class"

@@ -8,6 +8,7 @@ export const NODE_DEFAULT_COLORS: Record<C4NodeType, string> = {
   'external-system': '#64748b',
   container: '#f59e0b',
   database: '#0ea5e9',
+  'db-schema': '#0284c7',
   component: '#a855f7',
   class: '#3b82f6',
   'abstract-class': '#8b5cf6',
