@@ -70,6 +70,7 @@ export const currentDiagram = derived(diagramStore, ($s) => getCurrentDiagram($s
 export const breadcrumbs = derived(diagramStore, ($s) => getBreadcrumbPath($s));
 export const selectedId = derived(diagramStore, ($s) => $s.selectedId);
 export const pendingNodeType = derived(diagramStore, ($s) => $s.pendingNodeType);
+export const rootDiagramId = derived(diagramStore, ($s) => $s.rootId);
 export const isAtRoot = derived(
   diagramStore,
   ($s) => $s.navigationStack.length === 1
