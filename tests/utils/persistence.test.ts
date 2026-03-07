@@ -6,7 +6,10 @@ import {
   migrateFromLegacy,
   getLocalStorageUsageBytes,
   isNearStorageLimit,
+  exportDiagramJSON,
   parseDiagramJSON,
+  extractSubtree,
+  exportLevelJSON,
   ImportError,
   debounce,
 } from '../../src/utils/persistence';
@@ -74,7 +77,7 @@ describe('parseDiagramJSON', () => {
 
   it('throws ImportError when version is newer than current schema', () => {
     const obj = { version: SCHEMA_VERSION + 1, diagrams: {}, rootId: 'root', navigationStack: ['root'] };
-    expect(() => parseDiagramJSON(JSON.stringify(obj))).toThrow('Please upgrade laverop.');
+    expect(() => parseDiagramJSON(JSON.stringify(obj))).toThrow('Please upgrade layup.');
   });
 
   it('throws ImportError when diagrams is missing', () => {
@@ -122,7 +125,7 @@ describe('saveToLocalStorage / loadFromLocalStorage', () => {
   });
 
   it('returns null on corrupted data', () => {
-    localStorage.setItem('laverop_diagram', '{broken json');
+    localStorage.setItem('layup_diagram', '{broken json');
     expect(loadFromLocalStorage()).toBeNull();
   });
 });
@@ -176,17 +179,17 @@ describe('saveAppState / loadAppState', () => {
   });
 
   it('returns null on corrupted data', () => {
-    localStorage.setItem('laverop_app', '{broken json');
+    localStorage.setItem('layup_app', '{broken json');
     expect(loadAppState()).toBeNull();
   });
 
   it('returns null when stored value is not an object', () => {
-    localStorage.setItem('laverop_app', '"hello"');
+    localStorage.setItem('layup_app', '"hello"');
     expect(loadAppState()).toBeNull();
   });
 
   it('returns null when version is missing', () => {
-    localStorage.setItem('laverop_app', JSON.stringify({ account: {}, projects: {} }));
+    localStorage.setItem('layup_app', JSON.stringify({ account: {}, projects: {} }));
     expect(loadAppState()).toBeNull();
   });
 });
@@ -204,7 +207,7 @@ describe('migrateFromLegacy', () => {
 
   it('wraps legacy DiagramState in an AppState', () => {
     const legacyState = makeValidState();
-    localStorage.setItem('laverop_diagram', JSON.stringify(legacyState));
+    localStorage.setItem('layup_diagram', JSON.stringify(legacyState));
 
     const migrated = migrateFromLegacy();
     expect(migrated).not.toBeNull();
@@ -220,19 +223,19 @@ describe('migrateFromLegacy', () => {
 
   it('deletes the legacy key after migration', () => {
     const legacyState = makeValidState();
-    localStorage.setItem('laverop_diagram', JSON.stringify(legacyState));
+    localStorage.setItem('layup_diagram', JSON.stringify(legacyState));
 
     migrateFromLegacy();
-    expect(localStorage.getItem('laverop_diagram')).toBeNull();
+    expect(localStorage.getItem('layup_diagram')).toBeNull();
   });
 
   it('returns null on corrupted legacy data', () => {
-    localStorage.setItem('laverop_diagram', '{broken');
+    localStorage.setItem('layup_diagram', '{broken');
     expect(migrateFromLegacy()).toBeNull();
   });
 
   it('returns null when legacy data is not a valid DiagramState', () => {
-    localStorage.setItem('laverop_diagram', JSON.stringify({ foo: 'bar' }));
+    localStorage.setItem('layup_diagram', JSON.stringify({ foo: 'bar' }));
     expect(migrateFromLegacy()).toBeNull();
   });
 });
@@ -244,7 +247,7 @@ describe('getLocalStorageUsageBytes with AppState key', () => {
     localStorage.clear();
   });
 
-  it('returns size from laverop_app key', () => {
+  it('returns size from layup_app key', () => {
     const state = createInitialAppState();
     saveAppState(state);
     const bytes = getLocalStorageUsageBytes();
@@ -296,5 +299,161 @@ describe('debounce', () => {
     debounced('a', 'b');
     vi.advanceTimersByTime(100);
     expect(fn).toHaveBeenCalledWith('a', 'b');
+  });
+});
+
+// ─── exportDiagramJSON (named exports) ───────────────────────────────────────
+
+describe('exportDiagramJSON', () => {
+  let createdAnchor: HTMLAnchorElement | null = null;
+  let clickedHref: string | null = null;
+  let clickedDownload: string | null = null;
+
+  beforeEach(() => {
+    // Stub URL.createObjectURL / revokeObjectURL
+    global.URL.createObjectURL = vi.fn(() => 'blob:test');
+    global.URL.revokeObjectURL = vi.fn();
+    // Capture anchor creation and click
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      if (tag === 'a') {
+        createdAnchor = origCreate('a') as HTMLAnchorElement;
+        vi.spyOn(createdAnchor, 'click').mockImplementation(() => {
+          clickedHref = createdAnchor!.href;
+          clickedDownload = createdAnchor!.download;
+        });
+        return createdAnchor;
+      }
+      return origCreate(tag);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    createdAnchor = null;
+    clickedHref = null;
+    clickedDownload = null;
+  });
+
+  it('uses "diagram.json" as download filename when name is not provided', () => {
+    exportDiagramJSON(makeValidState());
+    expect(clickedDownload).toBe('diagram.json');
+  });
+
+  it('uses "diagram.json" as fallback when name is undefined', () => {
+    exportDiagramJSON(makeValidState(), undefined);
+    expect(clickedDownload).toBe('diagram.json');
+  });
+
+  it('uses the provided name as the download filename', () => {
+    exportDiagramJSON(makeValidState(), 'Payment Service');
+    expect(clickedDownload).toBe('Payment Service.json');
+  });
+
+  it('appends .json to the name', () => {
+    exportDiagramJSON(makeValidState(), 'My Diagram');
+    expect(clickedDownload).toBe('My Diagram.json');
+  });
+});
+
+// ─── extractSubtree ───────────────────────────────────────────────────────────
+
+describe('extractSubtree', () => {
+  function makeNestedState(): DiagramState {
+    // root → child → grandchild
+    return {
+      version: SCHEMA_VERSION,
+      diagrams: {
+        root: {
+          id: 'root',
+          level: 'context',
+          label: 'Root',
+          nodes: [{ id: 'n1', type: 'system', label: 'System', x: 0, y: 0, childDiagramId: 'child' } as any],
+          edges: [],
+        },
+        child: {
+          id: 'child',
+          level: 'container',
+          label: 'Child',
+          nodes: [{ id: 'n2', type: 'container', label: 'Container', x: 0, y: 0, childDiagramId: 'grandchild' } as any],
+          edges: [],
+        },
+        grandchild: {
+          id: 'grandchild',
+          level: 'component',
+          label: 'Grandchild',
+          nodes: [],
+          edges: [],
+        },
+        orphan: {
+          id: 'orphan',
+          level: 'context',
+          label: 'Orphan',
+          nodes: [],
+          edges: [],
+        },
+      },
+      rootId: 'root',
+      navigationStack: ['root'],
+      selectedId: null,
+      pendingNodeType: null,
+    };
+  }
+
+  it('returns full state when extracting from root', () => {
+    const state = makeNestedState();
+    const subtree = extractSubtree(state, 'root');
+    expect(Object.keys(subtree.diagrams)).toContain('root');
+    expect(Object.keys(subtree.diagrams)).toContain('child');
+    expect(Object.keys(subtree.diagrams)).toContain('grandchild');
+  });
+
+  it('excludes orphan levels not reachable from root', () => {
+    const state = makeNestedState();
+    const subtree = extractSubtree(state, 'root');
+    expect(Object.keys(subtree.diagrams)).not.toContain('orphan');
+  });
+
+  it('re-roots the subtree at the given levelId', () => {
+    const state = makeNestedState();
+    const subtree = extractSubtree(state, 'child');
+    expect(subtree.rootId).toBe('child');
+    expect(subtree.navigationStack).toEqual(['child']);
+  });
+
+  it('includes only reachable descendants when extracting a sub-level', () => {
+    const state = makeNestedState();
+    const subtree = extractSubtree(state, 'child');
+    expect(Object.keys(subtree.diagrams)).toContain('child');
+    expect(Object.keys(subtree.diagrams)).toContain('grandchild');
+    expect(Object.keys(subtree.diagrams)).not.toContain('root');
+    expect(Object.keys(subtree.diagrams)).not.toContain('orphan');
+  });
+
+  it('returns a single-level subtree for a leaf node', () => {
+    const state = makeNestedState();
+    const subtree = extractSubtree(state, 'grandchild');
+    expect(Object.keys(subtree.diagrams)).toEqual(['grandchild']);
+    expect(subtree.rootId).toBe('grandchild');
+  });
+
+  it('resets selectedId and pendingNodeType', () => {
+    const state = makeNestedState();
+    const subtree = extractSubtree(state, 'root');
+    expect(subtree.selectedId).toBeNull();
+    expect(subtree.pendingNodeType).toBeNull();
+  });
+
+  it('preserves the schema version', () => {
+    const state = makeNestedState();
+    const subtree = extractSubtree(state, 'child');
+    expect(subtree.version).toBe(SCHEMA_VERSION);
+  });
+
+  it('handles a missing rootLevelId gracefully (returns empty diagrams)', () => {
+    const state = makeNestedState();
+    const subtree = extractSubtree(state, 'nonexistent');
+    expect(Object.keys(subtree.diagrams)).toHaveLength(0);
+    expect(subtree.rootId).toBe('nonexistent');
   });
 });

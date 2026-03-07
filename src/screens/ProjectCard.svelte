@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Project } from '../types';
-  import { createDiagram, renameProject, deleteProject } from '../stores/appStore';
+  import { createDiagram, renameProject, deleteProject, importDiagramIntoProject } from '../stores/appStore';
+  import { importDiagramJSON, ImportError } from '../utils/persistence';
   import DiagramCard from './DiagramCard.svelte';
   import ConfirmDialog from '../components/ConfirmDialog.svelte';
 
@@ -69,6 +70,28 @@
     createDiagram(project.id);
   }
 
+  let importFileInput: HTMLInputElement | undefined = $state();
+  let importError = $state<string | null>(null);
+
+  function handleImportClick(e: MouseEvent) {
+    e.stopPropagation();
+    importFileInput?.click();
+  }
+
+  async function handleImportFile(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      const state = await importDiagramJSON(file);
+      const name = file.name.replace(/\.json$/i, '') || 'Imported Diagram';
+      importDiagramIntoProject(project.id, name, state);
+      importError = null;
+    } catch (err) {
+      importError = err instanceof ImportError ? err.message : 'Failed to import diagram.';
+    }
+    (e.target as HTMLInputElement).value = '';
+  }
+
   function handleClickOutsideMenu() {
     if (showMenu) showMenu = false;
   }
@@ -126,6 +149,9 @@
 
   {#if !collapsed}
     <div class="project-body">
+      {#if importError}
+        <div class="import-error">{importError}</div>
+      {/if}
       <div class="diagram-grid">
         {#each diagramList as diagram (diagram.id)}
           <DiagramCard projectId={project.id} {diagram} />
@@ -135,6 +161,18 @@
           <span class="new-icon">+</span>
           <span class="new-label">New Diagram</span>
         </button>
+
+        <button class="new-diagram-card" onclick={handleImportClick}>
+          <span class="new-icon">↑</span>
+          <span class="new-label">Import Diagram</span>
+        </button>
+        <input
+          bind:this={importFileInput}
+          type="file"
+          accept=".json,application/json"
+          style="display:none"
+          onchange={handleImportFile}
+        />
       </div>
     </div>
   {/if}
@@ -254,6 +292,15 @@
 
   .project-confirm {
     padding: 8px 16px;
+  }
+
+  .import-error {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    border-radius: var(--border-radius);
+    font-size: 0.8rem;
   }
 
   .project-body {

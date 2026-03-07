@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type { Account, AppState, AppView, DiagramMeta, Project } from '../types';
+import type { Account, AppState, AppView, DiagramMeta, DiagramState, Project } from '../types';
 import { diagramStore, loadDiagram, resetDiagram, SCHEMA_VERSION, createInitialDiagramState } from './diagramStore';
 import { generateId } from '../utils/id';
 import { APP_STATE_VERSION } from '../utils/constants';
@@ -158,6 +158,35 @@ export function createDiagram(projectId: string, name?: string): string | null {
           ...proj,
           updatedAt: now,
           diagrams: { ...proj.diagrams, [id]: diagram },
+        },
+      },
+    };
+  });
+  return id;
+}
+
+export function importDiagramIntoProject(
+  projectId: string,
+  name: string,
+  state: DiagramState
+): string | null {
+  const id = createDiagram(projectId, name);
+  if (!id) return null;
+  appState.update((s) => {
+    const project = s.projects[projectId];
+    if (!project) return s;
+    const diagram = project.diagrams[id];
+    if (!diagram) return s;
+    return {
+      ...s,
+      projects: {
+        ...s.projects,
+        [projectId]: {
+          ...project,
+          diagrams: {
+            ...project.diagrams,
+            [id]: { ...diagram, state },
+          },
         },
       },
     };
