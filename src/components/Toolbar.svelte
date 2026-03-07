@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { isAtRoot, drillUp, diagramStore } from '../stores/diagramStore';
+  import { isAtRoot, drillUp, diagramStore, currentDiagram } from '../stores/diagramStore';
   import { goHome, activeProject, activeDiagram } from '../stores/appStore';
-  import { exportDiagramJSON, importDiagramJSON, ImportError } from '../utils/persistence';
+  import { exportDiagramJSON, exportLevelJSON, importDiagramJSON, ImportError } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
   import { get } from 'svelte/store';
   import { loadDiagram } from '../stores/diagramStore';
@@ -16,6 +16,11 @@
 
   function handleExport() {
     exportDiagramJSON(get(diagramStore), get(activeDiagram)?.name);
+  }
+
+  function handleExportLevel() {
+    const diagram = get(currentDiagram);
+    exportLevelJSON(get(diagramStore), diagram.id, diagram.label);
   }
 
   async function handleImport(e: Event) {
@@ -72,6 +77,11 @@
     <button onclick={handleExport} title="Export diagram as JSON">
       Export JSON
     </button>
+    {#if !$isAtRoot}
+      <button onclick={handleExportLevel} title="Export current level and its children as JSON">
+        Export Level
+      </button>
+    {/if}
     <button onclick={() => fileInput?.click()} title="Import diagram from JSON">
       Import JSON
     </button>

@@ -149,6 +149,43 @@ export function parseDiagramJSON(text: string): DiagramState {
   return state;
 }
 
+/**
+ * Extracts a subtree of DiagramLevels rooted at `rootLevelId` and returns
+ * a new self-contained DiagramState. The result is directly importable.
+ */
+export function extractSubtree(state: DiagramState, rootLevelId: string): DiagramState {
+  const collected: DiagramState['diagrams'] = {};
+
+  function walk(levelId: string): void {
+    if (collected[levelId]) return; // already visited
+    const level = state.diagrams[levelId];
+    if (!level) return;
+    collected[levelId] = level;
+    for (const node of level.nodes) {
+      if (node.childDiagramId) walk(node.childDiagramId);
+    }
+  }
+
+  walk(rootLevelId);
+
+  return {
+    version: state.version,
+    diagrams: collected,
+    rootId: rootLevelId,
+    navigationStack: [rootLevelId],
+    selectedId: null,
+    pendingNodeType: null,
+  };
+}
+
+/**
+ * Exports only the current level and its descendants as a self-contained JSON file.
+ */
+export function exportLevelJSON(state: DiagramState, levelId: string, name?: string): void {
+  const subtree = extractSubtree(state, levelId);
+  exportDiagramJSON(subtree, name);
+}
+
 export async function importDiagramJSON(file: File): Promise<DiagramState> {
   const text = await file.text();
   return parseDiagramJSON(text);
