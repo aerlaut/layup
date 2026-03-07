@@ -173,14 +173,17 @@ export const parentNodeType = derived(diagramStore, ($s): C4NodeType | null => {
 export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => {
   if ($s.navigationStack.length <= 1) return [];
   const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
-  const currentDiagramId = $s.navigationStack[$s.navigationStack.length - 1] ?? '';
   const parentDiagram = $s.diagrams[parentDiagramId];
   if (!parentDiagram) return [];
 
   return parentDiagram.nodes
-    .filter((n) => n.childDiagramId !== undefined)
+    // Include all drillable nodes regardless of whether they have been visited.
+    // Nodes that have a childDiagramId have been drilled into at least once;
+    // nodes without one are drillable but unvisited — they still get a boundary
+    // box (with empty childNodes) so sibling groups are always visible.
+    .filter((n) => n.childDiagramId !== undefined || childLevelFor(n.type) !== undefined)
     .map((n) => {
-      const childDiagram = $s.diagrams[n.childDiagramId!];
+      const childDiagram = n.childDiagramId ? $s.diagrams[n.childDiagramId] : undefined;
       const childNodes = childDiagram?.nodes ?? [];
       const boundingBox = computeBoundingBox(childNodes, n.position);
       return {
@@ -188,7 +191,7 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
         parentLabel: n.label,
         childNodes,
         boundingBox,
-        childDiagramId: n.childDiagramId!,
+        childDiagramId: n.childDiagramId, // undefined for unvisited drillable nodes
       };
     });
 });
@@ -596,7 +599,7 @@ export function deleteEdge(edgeId: string): void {
  * Returns undefined for node types that are not drillable (UML class and ERD
  * types — they expose their structure natively via member/column lists).
  */
-function childLevelFor(nodeType: C4NodeType): C4LevelType | undefined {
+export function childLevelFor(nodeType: C4NodeType): C4LevelType | undefined {
   const map: Partial<Record<C4NodeType, C4LevelType>> = {
     person: 'component',
     'external-person': 'component',
