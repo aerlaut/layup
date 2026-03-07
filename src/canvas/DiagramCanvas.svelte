@@ -24,6 +24,7 @@
   import ExternalSystemNode from '../elements/ExternalSystemNode.svelte';
   import ContainerNode from '../elements/ContainerNode.svelte';
   import DatabaseNode from '../elements/DatabaseNode.svelte';
+  import DbSchemaNode from '../elements/DbSchemaNode.svelte';
   import ComponentNode from '../elements/ComponentNode.svelte';
   import UmlClassNode from '../elements/UmlClassNode.svelte';
   import ErdTableNode from '../elements/ErdTableNode.svelte';
@@ -53,6 +54,7 @@
     'external-system': ExternalSystemNode,
     container: ContainerNode,
     database: DatabaseNode,
+    'db-schema': DbSchemaNode,
     component: ComponentNode,
     class: UmlClassNode,
     'abstract-class': UmlClassNode,
