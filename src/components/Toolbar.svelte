@@ -4,11 +4,12 @@
   import { exportDiagramJSON, exportLevelJSON, importDiagramJSON, ImportError } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
   import { get } from 'svelte/store';
-  import { loadDiagram } from '../stores/diagramStore';
+  import { loadDiagram, mergeImportedDiagram } from '../stores/diagramStore';
 
   let { importError = $bindable<string | null>(null) }: { importError?: string | null } = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
+  let importMode: 'replace' | 'merge' = $state('replace');
 
   function handleHome() {
     goHome();
@@ -28,13 +29,27 @@
     if (!file) return;
     try {
       const state = await importDiagramJSON(file);
-      loadDiagram(state);
+      if (importMode === 'replace') {
+        loadDiagram(state);
+      } else {
+        mergeImportedDiagram(state);
+      }
       importError = null;
     } catch (err) {
       importError = err instanceof ImportError ? err.message : 'Failed to import diagram.';
     }
     // Reset file input so the same file can be re-imported
     (e.target as HTMLInputElement).value = '';
+  }
+
+  function handleImportReplace() {
+    importMode = 'replace';
+    fileInput?.click();
+  }
+
+  function handleImportMerge() {
+    importMode = 'merge';
+    fileInput?.click();
   }
 
   function handleBack() {
@@ -82,8 +97,11 @@
         Export Level
       </button>
     {/if}
-    <button onclick={() => fileInput?.click()} title="Import diagram from JSON">
+    <button onclick={handleImportReplace} title="Import diagram from JSON (replaces current)">
       Import JSON
+    </button>
+    <button onclick={handleImportMerge} title="Merge diagram from JSON into current level">
+      Merge JSON
     </button>
     <input
       bind:this={fileInput}
