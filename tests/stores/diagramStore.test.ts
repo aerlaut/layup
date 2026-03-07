@@ -34,6 +34,7 @@ import {
   resetDiagram,
   computeNodeHeight,
   contextBoundaries,
+  parentNodeType,
 } from '../../src/stores/diagramStore';
 import type { C4Node, C4Edge, DiagramState, ClassMember } from '../../src/types';
 import {
@@ -447,15 +448,27 @@ describe('drillDown', () => {
     expect(getCurrentDiagram(getState()).level).toBe('component');
     drillUp();
 
+    // database → component (not code — db-schema sits at component level)
+    addNode(makeNode({ id: 'db1', type: 'database', position: { x: 600, y: 0 } }));
+    drillDown('db1');
+    expect(getCurrentDiagram(getState()).level).toBe('component');
+    drillUp();
+
     // person → component
-    addNode(makeNode({ id: 'p1', type: 'person', position: { x: 600, y: 0 } }));
+    addNode(makeNode({ id: 'p1', type: 'person', position: { x: 900, y: 0 } }));
     drillDown('p1');
     expect(getCurrentDiagram(getState()).level).toBe('component');
     drillUp();
 
     // component → code
-    addNode(makeNode({ id: 'comp1', type: 'component', position: { x: 900, y: 0 } }));
+    addNode(makeNode({ id: 'comp1', type: 'component', position: { x: 1200, y: 0 } }));
     drillDown('comp1');
+    expect(getCurrentDiagram(getState()).level).toBe('code');
+    drillUp();
+
+    // db-schema → code
+    addNode(makeNode({ id: 'schema1', type: 'db-schema', position: { x: 1500, y: 0 } }));
+    drillDown('schema1');
     expect(getCurrentDiagram(getState()).level).toBe('code');
     drillUp();
   });
@@ -484,6 +497,45 @@ describe('drillDown', () => {
       const node = getState().diagrams['root'].nodes.find((n) => n.id === `erd-${erdType}`);
       expect(node?.childDiagramId).toBeUndefined();
     });
+  });
+});
+
+describe('parentNodeType', () => {
+  it('is null at root', () => {
+    expect(get(parentNodeType)).toBeNull();
+  });
+
+  it('returns the type of the parent node that owns the current diagram', () => {
+    addNode(makeNode({ id: 'db1', type: 'database', position: { x: 0, y: 0 } }));
+    drillDown('db1');
+    expect(get(parentNodeType)).toBe('database');
+    drillUp();
+  });
+
+  it('returns container type when drilling into a container', () => {
+    addNode(makeNode({ id: 'c1', type: 'container', position: { x: 0, y: 0 } }));
+    drillDown('c1');
+    expect(get(parentNodeType)).toBe('container');
+    drillUp();
+  });
+
+  it('updates correctly through two levels of drill-down', () => {
+    // Root → database → db-schema
+    addNode(makeNode({ id: 'db1', type: 'database', position: { x: 0, y: 0 } }));
+    drillDown('db1');
+    // Now in the database's component-level diagram; add a db-schema and drill further
+    addNode(makeNode({ id: 'schema1', type: 'db-schema', position: { x: 0, y: 0 } }));
+    drillDown('schema1');
+    expect(get(parentNodeType)).toBe('db-schema');
+    drillUp();
+    drillUp();
+  });
+
+  it('returns null after drilling back to root', () => {
+    addNode(makeNode({ id: 'db1', type: 'database', position: { x: 0, y: 0 } }));
+    drillDown('db1');
+    drillUp();
+    expect(get(parentNodeType)).toBeNull();
   });
 });
 
