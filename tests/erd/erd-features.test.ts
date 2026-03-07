@@ -4,7 +4,7 @@
  *   - computeNodeHeight for erd-table / erd-view node types
  *   - toFlowNode passes columns in data payload
  *   - NODE_DEFAULT_COLORS has entries for ERD types
- *   - childLevelFor maps ERD types to code level (via drillDown)
+ *   - ERD node types are NOT drillable (no child diagram created)
  */
 
 import { get } from 'svelte/store';
@@ -249,29 +249,30 @@ describe('NODE_DEFAULT_COLORS — ERD node types', () => {
   });
 });
 
-// ─── drillDown maps ERD types to code level ───────────────────────────────────
+// ─── ERD types are not drillable ─────────────────────────────────────────────
 
-describe('drillDown — ERD node creates code-level child diagram', () => {
-  it('drilling into erd-table creates a code-level child diagram', () => {
+describe('drillDown — ERD nodes are not drillable', () => {
+  it('drilling into erd-table does not navigate or create a child diagram', () => {
     const node = makeErdNode({ id: 'tbl1' });
     addNode(node);
+    const stackBefore = getState().navigationStack.slice();
     drillDown('tbl1');
     const state = getState();
-    const navStack = state.navigationStack;
-    expect(navStack.length).toBe(2);
-    const childId = navStack[1]!;
-    const childDiagram = state.diagrams[childId];
-    expect(childDiagram).toBeDefined();
-    expect(childDiagram!.level).toBe('code');
+    // Navigation stack must be unchanged
+    expect(state.navigationStack).toEqual(stackBefore);
+    // No childDiagramId should have been set on the node
+    const tblNode = state.diagrams['root']!.nodes.find((n) => n.id === 'tbl1');
+    expect(tblNode?.childDiagramId).toBeUndefined();
   });
 
-  it('drilling into erd-view creates a code-level child diagram', () => {
+  it('drilling into erd-view does not navigate or create a child diagram', () => {
     const node = makeErdNode({ id: 'view1', type: 'erd-view' });
     addNode(node);
+    const stackBefore = getState().navigationStack.slice();
     drillDown('view1');
     const state = getState();
-    const childId = state.navigationStack[1]!;
-    const childDiagram = state.diagrams[childId];
-    expect(childDiagram!.level).toBe('code');
+    expect(state.navigationStack).toEqual(stackBefore);
+    const viewNode = state.diagrams['root']!.nodes.find((n) => n.id === 'view1');
+    expect(viewNode?.childDiagramId).toBeUndefined();
   });
 });
