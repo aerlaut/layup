@@ -15,7 +15,7 @@
   }
 
   function handleExport() {
-    exportDiagramJSON(get(diagramStore));
+    exportDiagramJSON(get(diagramStore), get(activeDiagram)?.name);
   }
 
   async function handleImport(e: Event) {
@@ -56,7 +56,7 @@
         ↑ Up
       </button>
     {/if}
-    <span class="app-title">laverop</span>
+    <span class="app-title">layup</span>
     {#if $activeProject}
       <span class="context-sep">›</span>
       <span class="context-label project-label" title={$activeProject.name}>{$activeProject.name}</span>

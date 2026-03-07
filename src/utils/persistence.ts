@@ -3,8 +3,8 @@ import { SCHEMA_VERSION } from '../stores/diagramStore';
 import { APP_STATE_VERSION, createInitialAppState } from '../stores/appStore';
 import { STORAGE_WARN_BYTES } from './constants';
 
-const STORAGE_KEY = 'laverop_diagram';
-const STORAGE_KEY_APP = 'laverop_app';
+const STORAGE_KEY = 'layup_diagram';
+const STORAGE_KEY_APP = 'layup_app';
 
 // ─── AppState localStorage ────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ export function saveAppState(state: AppState): void {
   try {
     localStorage.setItem(STORAGE_KEY_APP, JSON.stringify(state));
   } catch (e) {
-    console.warn('laverop: failed to save app state to localStorage', e);
+    console.warn('layup: failed to save app state to localStorage', e);
   }
 }
 
@@ -25,13 +25,13 @@ export function loadAppState(): AppState | null {
     if (typeof parsed.version !== 'number') return null;
     return parsed;
   } catch (e) {
-    console.warn('laverop: failed to load app state from localStorage', e);
+    console.warn('layup: failed to load app state from localStorage', e);
     return null;
   }
 }
 
 /**
- * Migrate from legacy single-diagram format (laverop_diagram) to AppState.
+ * Migrate from legacy single-diagram format (layup_diagram) to AppState.
  * Returns the migrated AppState, or null if no legacy data exists.
  * Deletes the legacy key on success.
  */
@@ -58,7 +58,7 @@ export function migrateFromLegacy(): AppState | null {
 
     return appState;
   } catch (e) {
-    console.warn('laverop: failed to migrate legacy data', e);
+    console.warn('layup: failed to migrate legacy data', e);
     return null;
   }
 }
@@ -70,7 +70,7 @@ export function saveToLocalStorage(state: DiagramState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
-    console.warn('laverop: failed to save to localStorage', e);
+    console.warn('layup: failed to save to localStorage', e);
   }
 }
 
@@ -82,7 +82,7 @@ export function loadFromLocalStorage(): DiagramState | null {
     const parsed = JSON.parse(raw) as DiagramState;
     return parsed;
   } catch (e) {
-    console.warn('laverop: failed to load from localStorage', e);
+    console.warn('layup: failed to load from localStorage', e);
     return null;
   }
 }
@@ -104,13 +104,13 @@ export function isNearStorageLimit(): boolean {
 
 // ─── JSON export / import ─────────────────────────────────────────────────────
 
-export function exportDiagramJSON(state: DiagramState): void {
+export function exportDiagramJSON(state: DiagramState, name?: string): void {
   const json = JSON.stringify(state, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'diagram.json';
+  a.download = name ? `${name}.json` : 'diagram.json';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -134,7 +134,7 @@ export function parseDiagramJSON(text: string): DiagramState {
   }
   if (state.version > SCHEMA_VERSION) {
     throw new ImportError(
-      `Diagram was created with a newer version (v${state.version}). Please upgrade laverop.`
+      `Diagram was created with a newer version (v${state.version}). Please upgrade layup.`
     );
   }
   if (!state.diagrams || typeof state.diagrams !== 'object') {
