@@ -139,14 +139,16 @@ export function buildFlowData(
     });
 
     if (group.childDiagramId !== currentDiagramId) {
-      // Sibling group — render its nodes as fully interactive active nodes
+      // Sibling group (or unvisited drillable node with no childDiagramId yet) —
+      // render its nodes as fully interactive active nodes. childNodes is empty
+      // for unvisited siblings so the loop is a no-op in that case.
       for (const cn of group.childNodes) {
         const flowNode = toFlowNode(cn, selectedId);
         flowNode.parentId = boundaryId;
         flowNode.position = { x: cn.position.x - bBox.x, y: cn.position.y - bBox.y };
         activeNodes.push(flowNode);
       }
-      const siblingDiagram = state.diagrams[group.childDiagramId];
+      const siblingDiagram = group.childDiagramId ? state.diagrams[group.childDiagramId] : undefined;
       if (siblingDiagram) {
         for (const e of siblingDiagram.edges) {
           activeEdges.push(toFlowEdge(e, selectedId));
