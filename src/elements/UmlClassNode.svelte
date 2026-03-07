@@ -12,7 +12,6 @@
       label: string;
       description?: string;
       technology?: string;
-      childDiagramId?: string;
       color?: string;
       members?: ClassMember[];
     };
@@ -83,9 +82,6 @@
     {/if}
     {#if data.description && !showCompartments}
       <div class="node-desc" style="color: {colors.muted};">{data.description}</div>
-    {/if}
-    {#if data.childDiagramId}
-      <div class="drill-indicator" style="color: {colors.primary};" title="Double-click to drill in">▸</div>
     {/if}
   </div>
 
@@ -205,11 +201,5 @@
     font-style: italic;
   }
 
-  .drill-indicator {
-    position: absolute;
-    bottom: 4px;
-    right: 6px;
-    font-size: 0.7rem;
-    opacity: 0.7;
-  }
+
 </style>
