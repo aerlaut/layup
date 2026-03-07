@@ -3,6 +3,8 @@ import { SCHEMA_VERSION } from '../stores/diagramStore';
 import { APP_STATE_VERSION, createInitialAppState } from '../stores/appStore';
 import { STORAGE_WARN_BYTES } from './constants';
 
+export { remapIds } from './remapIds';
+
 const STORAGE_KEY = 'layup_diagram';
 const STORAGE_KEY_APP = 'layup_app';
 
