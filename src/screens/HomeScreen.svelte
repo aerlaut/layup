@@ -12,7 +12,7 @@
 <div class="home-screen">
   <header class="home-header">
     <div class="home-header-left">
-      <span class="home-logo">laverop</span>
+      <span class="home-logo">layup</span>
     </div>
     <div class="home-header-right">
       <span class="home-account">{account.name}</span>
