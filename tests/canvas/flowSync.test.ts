@@ -222,3 +222,77 @@ describe('buildFlowData — selected node highlighting', () => {
     expect(nodes.find((n) => n.id === 'n1')?.selected).toBe(true);
   });
 });
+
+describe('buildFlowData — unvisited sibling boundary groups (undefined childDiagramId)', () => {
+  it('renders a boundary node for an unvisited sibling with no childDiagramId', () => {
+    const childA = makeNode({ id: 'a1', position: { x: 100, y: 100 } });
+    const diagA = makeDiagram('diagA', [childA]);
+    const state = makeState({
+      navigationStack: ['root', 'diagA'],
+      diagrams: { root: makeDiagram('root'), diagA },
+    });
+    const boundaryA = makeBoundary('sysA', 'diagA', [childA]);
+    // sysB has never been visited — childDiagramId is undefined
+    const boundaryB: BoundaryGroup = {
+      parentNodeId: 'sysB',
+      parentLabel: 'System B',
+      childNodes: [],
+      childDiagramId: undefined,
+      boundingBox: { x: 400, y: 0, width: 200, height: 150 },
+    };
+
+    const { nodes } = buildFlowData(state, diagA, [boundaryA, boundaryB], makeDiagram('root'), null);
+
+    const boundaryIds = nodes.filter((n) => n.id.startsWith('boundary-')).map((n) => n.id);
+    expect(boundaryIds).toContain('boundary-sysA');
+    expect(boundaryIds).toContain('boundary-sysB');
+  });
+
+  it('renders no child nodes for an unvisited sibling boundary', () => {
+    const childA = makeNode({ id: 'a1', position: { x: 100, y: 100 } });
+    const diagA = makeDiagram('diagA', [childA]);
+    const state = makeState({
+      navigationStack: ['root', 'diagA'],
+      diagrams: { root: makeDiagram('root'), diagA },
+    });
+    const boundaryA = makeBoundary('sysA', 'diagA', [childA]);
+    const boundaryB: BoundaryGroup = {
+      parentNodeId: 'sysB',
+      parentLabel: 'System B',
+      childNodes: [],
+      childDiagramId: undefined,
+      boundingBox: { x: 400, y: 0, width: 200, height: 150 },
+    };
+
+    const { nodes } = buildFlowData(state, diagA, [boundaryA, boundaryB], makeDiagram('root'), null);
+
+    // Only a1 and the boundary nodes; no phantom nodes from sysB
+    const realNodes = nodes.filter((n) => !n.id.startsWith('boundary-'));
+    expect(realNodes.map((n) => n.id)).toEqual(['a1']);
+  });
+
+  it('does not crash or produce edges for an unvisited sibling boundary', () => {
+    const childA = makeNode({ id: 'a1', position: { x: 100, y: 100 } });
+    const diagA = makeDiagram('diagA', [childA]);
+    const state = makeState({
+      navigationStack: ['root', 'diagA'],
+      diagrams: { root: makeDiagram('root'), diagA },
+    });
+    const boundaryA = makeBoundary('sysA', 'diagA', [childA]);
+    const boundaryB: BoundaryGroup = {
+      parentNodeId: 'sysB',
+      parentLabel: 'System B',
+      childNodes: [],
+      childDiagramId: undefined,
+      boundingBox: { x: 400, y: 0, width: 200, height: 150 },
+    };
+
+    expect(() =>
+      buildFlowData(state, diagA, [boundaryA, boundaryB], makeDiagram('root'), null),
+    ).not.toThrow();
+
+    const { edges } = buildFlowData(state, diagA, [boundaryA, boundaryB], makeDiagram('root'), null);
+    // No phantom edges from the unvisited sibling
+    expect(edges.filter((e) => e.source === 'sysB' || e.target === 'sysB')).toHaveLength(0);
+  });
+});

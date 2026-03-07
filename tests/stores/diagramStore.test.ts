@@ -35,6 +35,7 @@ import {
   computeNodeHeight,
   contextBoundaries,
   parentNodeType,
+  childLevelFor,
 } from '../../src/stores/diagramStore';
 import type { C4Node, C4Edge, DiagramState, ClassMember } from '../../src/types';
 import {
@@ -946,5 +947,141 @@ describe('boundary group expands when UML node members are added', () => {
     const expectedBoxHeight = expectedNodeHeight + BOUNDARY_PADDING * 2;
 
     expect(boundary!.boundingBox.height).toBe(expectedBoxHeight);
+  });
+});
+
+// ── childLevelFor ─────────────────────────────────────────────────────────────
+
+describe('childLevelFor', () => {
+  it('returns the correct child level for each drillable node type', () => {
+    expect(childLevelFor('system')).toBe('container');
+    expect(childLevelFor('external-system')).toBe('container');
+    expect(childLevelFor('person')).toBe('component');
+    expect(childLevelFor('external-person')).toBe('component');
+    expect(childLevelFor('container')).toBe('component');
+    expect(childLevelFor('database')).toBe('component');
+    expect(childLevelFor('db-schema')).toBe('code');
+    expect(childLevelFor('component')).toBe('code');
+  });
+
+  it('returns undefined for non-drillable UML and ERD node types', () => {
+    const nonDrillable: C4Node['type'][] = [
+      'class', 'abstract-class', 'interface', 'enum', 'record',
+      'erd-table', 'erd-view',
+    ];
+    for (const type of nonDrillable) {
+      expect(childLevelFor(type)).toBeUndefined();
+    }
+  });
+});
+
+// ── contextBoundaries — unvisited sibling nodes ───────────────────────────────
+
+describe('contextBoundaries — unvisited sibling nodes', () => {
+  beforeEach(() => resetDiagram());
+
+  it('includes a boundary group for a drillable sibling that has never been visited', () => {
+    // Create two system nodes at root; only drill into A
+    addNode(makeNode({ id: 'sysA', type: 'system', label: 'System A', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'sysB', type: 'system', label: 'System B', position: { x: 300, y: 0 } }));
+
+    drillDown('sysA'); // sysB is still unvisited (no childDiagramId)
+
+    const boundaries = get(contextBoundaries);
+    expect(boundaries).toHaveLength(2);
+
+    const boundaryA = boundaries.find((b) => b.parentNodeId === 'sysA');
+    const boundaryB = boundaries.find((b) => b.parentNodeId === 'sysB');
+
+    // Both should appear
+    expect(boundaryA).toBeDefined();
+    expect(boundaryB).toBeDefined();
+
+    // A has been visited — it has a real childDiagramId
+    expect(boundaryA!.childDiagramId).toBeDefined();
+
+    // B has never been visited — no childDiagramId, empty childNodes
+    expect(boundaryB!.childDiagramId).toBeUndefined();
+    expect(boundaryB!.childNodes).toHaveLength(0);
+  });
+
+  it('shows all drillable siblings at the container level', () => {
+    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
+    drillDown('sys1');
+
+    // Add two containers inside sys1's child diagram; drill into only contA
+    addNode(makeNode({ id: 'contA', type: 'container', label: 'Container A', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'contB', type: 'container', label: 'Container B', position: { x: 300, y: 0 } }));
+
+    drillDown('contA');
+
+    const boundaries = get(contextBoundaries);
+    const boundaryA = boundaries.find((b) => b.parentNodeId === 'contA');
+    const boundaryB = boundaries.find((b) => b.parentNodeId === 'contB');
+
+    expect(boundaryA).toBeDefined();
+    expect(boundaryB).toBeDefined();
+    expect(boundaryB!.childDiagramId).toBeUndefined();
+    expect(boundaryB!.childNodes).toHaveLength(0);
+  });
+
+  it('does NOT include non-drillable node types (UML/ERD) as boundary groups', () => {
+    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
+    drillDown('sys1');
+
+    // At container level, add a drillable component and some non-drillable types
+    addNode(makeNode({ id: 'comp1', type: 'component', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'cls1', type: 'class', position: { x: 300, y: 0 } }));
+    addNode(makeNode({ id: 'tbl1', type: 'erd-table', position: { x: 600, y: 0 } }));
+
+    drillDown('comp1');
+
+    const boundaries = get(contextBoundaries);
+
+    // cls1 and tbl1 must NOT appear as boundary groups
+    expect(boundaries.find((b) => b.parentNodeId === 'cls1')).toBeUndefined();
+    expect(boundaries.find((b) => b.parentNodeId === 'tbl1')).toBeUndefined();
+
+    // comp1 (the one we drilled into) should still appear
+    expect(boundaries.find((b) => b.parentNodeId === 'comp1')).toBeDefined();
+  });
+
+  it('populates childDiagramId for a sibling once it has been visited', () => {
+    addNode(makeNode({ id: 'sysA', type: 'system', label: 'A', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'sysB', type: 'system', label: 'B', position: { x: 300, y: 0 } }));
+
+    // Visit A; B is unvisited
+    drillDown('sysA');
+    const before = get(contextBoundaries).find((b) => b.parentNodeId === 'sysB');
+    expect(before!.childDiagramId).toBeUndefined();
+
+    // Navigate to B
+    drillUp();
+    drillDown('sysB');
+
+    // Now navigate back to A; both should have childDiagramId
+    drillUp();
+    drillDown('sysA');
+    const after = get(contextBoundaries).find((b) => b.parentNodeId === 'sysB');
+    expect(after!.childDiagramId).toBeDefined();
+  });
+
+  it('returns empty array when at root (no parent diagram)', () => {
+    // Not drilled in — contextBoundaries should be empty
+    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
+    expect(get(contextBoundaries)).toHaveLength(0);
+  });
+
+  it('unvisited boundary has a non-degenerate bounding box based on parent node position', () => {
+    addNode(makeNode({ id: 'sysA', type: 'system', label: 'A', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'sysB', type: 'system', label: 'B', position: { x: 500, y: 250 } }));
+
+    drillDown('sysA');
+
+    const boundaryB = get(contextBoundaries).find((b) => b.parentNodeId === 'sysB');
+    expect(boundaryB).toBeDefined();
+    // Bounding box must have positive dimensions even for an unvisited (empty) group
+    expect(boundaryB!.boundingBox.width).toBeGreaterThan(0);
+    expect(boundaryB!.boundingBox.height).toBeGreaterThan(0);
   });
 });

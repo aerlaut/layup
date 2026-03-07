@@ -165,8 +165,12 @@ export interface BoundaryGroup {
   parentLabel: string;
   childNodes: C4Node[];
   boundingBox: { x: number; y: number; width: number; height: number };
-  /** The child diagram ID for this group */
-  childDiagramId: string;
+  /**
+   * The child diagram ID for this group.
+   * Undefined when the node is drillable but has never been visited — in that case
+   * childNodes is always empty and only the boundary box is rendered.
+   */
+  childDiagramId?: string;
 }
 
 // ─── Account / Project / Diagram hierarchy ────────────────────────────────────

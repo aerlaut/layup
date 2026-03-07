@@ -159,7 +159,8 @@ export function makeHandleNodeDragStop(
     for (const bNode of boundaryDrags) {
       const parentNodeId = bNode.id.replace('boundary-', '');
       const group = boundaries.find((g) => g.parentNodeId === parentNodeId);
-      if (!group) continue;
+      // Skip unvisited groups — childDiagramId is undefined and childNodes is empty
+      if (!group || !group.childDiagramId) continue;
       const dx = bNode.position.x - group.boundingBox.x;
       const dy = bNode.position.y - group.boundingBox.y;
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
@@ -167,6 +168,7 @@ export function makeHandleNodeDragStop(
         id: cn.id,
         position: { x: cn.position.x + dx, y: cn.position.y + dy },
       }));
+      if (childUpdates.length === 0) continue;
       updateNodePositionsInDiagram(group.childDiagramId, childUpdates);
     }
 
@@ -192,7 +194,8 @@ export function makeHandleNodeDragStop(
           };
           const parentNodeId = n.parentId.replace('boundary-', '');
           const group = boundaries.find((g) => g.parentNodeId === parentNodeId);
-          if (!group) continue;
+          // Unvisited groups have no childDiagramId and no child nodes to update
+          if (!group || !group.childDiagramId) continue;
           const diagramId = group.childDiagramId;
           if (!updatesByDiagram.has(diagramId)) updatesByDiagram.set(diagramId, []);
           updatesByDiagram.get(diagramId)!.push({ id: n.id, position: absPosition });
@@ -234,7 +237,7 @@ export function handleDelete({ nodes: delNodes, edges: delEdges }: { nodes: Node
     } else {
       // Check if this node belongs to a sibling group's diagram
       const group = boundaries.find((g) => g.childNodes.some((cn) => cn.id === n.id));
-      if (group && group.childDiagramId !== currentDiagramId) {
+      if (group && group.childDiagramId && group.childDiagramId !== currentDiagramId) {
         deleteNodeFromDiagram(group.childDiagramId, n.id);
       } else {
         storeDeleteNode(n.id);
@@ -253,10 +256,11 @@ export function handleDelete({ nodes: delNodes, edges: delEdges }: { nodes: Node
       // Intra-group edges for sibling diagrams
       const siblingGroup = boundaries.find(
         (g) =>
+          g.childDiagramId !== undefined &&
           g.childDiagramId !== currentDiagramId &&
           s.diagrams[g.childDiagramId]?.edges.some((se) => se.id === e.id),
       );
-      if (siblingGroup) {
+      if (siblingGroup && siblingGroup.childDiagramId) {
         deleteEdgeFromDiagram(siblingGroup.childDiagramId, e.id);
         continue;
       }
