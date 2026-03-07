@@ -576,9 +576,13 @@ export function deleteEdge(edgeId: string): void {
   });
 }
 
-/** Maps the C4 node type to the child level type */
-function childLevelFor(nodeType: C4NodeType): C4LevelType {
-  const map: Record<C4NodeType, C4LevelType> = {
+/**
+ * Maps a drillable C4 node type to its child level type.
+ * Returns undefined for node types that are not drillable (UML class and ERD
+ * types — they expose their structure natively via member/column lists).
+ */
+function childLevelFor(nodeType: C4NodeType): C4LevelType | undefined {
+  const map: Partial<Record<C4NodeType, C4LevelType>> = {
     person: 'component',
     'external-person': 'component',
     system: 'container',
@@ -586,13 +590,8 @@ function childLevelFor(nodeType: C4NodeType): C4LevelType {
     container: 'component',
     database: 'code',
     component: 'code',
-    class: 'code',
-    'abstract-class': 'code',
-    interface: 'code',
-    enum: 'code',
-    record: 'code',
-    'erd-table': 'code',
-    'erd-view': 'code',
+    // class, abstract-class, interface, enum, record, erd-table, erd-view
+    // are intentionally absent — they are not drillable.
   };
   return map[nodeType];
 }
@@ -603,9 +602,11 @@ export function createChildDiagram(nodeId: string): string {
     const current = getCurrentDiagram(s);
     const node = current.nodes.find((n) => n.id === nodeId);
     if (!node) return s;
+    const childLevel = childLevelFor(node.type);
+    if (!childLevel) return s; // node type is not drillable
     const childDiagram: DiagramLevel = {
       id: childId,
-      level: childLevelFor(node.type),
+      level: childLevel,
       label: node.label,
       nodes: [],
       edges: [],
@@ -631,6 +632,11 @@ export function drillDown(nodeId: string): void {
     const node = current.nodes.find((n) => n.id === nodeId);
     if (!node) return s;
 
+    // UML class and ERD node types are not drillable — they surface their
+    // structure directly on the node via member/column lists.
+    const childLevel = childLevelFor(node.type);
+    if (!childLevel) return s;
+
     let newState = s;
     let childId = node.childDiagramId;
 
@@ -638,7 +644,7 @@ export function drillDown(nodeId: string): void {
       childId = generateId();
       const childDiagram: DiagramLevel = {
         id: childId,
-        level: childLevelFor(node.type),
+        level: childLevel,
         label: node.label,
         nodes: [],
         edges: [],

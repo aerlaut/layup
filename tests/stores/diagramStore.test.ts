@@ -458,14 +458,31 @@ describe('drillDown', () => {
     drillDown('comp1');
     expect(getCurrentDiagram(getState()).level).toBe('code');
     drillUp();
+  });
 
-    // UML code types — all map to 'code' level (child would be 'code' level too)
+  it('does not drill into UML class-type nodes', () => {
     const umlTypes = ['class', 'abstract-class', 'interface', 'enum', 'record'] as const;
     umlTypes.forEach((umlType, i) => {
       addNode(makeNode({ id: `uml-${umlType}`, type: umlType, position: { x: i * 200, y: 300 } }));
+      const stackBefore = getState().navigationStack.slice();
       drillDown(`uml-${umlType}`);
-      expect(getCurrentDiagram(getState()).level).toBe('code');
-      drillUp();
+      // Navigation stack must not change — UML nodes are not drillable
+      expect(getState().navigationStack).toEqual(stackBefore);
+      // No child diagram should have been created
+      const node = getState().diagrams['root'].nodes.find((n) => n.id === `uml-${umlType}`);
+      expect(node?.childDiagramId).toBeUndefined();
+    });
+  });
+
+  it('does not drill into ERD node types', () => {
+    const erdTypes = ['erd-table', 'erd-view'] as const;
+    erdTypes.forEach((erdType, i) => {
+      addNode(makeNode({ id: `erd-${erdType}`, type: erdType, position: { x: i * 200, y: 600 } }));
+      const stackBefore = getState().navigationStack.slice();
+      drillDown(`erd-${erdType}`);
+      expect(getState().navigationStack).toEqual(stackBefore);
+      const node = getState().diagrams['root'].nodes.find((n) => n.id === `erd-${erdType}`);
+      expect(node?.childDiagramId).toBeUndefined();
     });
   });
 });
@@ -532,6 +549,27 @@ describe('createChildDiagram', () => {
     const id1 = createChildDiagram('sys1');
     const id2 = createChildDiagram('sys2');
     expect(id1).not.toBe(id2);
+  });
+
+  it('does not create a child diagram for UML class-type nodes', () => {
+    const umlTypes = ['class', 'abstract-class', 'interface', 'enum', 'record'] as const;
+    umlTypes.forEach((umlType, i) => {
+      addNode(makeNode({ id: `uml-${umlType}`, type: umlType, position: { x: i * 200, y: 0 } }));
+      createChildDiagram(`uml-${umlType}`);
+      const node = getState().diagrams['root'].nodes.find((n) => n.id === `uml-${umlType}`);
+      // No childDiagramId should be set
+      expect(node?.childDiagramId).toBeUndefined();
+    });
+  });
+
+  it('does not create a child diagram for ERD node types', () => {
+    const erdTypes = ['erd-table', 'erd-view'] as const;
+    erdTypes.forEach((erdType, i) => {
+      addNode(makeNode({ id: `erd-${erdType}`, type: erdType, position: { x: i * 200, y: 300 } }));
+      createChildDiagram(`erd-${erdType}`);
+      const node = getState().diagrams['root'].nodes.find((n) => n.id === `erd-${erdType}`);
+      expect(node?.childDiagramId).toBeUndefined();
+    });
   });
 });
 
