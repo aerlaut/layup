@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import type { DiagramState, DiagramLevel, C4Node, C4Edge, C4NodeType, C4LevelType, BoundaryGroup, Annotation, AnnotationType, PaletteItemType } from '../types';
 import { generateId } from '../utils/id';
+import { remapIds } from '../utils/remapIds';
 import {
   NODE_DEFAULT_WIDTH,
   NODE_DEFAULT_HEIGHT,
@@ -686,6 +687,60 @@ export function navigateTo(diagramId: string): void {
 
 export function loadDiagram(state: DiagramState): void {
   diagramStore.set(state);
+}
+
+/** X offset applied to imported nodes/annotations to avoid immediate overlap */
+const MERGE_OFFSET_X = 200;
+
+/**
+ * Merges the root-level content of an imported DiagramState into the currently
+ * active diagram level. All IDs in the imported state are remapped to fresh ones
+ * before merging to prevent collisions. Child diagram levels from the imported
+ * file are preserved and remain drillable.
+ */
+export function mergeImportedDiagram(imported: DiagramState): void {
+  const remapped = remapIds(imported);
+  const importedRoot = remapped.diagrams[remapped.rootId];
+  if (!importedRoot) return;
+
+  diagramStore.update((s) => {
+    const currentId = s.navigationStack[s.navigationStack.length - 1] ?? s.rootId;
+    const current = s.diagrams[currentId];
+    if (!current) return s;
+
+    // Offset imported nodes/annotations so they don't land on top of existing content
+    const offsetNodes = importedRoot.nodes.map((n) => ({
+      ...n,
+      position: { x: n.position.x + MERGE_OFFSET_X, y: n.position.y },
+    }));
+    const offsetAnnotations = (importedRoot.annotations ?? []).map((a) => ({
+      ...a,
+      position: { x: a.position.x + MERGE_OFFSET_X, y: a.position.y },
+    }));
+
+    // Merge root-level content into the current level
+    const mergedCurrent: DiagramLevel = {
+      ...current,
+      nodes: [...current.nodes, ...offsetNodes],
+      edges: [...current.edges, ...importedRoot.edges],
+      annotations: [...(current.annotations ?? []), ...offsetAnnotations],
+    };
+
+    // Collect all non-root levels from the imported state (child diagrams)
+    const childLevels: DiagramState['diagrams'] = {};
+    for (const [id, level] of Object.entries(remapped.diagrams)) {
+      if (id !== remapped.rootId) childLevels[id] = level;
+    }
+
+    return {
+      ...s,
+      diagrams: {
+        ...s.diagrams,
+        ...childLevels,
+        [currentId]: mergedCurrent,
+      },
+    };
+  });
 }
 
 export function resetDiagram(): void {

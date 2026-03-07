@@ -1,4 +1,4 @@
-# Laverop
+# Layup
 
 A web-based C4 architecture diagram editor. Create and navigate software architecture diagrams across all four C4 model levels: **Context → Container → Component → Code**.
 
@@ -21,8 +21,8 @@ Svelte 5 · TypeScript · Vite · xyflow/svelte
 ## Install
 
 ```bash
-git clone https://github.com/aerlaut/laverop.git
-cd laverop
+git clone https://github.com/aerlaut/layup.git
+cd layup
 npm install
 ```
 
