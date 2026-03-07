@@ -4,6 +4,7 @@ import {
   handleConnect,
   handleNodeClick,
   handleDelete,
+  makeHandleDblClick,
 } from '../../src/canvas/canvasHandlers';
 import {
   diagramStore,
@@ -214,5 +215,70 @@ describe('handleDelete', () => {
     });
 
     expect(getState().diagrams['root']?.edges).toHaveLength(0);
+  });
+});
+
+// ─── makeHandleDblClick — NON_DRILLABLE_TYPES ─────────────────────────────────
+
+/**
+ * Helper: build a minimal fake DOM node element and fire a dblclick event
+ * through makeHandleDblClick, as if the user double-clicked a canvas node.
+ */
+function fireDblClickOnNode(
+  handler: (e: MouseEvent) => void,
+  nodeId: string,
+  nodeType: string,
+  currentNodes: Array<{ id: string; type: string }>,
+): void {
+  // Create a fake .svelte-flow__node element with data-id attribute
+  const nodeEl = document.createElement('div');
+  nodeEl.classList.add('svelte-flow__node');
+  nodeEl.setAttribute('data-id', nodeId);
+  document.body.appendChild(nodeEl);
+
+  // Create a MouseEvent whose target is inside the fake node element
+  const innerEl = document.createElement('span');
+  nodeEl.appendChild(innerEl);
+  const event = new MouseEvent('dblclick', { bubbles: true });
+  Object.defineProperty(event, 'target', { value: innerEl });
+
+  handler(event);
+  document.body.removeChild(nodeEl);
+}
+
+describe('makeHandleDblClick — non-drillable node types', () => {
+  beforeEach(() => resetDiagram());
+
+  const NON_DRILLABLE = [
+    'class', 'abstract-class', 'interface', 'enum', 'record',
+    'erd-table', 'erd-view',
+  ] as const;
+
+  NON_DRILLABLE.forEach((nodeType) => {
+    it(`does not drill into "${nodeType}" nodes`, () => {
+      addNode(makeNode({ id: `n-${nodeType}`, type: nodeType as any }));
+      const stackBefore = getState().navigationStack.slice();
+
+      const handler = makeHandleDblClick(
+        () => undefined,
+        () => [{ id: `n-${nodeType}`, type: nodeType }],
+      );
+      fireDblClickOnNode(handler, `n-${nodeType}`, nodeType, [{ id: `n-${nodeType}`, type: nodeType }]);
+
+      expect(getState().navigationStack).toEqual(stackBefore);
+    });
+  });
+
+  it('does drill into drillable node types (e.g. system)', () => {
+    addNode(makeNode({ id: 'sys1', type: 'system' }));
+    const stackBefore = getState().navigationStack.slice();
+
+    const handler = makeHandleDblClick(
+      () => undefined,
+      () => [{ id: 'sys1', type: 'system' }],
+    );
+    fireDblClickOnNode(handler, 'sys1', 'system', [{ id: 'sys1', type: 'system' }]);
+
+    expect(getState().navigationStack.length).toBeGreaterThan(stackBefore.length);
   });
 });

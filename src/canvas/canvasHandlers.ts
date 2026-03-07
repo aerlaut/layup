@@ -265,6 +265,22 @@ export function handleDelete({ nodes: delNodes, edges: delEdges }: { nodes: Node
   }
 }
 
+/**
+ * Node types that cannot be drilled into. UML class and ERD types expose their
+ * internal structure natively (member lists, column lists) so drill-down is
+ * redundant and disabled. Person nodes are excluded by long-standing convention.
+ */
+const NON_DRILLABLE_TYPES = new Set([
+  'person',
+  'class',
+  'abstract-class',
+  'interface',
+  'enum',
+  'record',
+  'erd-table',
+  'erd-view',
+]);
+
 // ─── Double-click (drill down/up) ─────────────────────────────────────────────
 
 export function makeHandleDblClick(
@@ -293,8 +309,8 @@ export function makeHandleDblClick(
     const nodeId = nodeEl.getAttribute('data-id');
     if (!nodeId) return;
     const c4node = getCurrentDiagramNodes().find((n) => n.id === nodeId);
-    // Annotations never drill down; person nodes never drill down either
-    if (!c4node || c4node.type === 'person') return;
+    // Annotations and non-drillable node types never drill down
+    if (!c4node || NON_DRILLABLE_TYPES.has(c4node.type)) return;
     drillDown(nodeId);
   };
 }
