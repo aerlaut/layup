@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isAtRoot, drillUp, diagramStore, currentDiagram } from '../stores/diagramStore';
+  import { isAtRoot, drillUp, diagramStore, currentDiagram, rootDiagramId, navigateTo } from '../stores/diagramStore';
   import { goHome, activeProject, activeDiagram } from '../stores/appStore';
   import { exportDiagramJSON, exportLevelJSON, importDiagramJSON, ImportError } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
@@ -76,16 +76,28 @@
         ↑ Up
       </button>
     {/if}
-    <span class="app-title">layup</span>
+    <button class="app-title" onclick={handleHome} title="Back to projects">layup</button>
     {#if $activeProject}
       <span class="context-sep">›</span>
-      <span class="context-label project-label" title={$activeProject.name}>{$activeProject.name}</span>
+      <button
+        class="context-btn project-label"
+        onclick={handleHome}
+        title="Back to projects — {$activeProject.name}"
+      >{$activeProject.name}</button>
     {/if}
     {#if $activeDiagram}
       <span class="context-sep">›</span>
-      <span class="context-label diagram-label" title={$activeDiagram.name}>{$activeDiagram.name}</span>
+      {#if $isAtRoot}
+        <span class="context-label diagram-label active" title={$activeDiagram.name}>{$activeDiagram.name}</span>
+      {:else}
+        <button
+          class="context-btn diagram-label"
+          onclick={() => navigateTo($rootDiagramId)}
+          title="Back to root — {$activeDiagram.name}"
+        >{$activeDiagram.name}</button>
+      {/if}
     {/if}
-    <BreadcrumbBar />
+    <BreadcrumbBar startIndex={1} />
   </div>
 
   <div class="toolbar-right">
@@ -146,6 +158,18 @@
     color: var(--color-primary);
     letter-spacing: -0.02em;
     flex-shrink: 0;
+    border: none;
+    background: none;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .app-title:hover {
+    background: var(--color-primary-bg-light);
+    border-color: transparent;
+    color: var(--color-primary-hover);
   }
 
   .home-btn {
@@ -188,6 +212,36 @@
     text-overflow: ellipsis;
     max-width: 140px;
     flex-shrink: 0;
+  }
+
+  .context-label.active {
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .context-btn {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: color 0.15s, text-decoration-color 0.15s, background 0.15s;
+  }
+
+  .context-btn:hover {
+    background: var(--color-bg);
+    color: var(--color-primary);
+    border-color: transparent;
+    text-decoration-color: var(--color-primary);
   }
 
   .project-label {
