@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentDiagram } from '../stores/diagramStore';
+  import { currentDiagram, parentNodeType } from '../stores/diagramStore';
   import type { AnnotationType, C4NodeType, C4LevelType } from '../types';
 
   type C4PaletteEntry = { kind: 'c4'; type: C4NodeType; label: string; description: string };
@@ -14,6 +14,7 @@
     { kind: 'c4', type: 'container', label: 'Container', description: 'App, service, or runtime' },
     { kind: 'c4', type: 'database', label: 'Database', description: 'Data store, file system' },
     { kind: 'c4', type: 'component', label: 'Component', description: 'A grouped set of code' },
+    { kind: 'c4', type: 'db-schema', label: 'Schema', description: 'A database schema or namespace' },
     { kind: 'c4', type: 'class', label: 'Class', description: 'A concrete class' },
     { kind: 'c4', type: 'abstract-class', label: 'Abstract Class', description: 'A partial contract' },
     { kind: 'c4', type: 'interface', label: 'Interface', description: 'A pure contract' },
@@ -38,8 +39,20 @@
   };
 
   const currentLevel = $derived($currentDiagram?.level ?? 'context');
-  const allowedC4Types = $derived(LEVEL_TYPES[currentLevel] ?? []);
-  const c4Entries = $derived(C4_ENTRIES.filter((e) => allowedC4Types.includes(e.type)));
+
+  /**
+   * At the component level the allowed types depend on the parent node type:
+   * - Inside a database → only db-schema nodes make sense
+   * - Inside anything else (container, person, …) → standard component nodes
+   */
+  const allowedC4Types = $derived((): C4NodeType[] => {
+    if (currentLevel === 'component') {
+      return $parentNodeType === 'database' ? ['db-schema'] : ['component'];
+    }
+    return LEVEL_TYPES[currentLevel] ?? [];
+  });
+
+  const c4Entries = $derived(C4_ENTRIES.filter((e) => allowedC4Types().includes(e.type)));
 
   function handleDragStart(event: DragEvent, entry: PaletteEntry) {
     if (!event.dataTransfer) return;
