@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { updateNode, deleteNode } from '../../stores/diagramStore';
+  import { updateNode, deleteNode, diagramStore } from '../../stores/diagramStore';
   import type { C4Node, C4LevelType } from '../../types';
   import { NODE_DEFAULT_COLORS, PASTEL_PALETTE } from '../../utils/colors';
   import { UML_CLASS_TYPES, ERD_NODE_TYPES } from '../../utils/nodeTypes';
   import UmlMemberEditor from './UmlMemberEditor.svelte';
   import ErdColumnEditor from './ErdColumnEditor.svelte';
+  import { exportNodeSubtree } from '../../utils/nodeSubtreeExport';
+  import { get } from 'svelte/store';
 
   interface Props {
     node: C4Node;
@@ -12,6 +14,10 @@
   }
 
   const { node, level }: Props = $props();
+
+  function handleExportSubtree() {
+    exportNodeSubtree(get(diagramStore), node.id, node.label);
+  }
 
   const isUmlClassNode = $derived(UML_CLASS_TYPES.has(node.type));
   const isErdNode = $derived(ERD_NODE_TYPES.has(node.type));
@@ -62,6 +68,7 @@
   {#if isErdNode}
     <ErdColumnEditor nodeId={node.id} columns={node.columns ?? []} />
   {/if}
+  <button class="secondary-btn" onclick={handleExportSubtree}>Export Subtree</button>
   <button class="danger-btn" onclick={() => deleteNode(node.id)}>Delete Element</button>
 </div>
 

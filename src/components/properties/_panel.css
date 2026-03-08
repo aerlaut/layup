@@ -84,6 +84,16 @@ textarea {
   font-family: monospace;
 }
 
+.secondary-btn {
+  border-color: var(--color-border);
+  color: var(--color-text);
+  margin-top: 8px;
+}
+
+.secondary-btn:hover {
+  background: var(--color-bg);
+}
+
 .danger-btn {
   border-color: var(--color-danger);
   color: var(--color-danger);
