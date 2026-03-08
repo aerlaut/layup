@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentDiagram, parentNodeType } from '../stores/diagramStore';
+  import { currentDiagram } from '../stores/diagramStore';
   import type { AnnotationType, C4NodeType, C4LevelType } from '../types';
 
   type C4PaletteEntry = { kind: 'c4'; type: C4NodeType; label: string; description: string };
@@ -32,23 +32,15 @@
   ];
 
   const LEVEL_TYPES: Record<C4LevelType, C4NodeType[]> = {
-    context: ['person', 'external-person', 'system', 'external-system'],
+    context:   ['person', 'external-person', 'system', 'external-system'],
     container: ['container', 'database'],
-    component: ['component'],
-    code: ['class', 'abstract-class', 'interface', 'enum', 'record', 'erd-table', 'erd-view'],
+    component: ['component', 'db-schema'],
+    code:      ['class', 'abstract-class', 'interface', 'enum', 'record', 'erd-table', 'erd-view'],
   };
 
   const currentLevel = $derived($currentDiagram?.level ?? 'context');
 
-  /**
-   * At the component level the allowed types depend on the parent node type:
-   * - Inside a database → only db-schema nodes make sense
-   * - Inside anything else (container, person, …) → standard component nodes
-   */
   const allowedC4Types = $derived((): C4NodeType[] => {
-    if (currentLevel === 'component') {
-      return $parentNodeType === 'database' ? ['db-schema'] : ['component'];
-    }
     return LEVEL_TYPES[currentLevel] ?? [];
   });
 

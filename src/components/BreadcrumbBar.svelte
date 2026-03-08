@@ -13,14 +13,14 @@
     {#if startIndex > 0}
       <span class="sep">›</span>
     {/if}
-    {#each $breadcrumbs.slice(startIndex) as item, i (item.id)}
+    {#each $breadcrumbs.slice(startIndex) as item, i (item.level)}
       {#if i > 0}
         <span class="sep">›</span>
       {/if}
       <button
         class="crumb"
         class:active={startIndex + i === $breadcrumbs.length - 1}
-        onclick={() => navigateTo(item.id)}
+        onclick={() => navigateTo(item.level)}
       >
         {item.label}
       </button>

@@ -5,7 +5,7 @@
   let {
     data,
   }: {
-    data: { label: string; description?: string; technology?: string; childDiagramId?: string; color?: string };
+    data: { label: string; description?: string; technology?: string; hasChildren?: boolean; color?: string };
     [key: string]: unknown;
   } = $props();
 
@@ -26,7 +26,7 @@
   {#if data.description}
     <div class="node-desc" style="color: {colors.muted};">{data.description}</div>
   {/if}
-  {#if data.childDiagramId}
+  {#if data.hasChildren}
     <div class="drill-indicator" style="color: {colors.primary};" title="Double-click to drill in">▸</div>
   {/if}
   <Handle id="bottom-source" type="source" position={Position.Bottom} />

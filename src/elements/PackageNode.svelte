@@ -1,7 +1,7 @@
 <script lang="ts">
   import { NodeResizer } from '@xyflow/svelte';
   import type { ResizeDragEvent, ResizeParams } from '@xyflow/svelte';
-  import { updateAnnotation, getAnnotationDiagramId, diagramStore } from '../stores/diagramStore';
+  import { updateAnnotation, diagramStore } from '../stores/diagramStore';
   import { ANNOTATION_DEFAULT_COLORS } from '../utils/colors';
   import { get } from 'svelte/store';
 
@@ -21,12 +21,8 @@
   let editValue = $state('');
   let inputEl = $state<HTMLInputElement | undefined>(undefined);
 
-  function getAnnotDiagramId(): string {
-    return getAnnotationDiagramId(get(diagramStore));
-  }
-
   function handleResizeEnd(_event: ResizeDragEvent, params: ResizeParams) {
-    updateAnnotation(getAnnotDiagramId(), id, {
+    updateAnnotation(get(diagramStore).currentLevel, id, {
       width: Math.round(params.width),
       height: Math.round(params.height),
       position: { x: params.x, y: params.y },
@@ -42,7 +38,7 @@
 
   function commitEdit() {
     if (editing && editValue.trim()) {
-      updateAnnotation(getAnnotDiagramId(), id, { label: editValue.trim() });
+      updateAnnotation(get(diagramStore).currentLevel, id, { label: editValue.trim() });
     }
     editing = false;
   }
