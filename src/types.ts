@@ -30,8 +30,8 @@ export interface C4Node {
   description?: string;
   technology?: string;
   position: { x: number; y: number };
-  /** ID of the child DiagramLevel this node drills into */
-  childDiagramId?: string;
+  /** ID of the owning node at the level above; absent at context level */
+  parentNodeId?: string;
   /** Custom color (hex) for this node; uses type default if omitted */
   color?: string;
   /** UML class members (attributes and operations). Only meaningful for UML Code-layer node types. */
@@ -119,10 +119,6 @@ export interface C4Edge {
   lineStyle?: LineStyle;
   lineType?: LineType;
   waypoints?: Array<{ x: number; y: number }>;
-  /** Set when source node is in a different group (cross-group edge) */
-  sourceGroupId?: string;
-  /** Set when target node is in a different group (cross-group edge) */
-  targetGroupId?: string;
   /** Custom color (hex) for this edge; uses default gray if omitted */
   color?: string;
   /** UML multiplicity label at the source end, e.g. "1", "0..*" */
@@ -136,10 +132,7 @@ export interface C4Edge {
 }
 
 export interface DiagramLevel {
-  id: string;
   level: C4LevelType;
-  /** Label shown in breadcrumb and toolbar */
-  label: string;
   nodes: C4Node[];
   edges: C4Edge[];
   /** Free-floating annotative elements (groups, notes). Never affect C4 hierarchy. */
@@ -148,12 +141,10 @@ export interface DiagramLevel {
 
 export interface DiagramState {
   version: number;
-  /** Flat map of all diagram levels by ID */
-  diagrams: Record<string, DiagramLevel>;
-  /** Root diagram ID (always the Context-level diagram) */
-  rootId: string;
-  /** Current navigation stack — last element is the active diagram */
-  navigationStack: string[];
+  /** Four fixed levels keyed by C4LevelType */
+  levels: Record<C4LevelType, DiagramLevel>;
+  /** The currently visible level */
+  currentLevel: C4LevelType;
   /** Currently selected node or edge ID, or null */
   selectedId: string | null;
   /** If true, user is in "pending place" mode after clicking palette */
@@ -165,12 +156,6 @@ export interface BoundaryGroup {
   parentLabel: string;
   childNodes: C4Node[];
   boundingBox: { x: number; y: number; width: number; height: number };
-  /**
-   * The child diagram ID for this group.
-   * Undefined when the node is drillable but has never been visited — in that case
-   * childNodes is always empty and only the boundary box is rendered.
-   */
-  childDiagramId?: string;
 }
 
 // ─── Account / Project / Diagram hierarchy ────────────────────────────────────

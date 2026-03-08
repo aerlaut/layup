@@ -70,7 +70,7 @@ describe('createInitialAppState', () => {
     const diagrams = Object.values(projects[0].diagrams);
     expect(diagrams).toHaveLength(1);
     expect(diagrams[0].name).toBe('Untitled Diagram');
-    expect(diagrams[0].state.rootId).toBe('root');
+    expect(diagrams[0].state.currentLevel).toBe('context');
   });
 });
 
@@ -188,8 +188,8 @@ describe('createDiagram', () => {
     const projectId = getFirstProjectId();
     const id = createDiagram(projectId)!;
     const diagram = getAppState().projects[projectId].diagrams[id];
-    expect(diagram.state.rootId).toBe('root');
-    expect(diagram.state.navigationStack).toEqual(['root']);
+    expect(diagram.state.currentLevel).toBe('context');
+    expect(diagram.state.levels['context'].nodes).toHaveLength(0);
   });
 });
 
@@ -296,7 +296,7 @@ describe('openDiagram', () => {
     const diagramId = getFirstDiagramId(projectId);
     openDiagram(projectId, diagramId);
     const ds = get(diagramStore);
-    expect(ds.rootId).toBe('root');
+    expect(ds.currentLevel).toBe('context');
   });
 
   it('does nothing for non-existent project', () => {
@@ -335,8 +335,7 @@ describe('goHome', () => {
 
     // The node should be persisted in appState
     const diagram = getAppState().projects[projectId].diagrams[diagramId];
-    const rootDiagram = diagram.state.diagrams['root'];
-    expect(rootDiagram.nodes.some((n) => n.id === 'test-node-1')).toBe(true);
+    expect(diagram.state.levels['context'].nodes.some((n) => n.id === 'test-node-1')).toBe(true);
   });
 });
 
@@ -353,7 +352,7 @@ describe('syncDiagramToApp', () => {
     syncDiagramToApp();
 
     const diagram = getAppState().projects[projectId].diagrams[diagramId];
-    expect(diagram.state.diagrams['root'].nodes.some((n) => n.id === 'sync-node')).toBe(true);
+    expect(diagram.state.levels['context'].nodes.some((n) => n.id === 'sync-node')).toBe(true);
   });
 
   it('does nothing when not in editor mode', () => {

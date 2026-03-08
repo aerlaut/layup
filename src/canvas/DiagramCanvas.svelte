@@ -15,9 +15,9 @@
     diagramStore,
     currentDiagram,
     contextBoundaries,
-    parentDiagram,
     selectedId,
   } from '../stores/diagramStore';
+  import type { C4LevelType } from '../types';
   import PersonNode from '../elements/PersonNode.svelte';
   import ExternalPersonNode from '../elements/ExternalPersonNode.svelte';
   import SystemNode from '../elements/SystemNode.svelte';
@@ -96,21 +96,20 @@
       get(diagramStore),
       $currentDiagram,
       $contextBoundaries,
-      $parentDiagram,
       $selectedId,
     );
     nodes = result.nodes;
     edges = result.edges;
   });
 
-  // Refit viewport on drill-down/drill-up (navigation stack length changes)
-  let prevNavStackLength = $state(0);
+  // Refit viewport on level change (drill-down/drill-up)
+  let prevLevelForFit = $state<C4LevelType | null>(null);
   $effect(() => {
-    const currentLength = get(diagramStore).navigationStack.length;
-    if (prevNavStackLength !== 0 && currentLength !== prevNavStackLength && flowFitView) {
+    const lvl = get(diagramStore).currentLevel;
+    if (prevLevelForFit !== null && lvl !== prevLevelForFit && flowFitView) {
       flowFitView({ duration: 200 });
     }
-    prevNavStackLength = currentLength;
+    prevLevelForFit = lvl;
   });
 </script>
 
@@ -126,7 +125,7 @@
     bind:edges
     {nodeTypes}
     {edgeTypes}
-    fitView={prevNavStackLength === 0}
+    fitView={prevLevelForFit === null}
     minZoom={0.2}
     maxZoom={2}
     zoomOnDoubleClick={false}

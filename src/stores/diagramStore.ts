@@ -1,7 +1,16 @@
 import { writable, derived, get } from 'svelte/store';
-import type { DiagramState, DiagramLevel, C4Node, C4Edge, C4NodeType, C4LevelType, BoundaryGroup, Annotation, AnnotationType, PaletteItemType } from '../types';
+import type {
+  DiagramState,
+  DiagramLevel,
+  C4Node,
+  C4Edge,
+  C4NodeType,
+  C4LevelType,
+  BoundaryGroup,
+  Annotation,
+  PaletteItemType,
+} from '../types';
 import { generateId } from '../utils/id';
-import { remapIds } from '../utils/remapIds';
 import {
   NODE_DEFAULT_WIDTH,
   NODE_DEFAULT_HEIGHT,
@@ -16,22 +25,43 @@ import {
 
 export { SCHEMA_VERSION };
 
-const ROOT_DIAGRAM_ID = 'root';
+// ─── Level order helpers ──────────────────────────────────────────────────────
+
+export const LEVEL_ORDER: C4LevelType[] = ['context', 'container', 'component', 'code'];
+
+export const LEVEL_LABELS: Record<C4LevelType, string> = {
+  context:   'Context',
+  container: 'Container',
+  component: 'Component',
+  code:      'Code',
+};
+
+export function nextLevel(level: C4LevelType): C4LevelType | undefined {
+  const idx = LEVEL_ORDER.indexOf(level);
+  return LEVEL_ORDER[idx + 1];
+}
+
+export function prevLevel(level: C4LevelType): C4LevelType | undefined {
+  const idx = LEVEL_ORDER.indexOf(level);
+  return idx > 0 ? LEVEL_ORDER[idx - 1] : undefined;
+}
+
+// ─── Initial state ────────────────────────────────────────────────────────────
+
+function makeEmptyLevel(level: C4LevelType): DiagramLevel {
+  return { level, nodes: [], edges: [], annotations: [] };
+}
 
 export function createInitialDiagramState(): DiagramState {
-  const rootDiagram: DiagramLevel = {
-    id: ROOT_DIAGRAM_ID,
-    level: 'context',
-    label: 'System Context',
-    nodes: [],
-    edges: [],
-    annotations: [],
-  };
   return {
     version: SCHEMA_VERSION,
-    diagrams: { [ROOT_DIAGRAM_ID]: rootDiagram },
-    rootId: ROOT_DIAGRAM_ID,
-    navigationStack: [ROOT_DIAGRAM_ID],
+    levels: {
+      context:   makeEmptyLevel('context'),
+      container: makeEmptyLevel('container'),
+      component: makeEmptyLevel('component'),
+      code:      makeEmptyLevel('code'),
+    },
+    currentLevel: 'context',
     selectedId: null,
     pendingNodeType: null,
   };
@@ -43,38 +73,32 @@ export const diagramStore = writable<DiagramState>(createInitialDiagramState());
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
 
-export function getCurrentDiagram(state: DiagramState): DiagramLevel {
-  const id = state.navigationStack[state.navigationStack.length - 1] ?? state.rootId;
-  return state.diagrams[id] as DiagramLevel;
-}
-
-export function getDiagramById(state: DiagramState, id: string): DiagramLevel | undefined {
-  return state.diagrams[id];
+export function getCurrentLevel(state: DiagramState): DiagramLevel {
+  return state.levels[state.currentLevel];
 }
 
 export interface BreadcrumbItem {
-  id: string;
+  level: C4LevelType;
   label: string;
 }
 
 export function getBreadcrumbPath(state: DiagramState): BreadcrumbItem[] {
-  return state.navigationStack.map((id) => ({
-    id,
-    label: state.diagrams[id]?.label ?? id,
-  }));
+  const idx = LEVEL_ORDER.indexOf(state.currentLevel);
+  return LEVEL_ORDER.slice(0, idx + 1).map((l) => ({ level: l, label: LEVEL_LABELS[l] }));
 }
 
 // ─── Derived stores ───────────────────────────────────────────────────────────
 
-export const currentDiagram = derived(diagramStore, ($s) => getCurrentDiagram($s));
-export const breadcrumbs = derived(diagramStore, ($s) => getBreadcrumbPath($s));
-export const selectedId = derived(diagramStore, ($s) => $s.selectedId);
+export const currentDiagram = derived(diagramStore, ($s) => $s.levels[$s.currentLevel]);
+export const breadcrumbs    = derived(diagramStore, ($s) => getBreadcrumbPath($s));
+export const selectedId     = derived(diagramStore, ($s) => $s.selectedId);
 export const pendingNodeType = derived(diagramStore, ($s) => $s.pendingNodeType);
-export const rootDiagramId = derived(diagramStore, ($s) => $s.rootId);
-export const isAtRoot = derived(
-  diagramStore,
-  ($s) => $s.navigationStack.length === 1
-);
+export const isAtRoot       = derived(diagramStore, ($s) => $s.currentLevel === 'context');
+
+export const parentLevel = derived(diagramStore, ($s): DiagramLevel | null => {
+  const prev = prevLevel($s.currentLevel);
+  return prev ? $s.levels[prev] : null;
+});
 
 /** UML node types whose height grows with member count */
 const UML_CLASS_TYPES = new Set<C4NodeType>([
@@ -86,16 +110,6 @@ const ERD_NODE_TYPES = new Set<C4NodeType>(['erd-table', 'erd-view']);
 
 /**
  * Estimate the rendered pixel height of a C4Node.
- *
- * For non-UML types this is NODE_DEFAULT_HEIGHT (fixed-height cards).
- * For UML class-node types the height depends on the number of members:
- *   - A base header height (UML_NODE_HEIGHT_BASE) for the header compartment
- *   - One UML_COMPARTMENT_OVERHEAD per visible compartment (attributes / operations)
- *   - One UML_MEMBER_ROW_HEIGHT per member row within those compartments
- *
- * Enum nodes never show an operations compartment (matching UmlClassNode.svelte).
- *
- * Exported so it can be tested directly.
  */
 export function computeNodeHeight(node: C4Node): number {
   if (ERD_NODE_TYPES.has(node.type)) {
@@ -115,7 +129,6 @@ export function computeNodeHeight(node: C4Node): number {
   const operations = members.filter((m) => m.kind === 'operation');
 
   const hasAttributes = attributes.length > 0;
-  // Enums suppress the operations compartment (matches UmlClassNode.svelte isEnum guard)
   const hasOperations = node.type !== 'enum' && operations.length > 0;
 
   return (
@@ -149,196 +162,96 @@ function computeBoundingBox(
   };
 }
 
-export const parentDiagram = derived(diagramStore, ($s): DiagramLevel | null => {
-  if ($s.navigationStack.length <= 1) return null;
-  const parentId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
-  return $s.diagrams[parentId] ?? null;
-});
-
 /**
- * The C4NodeType of the parent node that owns the currently active diagram,
- * or null when at the root level. Used by the palette to gate which node
- * types are offered at the component level (e.g. db-schema vs component).
+ * Returns true when it makes sense for a node of parentType to have children
+ * at childLevel. Replaces the old childLevelFor map.
  */
-export const parentNodeType = derived(diagramStore, ($s): C4NodeType | null => {
-  if ($s.navigationStack.length <= 1) return null;
-  const parentId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
-  const currentId = $s.navigationStack[$s.navigationStack.length - 1] ?? '';
-  const parent = $s.diagrams[parentId];
-  if (!parent) return null;
-  const ownerNode = parent.nodes.find((n) => n.childDiagramId === currentId);
-  return ownerNode?.type ?? null;
-});
+function childTypeIsValid(parentType: C4NodeType, childLevel: C4LevelType): boolean {
+  const map: Partial<Record<C4NodeType, C4LevelType>> = {
+    system:            'container',
+    'external-system': 'container',
+    container:         'component',
+    database:          'component',
+    'db-schema':       'code',
+    component:         'code',
+  };
+  return map[parentType] === childLevel;
+}
 
 export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => {
-  if ($s.navigationStack.length <= 1) return [];
-  const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
-  const parentDiagram = $s.diagrams[parentDiagramId];
-  if (!parentDiagram) return [];
+  const prev = prevLevel($s.currentLevel);
+  if (!prev) return []; // at context level — no boundaries
 
-  return parentDiagram.nodes
-    // Include all drillable nodes regardless of whether they have been visited.
-    // Nodes that have a childDiagramId have been drilled into at least once;
-    // nodes without one are drillable but unvisited — they still get a boundary
-    // box (with empty childNodes) so sibling groups are always visible.
-    .filter((n) => n.childDiagramId !== undefined || childLevelFor(n.type) !== undefined)
-    .map((n) => {
-      const childDiagram = n.childDiagramId ? $s.diagrams[n.childDiagramId] : undefined;
-      const childNodes = childDiagram?.nodes ?? [];
-      const boundingBox = computeBoundingBox(childNodes, n.position);
-      return {
-        parentNodeId: n.id,
-        parentLabel: n.label,
-        childNodes,
-        boundingBox,
-        childDiagramId: n.childDiagramId, // undefined for unvisited drillable nodes
-      };
-    });
+  const parentLevelData  = $s.levels[prev];
+  const currentLevelData = $s.levels[$s.currentLevel];
+
+  const drillableParents = parentLevelData.nodes.filter(
+    (n) => childTypeIsValid(n.type, $s.currentLevel)
+  );
+
+  return drillableParents.map((parentNode) => {
+    const childNodes = currentLevelData.nodes.filter(
+      (n) => n.parentNodeId === parentNode.id
+    );
+    const boundingBox = computeBoundingBox(childNodes, parentNode.position);
+    return {
+      parentNodeId: parentNode.id,
+      parentLabel: parentNode.label,
+      childNodes,
+      boundingBox,
+    };
+  });
 });
 
-/** Resolved selection: finds the selected node, edge, or annotation across visible diagrams */
-export interface SelectedNodeResult { type: 'node'; node: C4Node; diagramId: string }
-export interface SelectedEdgeResult { type: 'edge'; edge: C4Edge; diagramId: string }
-export interface SelectedAnnotationResult { type: 'annotation'; annotation: Annotation; diagramId: string }
+/** Resolved selection: finds the selected node, edge, or annotation in the current level */
+export interface SelectedNodeResult { type: 'node'; node: C4Node; diagramId: C4LevelType }
+export interface SelectedEdgeResult { type: 'edge'; edge: C4Edge; diagramId: C4LevelType }
+export interface SelectedAnnotationResult { type: 'annotation'; annotation: Annotation; diagramId: C4LevelType }
 export type SelectedElementResult = SelectedNodeResult | SelectedEdgeResult | SelectedAnnotationResult;
-
-/**
- * Returns the diagram ID where annotations are read and written for the current view.
- * Annotations are level-scoped — they always live on the currently active diagram,
- * exactly like C4 nodes. This means drilling in or out switches to a different
- * annotation set, so each level has its own independent annotations.
- */
-export function getAnnotationDiagramId(state: DiagramState): string {
-  return state.navigationStack[state.navigationStack.length - 1] ?? state.rootId;
-}
 
 export const selectedElement = derived(diagramStore, ($s): SelectedElementResult | null => {
   const id = $s.selectedId;
   if (!id) return null;
 
-  const current = getCurrentDiagram($s);
+  const current = $s.levels[$s.currentLevel];
 
-  // Check annotations first (they live on the annotation diagram for this view)
-  const annotDiagramId = getAnnotationDiagramId($s);
-  const annotDiagram = $s.diagrams[annotDiagramId];
-  const annotation = annotDiagram?.annotations?.find((a) => a.id === id);
-  if (annotation) return { type: 'annotation', annotation, diagramId: annotDiagramId };
+  const annotation = current.annotations?.find((a) => a.id === id);
+  if (annotation) return { type: 'annotation', annotation, diagramId: $s.currentLevel };
 
-  // Check current diagram nodes/edges
   const node = current.nodes.find((n) => n.id === id);
-  if (node) return { type: 'node', node, diagramId: current.id };
+  if (node) return { type: 'node', node, diagramId: $s.currentLevel };
+
   const edge = current.edges.find((e) => e.id === id);
-  if (edge) return { type: 'edge', edge, diagramId: current.id };
-
-  // Check sibling diagrams (for context nodes) and parent edges
-  if ($s.navigationStack.length > 1) {
-    const parentDiagramId = $s.navigationStack[$s.navigationStack.length - 2] ?? '';
-    const parentDiagram = $s.diagrams[parentDiagramId];
-    if (parentDiagram) {
-      // Check parent diagram nodes themselves (e.g. boundary parent nodes)
-      const parentNode = parentDiagram.nodes.find((n) => n.id === id);
-      if (parentNode) return { type: 'node', node: parentNode, diagramId: parentDiagramId };
-
-      for (const pNode of parentDiagram.nodes) {
-        if (pNode.childDiagramId && pNode.childDiagramId !== current.id) {
-          const siblingDiagram = $s.diagrams[pNode.childDiagramId];
-          if (siblingDiagram) {
-            const sibNode = siblingDiagram.nodes.find((n) => n.id === id);
-            if (sibNode) return { type: 'node', node: sibNode, diagramId: siblingDiagram.id };
-            const sibEdge = siblingDiagram.edges.find((e) => e.id === id);
-            if (sibEdge) return { type: 'edge', edge: sibEdge, diagramId: siblingDiagram.id };
-          }
-        }
-      }
-      // Cross-group edges live on the parent diagram
-      const parentEdge = parentDiagram.edges.find((e) => e.id === id);
-      if (parentEdge) return { type: 'edge', edge: parentEdge, diagramId: parentDiagramId };
-    }
-  }
+  if (edge) return { type: 'edge', edge, diagramId: $s.currentLevel };
 
   return null;
 });
 
 // ─── Immutable update helpers ─────────────────────────────────────────────────
 
-/** Immutably replace a diagram inside a DiagramState */
-function withDiagram(
+function withLevel(
   state: DiagramState,
-  diagramId: string,
+  level: C4LevelType,
   updater: (diagram: DiagramLevel) => DiagramLevel
 ): DiagramState {
-  const diagram = state.diagrams[diagramId];
-  if (!diagram) return state;
   return {
     ...state,
-    diagrams: {
-      ...state.diagrams,
-      [diagramId]: updater(diagram),
+    levels: {
+      ...state.levels,
+      [level]: updater(state.levels[level]),
     },
   };
 }
 
-/** Immutably replace the current (active) diagram */
-function withCurrentDiagram(
+function withCurrentLevel(
   state: DiagramState,
   updater: (diagram: DiagramLevel) => DiagramLevel
 ): DiagramState {
-  const id = state.navigationStack[state.navigationStack.length - 1] ?? state.rootId;
-  return withDiagram(state, id, updater);
-}
-
-export function updateNodeInDiagram(diagramId: string, nodeId: string, patch: Partial<C4Node>): void {
-  diagramStore.update((s) =>
-    withDiagram(s, diagramId, (d) => ({
-      ...d,
-      nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)),
-    }))
-  );
-}
-
-export function updateEdgeInDiagram(diagramId: string, edgeId: string, patch: Partial<C4Edge>): void {
-  diagramStore.update((s) =>
-    withDiagram(s, diagramId, (d) => ({
-      ...d,
-      edges: d.edges.map((e) => (e.id === edgeId ? { ...e, ...patch } : e)),
-    }))
-  );
-}
-
-export function deleteNodeFromDiagram(diagramId: string, nodeId: string): void {
-  diagramStore.update((s) => {
-    const diagram = s.diagrams[diagramId];
-    if (!diagram) return s;
-    const node = diagram.nodes.find((n) => n.id === nodeId);
-    const diagrams: DiagramState['diagrams'] = { ...s.diagrams };
-    if (node?.childDiagramId) {
-      delete diagrams[node.childDiagramId];
-    }
-    diagrams[diagramId] = {
-      ...diagram,
-      nodes: diagram.nodes.filter((n) => n.id !== nodeId),
-      edges: diagram.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
-    };
-    return {
-      ...s,
-      diagrams,
-      selectedId: s.selectedId === nodeId ? null : s.selectedId,
-    };
-  });
-}
-
-export function deleteEdgeFromDiagram(diagramId: string, edgeId: string): void {
-  diagramStore.update((s) =>
-    withDiagram({ ...s, selectedId: s.selectedId === edgeId ? null : s.selectedId }, diagramId, (d) => ({
-      ...d,
-      edges: d.edges.filter((e) => e.id !== edgeId),
-    }))
-  );
+  return withLevel(state, state.currentLevel, updater);
 }
 
 // ─── Overlap prevention ───────────────────────────────────────────────────────
 
-/** Check if two node bounding boxes intersect */
 function nodesOverlap(a: C4Node, b: C4Node): boolean {
   return (
     a.position.x < b.position.x + NODE_DEFAULT_WIDTH &&
@@ -348,7 +261,6 @@ function nodesOverlap(a: C4Node, b: C4Node): boolean {
   );
 }
 
-/** Push `displaced` away from `fixed` along the axis with the smallest overlap */
 function pushNodeAway(fixed: C4Node, displaced: C4Node): C4Node {
   const fixedCx = fixed.position.x + NODE_DEFAULT_WIDTH / 2;
   const fixedCy = fixed.position.y + NODE_DEFAULT_HEIGHT / 2;
@@ -365,10 +277,6 @@ function pushNodeAway(fixed: C4Node, displaced: C4Node): C4Node {
   }
 }
 
-/**
- * Resolve overlaps after a node is moved. The moved node stays fixed;
- * other overlapping nodes are pushed away iteratively (max 10 passes).
- */
 function resolveNodeOverlaps(movedNodeId: string, nodes: C4Node[]): C4Node[] {
   const MAX_ITER = 10;
   let result = [...nodes];
@@ -380,7 +288,6 @@ function resolveNodeOverlaps(movedNodeId: string, nodes: C4Node[]): C4Node[] {
         const nj = result[j]!;
         if (!nodesOverlap(ni, nj)) continue;
         changed = true;
-        // The moved node is highest priority (never pushed); otherwise push j away from i
         if (nj.id === movedNodeId) {
           result[i] = pushNodeAway(nj, ni);
         } else {
@@ -393,7 +300,6 @@ function resolveNodeOverlaps(movedNodeId: string, nodes: C4Node[]): C4Node[] {
   return result;
 }
 
-/** Check if two bounding boxes overlap */
 function bboxOverlap(
   a: { x: number; y: number; width: number; height: number },
   b: { x: number; y: number; width: number; height: number }
@@ -407,37 +313,40 @@ function bboxOverlap(
 }
 
 /**
- * Resolve boundary overlaps at the parent diagram level.
- * Shifts the smaller group (fewer nodes) away from the larger group.
+ * Resolve boundary overlaps at the current level.
+ * Groups nodes by parentNodeId; shifts the smaller group away from the larger.
  */
 function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
-  if (state.navigationStack.length <= 1) return state;
-  const parentDiagramId = state.navigationStack[state.navigationStack.length - 2] ?? '';
-  const parentDiagram = state.diagrams[parentDiagramId];
-  if (!parentDiagram) return state;
+  const prev = prevLevel(state.currentLevel);
+  if (!prev) return state; // at context level, no boundaries to resolve
 
-  const groups = parentDiagram.nodes
-    .filter((n) => n.childDiagramId && state.diagrams[n.childDiagramId])
+  const currentLevelData = state.levels[state.currentLevel];
+  const parentLevelData  = state.levels[prev];
+
+  type GroupInfo = {
+    parentNodeId: string;
+    nodes: C4Node[];
+    bbox: ReturnType<typeof computeBoundingBox>;
+  };
+
+  const groups: GroupInfo[] = parentLevelData.nodes
+    .filter((n) => childTypeIsValid(n.type, state.currentLevel))
     .map((n) => {
-      const childDiagram = state.diagrams[n.childDiagramId!]!;
-      return {
-        childDiagramId: n.childDiagramId!,
-        nodes: childDiagram.nodes,
-        bbox: computeBoundingBox(childDiagram.nodes, n.position),
-      };
+      const nodes = currentLevelData.nodes.filter((cn) => cn.parentNodeId === n.id);
+      return { parentNodeId: n.id, nodes, bbox: computeBoundingBox(nodes, n.position) };
     });
 
   if (groups.length < 2) return state;
 
   const MAX_ITER = 10;
-  let newState = state;
+  let newNodes = [...currentLevelData.nodes];
 
   for (let iter = 0; iter < MAX_ITER; iter++) {
     let changed = false;
-    // Refresh bboxes after each pass
+
     for (const g of groups) {
-      g.nodes = newState.diagrams[g.childDiagramId]?.nodes ?? g.nodes;
-      const parentNode = parentDiagram.nodes.find((n) => n.childDiagramId === g.childDiagramId);
+      g.nodes = newNodes.filter((n) => n.parentNodeId === g.parentNodeId);
+      const parentNode = parentLevelData.nodes.find((n) => n.id === g.parentNodeId);
       g.bbox = computeBoundingBox(g.nodes, parentNode?.position ?? { x: 0, y: 0 });
     }
 
@@ -448,20 +357,19 @@ function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
         if (!bboxOverlap(a.bbox, b.bbox)) continue;
         changed = true;
 
-        // Shift the smaller group away from the larger one
         const smaller = a.nodes.length <= b.nodes.length ? a : b;
-        const larger = a.nodes.length <= b.nodes.length ? b : a;
+        const larger  = a.nodes.length <= b.nodes.length ? b : a;
 
-        const sCx = smaller.bbox.x + smaller.bbox.width / 2;
+        const sCx = smaller.bbox.x + smaller.bbox.width  / 2;
         const sCy = smaller.bbox.y + smaller.bbox.height / 2;
-        const lCx = larger.bbox.x + larger.bbox.width / 2;
-        const lCy = larger.bbox.y + larger.bbox.height / 2;
+        const lCx = larger.bbox.x  + larger.bbox.width   / 2;
+        const lCy = larger.bbox.y  + larger.bbox.height  / 2;
         const overlapX =
-          Math.min(larger.bbox.x + larger.bbox.width, smaller.bbox.x + smaller.bbox.width) -
-          Math.max(larger.bbox.x, smaller.bbox.x);
+          Math.min(larger.bbox.x + larger.bbox.width,  smaller.bbox.x + smaller.bbox.width)  -
+          Math.max(larger.bbox.x,  smaller.bbox.x);
         const overlapY =
           Math.min(larger.bbox.y + larger.bbox.height, smaller.bbox.y + smaller.bbox.height) -
-          Math.max(larger.bbox.y, smaller.bbox.y);
+          Math.max(larger.bbox.y,  smaller.bbox.y);
 
         let offsetX = 0;
         let offsetY = 0;
@@ -471,50 +379,64 @@ function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
           offsetY = (sCy >= lCy ? overlapY : -overlapY) + 10;
         }
 
-        const smallerDiagram = newState.diagrams[smaller.childDiagramId]!;
-        const updatedNodes = smallerDiagram.nodes.map((n) => ({
-          ...n,
-          position: { x: n.position.x + offsetX, y: n.position.y + offsetY },
-        }));
-        newState = {
-          ...newState,
-          diagrams: {
-            ...newState.diagrams,
-            [smaller.childDiagramId]: {
-              ...smallerDiagram,
-              nodes: updatedNodes,
-            },
-          },
-        };
-        smaller.nodes = updatedNodes;
+        const smallerIds = new Set(smaller.nodes.map((n) => n.id));
+        newNodes = newNodes.map((n) =>
+          smallerIds.has(n.id)
+            ? { ...n, position: { x: n.position.x + offsetX, y: n.position.y + offsetY } }
+            : n
+        );
+        smaller.nodes = newNodes.filter((n) => n.parentNodeId === smaller.parentNodeId);
       }
     }
     if (!changed) break;
   }
 
-  return newState;
+  return withLevel(state, state.currentLevel, (d) => ({ ...d, nodes: newNodes }));
 }
 
-// ─── Actions ──────────────────────────────────────────────────────────────────
+// ─── Cascade delete helper ────────────────────────────────────────────────────
+
+/**
+ * Collects all descendant node IDs across lower levels for a given root node.
+ * Returns a Map<C4LevelType, Set<string>> of node IDs to delete at each level.
+ */
+function collectDescendants(
+  state: DiagramState,
+  rootNodeId: string,
+  rootLevel: C4LevelType
+): Map<C4LevelType, Set<string>> {
+  const result = new Map<C4LevelType, Set<string>>();
+  result.set(rootLevel, new Set([rootNodeId]));
+
+  let parentIds = new Set([rootNodeId]);
+  let level = nextLevel(rootLevel);
+
+  while (level && parentIds.size > 0) {
+    const children = state.levels[level].nodes.filter(
+      (n) => n.parentNodeId && parentIds.has(n.parentNodeId)
+    );
+    if (children.length === 0) break;
+    const childIds = new Set(children.map((n) => n.id));
+    result.set(level, childIds);
+    parentIds = childIds;
+    level = nextLevel(level);
+  }
+
+  return result;
+}
+
+// ─── Node CRUD actions ────────────────────────────────────────────────────────
 
 export function addNode(node: C4Node): void {
   diagramStore.update((s) => {
-    const newState = withCurrentDiagram(s, (d) => ({ ...d, nodes: [...d.nodes, node] }));
-    return resolveBoundaryOverlaps({ ...newState, selectedId: node.id });
-  });
-}
-
-export function addNodeToDiagram(diagramId: string, node: C4Node): void {
-  diagramStore.update((s) => {
-    if (!s.diagrams[diagramId]) return s;
-    const newState = withDiagram(s, diagramId, (d) => ({ ...d, nodes: [...d.nodes, node] }));
+    const newState = withCurrentLevel(s, (d) => ({ ...d, nodes: [...d.nodes, node] }));
     return resolveBoundaryOverlaps({ ...newState, selectedId: node.id });
   });
 }
 
 export function updateNode(nodeId: string, patch: Partial<C4Node>): void {
   diagramStore.update((s) =>
-    withCurrentDiagram(s, (d) => ({
+    withCurrentLevel(s, (d) => ({
       ...d,
       nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)),
     }))
@@ -523,29 +445,21 @@ export function updateNode(nodeId: string, patch: Partial<C4Node>): void {
 
 export function deleteNode(nodeId: string): void {
   diagramStore.update((s) => {
-    const currentId = s.navigationStack[s.navigationStack.length - 1] ?? s.rootId;
-    const current = s.diagrams[currentId];
-    if (!current) return s;
-    const node = current.nodes.find((n) => n.id === nodeId);
-    const diagrams: DiagramState['diagrams'] = {
-      ...s.diagrams,
-      [currentId]: {
-        ...current,
-        nodes: current.nodes.filter((n) => n.id !== nodeId),
-        edges: current.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
-      },
-    };
-    // Remove child diagram if present
-    if (node?.childDiagramId) {
-      delete diagrams[node.childDiagramId];
+    const toDelete = collectDescendants(s, nodeId, s.currentLevel);
+
+    let newState = s;
+    for (const [level, ids] of toDelete) {
+      newState = withLevel(newState, level, (d) => ({
+        ...d,
+        nodes: d.nodes.filter((n) => !ids.has(n.id)),
+        edges: d.edges.filter((e) => !ids.has(e.source) && !ids.has(e.target)),
+      }));
     }
-    return {
-      ...s,
-      diagrams,
-      selectedId: s.selectedId === nodeId ? null : s.selectedId,
-    };
+    return { ...newState, selectedId: s.selectedId === nodeId ? null : s.selectedId };
   });
 }
+
+// ─── Edge CRUD actions ────────────────────────────────────────────────────────
 
 function normalizeEdge(edge: C4Edge): C4Edge {
   return {
@@ -561,23 +475,14 @@ function normalizeEdge(edge: C4Edge): C4Edge {
 export function addEdge(edge: C4Edge): void {
   const normalized = normalizeEdge(edge);
   diagramStore.update((s) => {
-    const newState = withCurrentDiagram(s, (d) => ({ ...d, edges: [...d.edges, normalized] }));
-    return { ...newState, selectedId: normalized.id };
-  });
-}
-
-export function addEdgeToDiagram(diagramId: string, edge: C4Edge): void {
-  const normalized = normalizeEdge(edge);
-  diagramStore.update((s) => {
-    if (!s.diagrams[diagramId]) return s;
-    const newState = withDiagram(s, diagramId, (d) => ({ ...d, edges: [...d.edges, normalized] }));
+    const newState = withCurrentLevel(s, (d) => ({ ...d, edges: [...d.edges, normalized] }));
     return { ...newState, selectedId: normalized.id };
   });
 }
 
 export function updateEdge(edgeId: string, patch: Partial<C4Edge>): void {
   diagramStore.update((s) =>
-    withCurrentDiagram(s, (d) => ({
+    withCurrentLevel(s, (d) => ({
       ...d,
       edges: d.edges.map((e) => (e.id === edgeId ? { ...e, ...patch } : e)),
     }))
@@ -586,7 +491,7 @@ export function updateEdge(edgeId: string, patch: Partial<C4Edge>): void {
 
 export function deleteEdge(edgeId: string): void {
   diagramStore.update((s) => {
-    const newState = withCurrentDiagram(s, (d) => ({
+    const newState = withCurrentLevel(s, (d) => ({
       ...d,
       edges: d.edges.filter((e) => e.id !== edgeId),
     }));
@@ -594,179 +499,74 @@ export function deleteEdge(edgeId: string): void {
   });
 }
 
-/**
- * Maps a drillable C4 node type to its child level type.
- * Returns undefined for node types that are not drillable (UML class and ERD
- * types — they expose their structure natively via member/column lists).
- */
-export function childLevelFor(nodeType: C4NodeType): C4LevelType | undefined {
-  const map: Partial<Record<C4NodeType, C4LevelType>> = {
-    person: 'component',
-    'external-person': 'component',
-    system: 'container',
-    'external-system': 'container',
-    container: 'component',
-    database: 'component',
-    'db-schema': 'code',
-    component: 'code',
-    // class, abstract-class, interface, enum, record, erd-table, erd-view
-    // are intentionally absent — they are not drillable.
-  };
-  return map[nodeType];
-}
+// ─── Position update actions ──────────────────────────────────────────────────
 
-export function createChildDiagram(nodeId: string): string {
-  const childId = generateId();
+export function updateNodePositions(
+  updates: Array<{ id: string; position: { x: number; y: number } }>
+): void {
   diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
-    const node = current.nodes.find((n) => n.id === nodeId);
-    if (!node) return s;
-    const childLevel = childLevelFor(node.type);
-    if (!childLevel) return s; // node type is not drillable
-    const childDiagram: DiagramLevel = {
-      id: childId,
-      level: childLevel,
-      label: node.label,
-      nodes: [],
-      edges: [],
-      annotations: [],
-    };
-    // First update the node's childDiagramId in the current diagram
-    const updatedState = withCurrentDiagram(s, (d) => ({
+    const posMap = new Map(updates.map((u) => [u.id, u.position]));
+    let newState = withCurrentLevel(s, (d) => ({
       ...d,
-      nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, childDiagramId: childId } : n)),
+      nodes: d.nodes.map((n) => (posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n)),
     }));
-    // Then add the new child diagram (using updatedState.diagrams to preserve the patched node)
-    return {
-      ...updatedState,
-      diagrams: { ...updatedState.diagrams, [childId]: childDiagram },
-    };
+    for (const { id } of updates) {
+      newState = withCurrentLevel(newState, (d) => ({
+        ...d,
+        nodes: resolveNodeOverlaps(id, d.nodes),
+      }));
+    }
+    return resolveBoundaryOverlaps(newState);
   });
-  return childId;
 }
 
-export function drillDown(nodeId: string): void {
+/**
+ * Update node positions in a specific level (used for boundary drag-translating
+ * child nodes without changing currentLevel).
+ */
+export function updateNodePositionsInLevel(
+  level: C4LevelType,
+  updates: Array<{ id: string; position: { x: number; y: number } }>
+): void {
   diagramStore.update((s) => {
-    const current = getCurrentDiagram(s);
-    const node = current.nodes.find((n) => n.id === nodeId);
-    if (!node) return s;
+    const posMap = new Map(updates.map((u) => [u.id, u.position]));
+    const newState = withLevel(s, level, (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) => (posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n)),
+    }));
+    return resolveBoundaryOverlaps(newState);
+  });
+}
 
-    // UML class and ERD node types are not drillable — they surface their
-    // structure directly on the node via member/column lists.
-    const childLevel = childLevelFor(node.type);
-    if (!childLevel) return s;
+// ─── Navigation actions ───────────────────────────────────────────────────────
 
-    let newState = s;
-    let childId = node.childDiagramId;
-
-    if (!childId) {
-      childId = generateId();
-      const childDiagram: DiagramLevel = {
-        id: childId,
-        level: childLevel,
-        label: node.label,
-        nodes: [],
-        edges: [],
-        annotations: [],
-      };
-      // Patch the node first, then add the child diagram entry
-      const updatedState = withCurrentDiagram(s, (d) => ({
-        ...d,
-        nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, childDiagramId: childId } : n)),
-      }));
-      newState = {
-        ...updatedState,
-        diagrams: { ...updatedState.diagrams, [childId]: childDiagram },
-      };
-    }
-
-    return {
-      ...newState,
-      navigationStack: [...newState.navigationStack, childId],
-      selectedId: null,
-    };
+export function drillDown(): void {
+  diagramStore.update((s) => {
+    const next = nextLevel(s.currentLevel);
+    if (!next) return s;
+    return { ...s, currentLevel: next, selectedId: null };
   });
 }
 
 export function drillUp(): void {
   diagramStore.update((s) => {
-    if (s.navigationStack.length <= 1) return s;
-    return {
-      ...s,
-      navigationStack: s.navigationStack.slice(0, -1),
-      selectedId: null,
-    };
+    const prev = prevLevel(s.currentLevel);
+    if (!prev) return s;
+    return { ...s, currentLevel: prev, selectedId: null };
   });
 }
 
-export function navigateTo(diagramId: string): void {
+export function navigateTo(level: C4LevelType): void {
   diagramStore.update((s) => {
-    const idx = s.navigationStack.indexOf(diagramId);
-    if (idx === -1) return s;
-    return {
-      ...s,
-      navigationStack: s.navigationStack.slice(0, idx + 1),
-      selectedId: null,
-    };
+    if (!s.levels[level]) return s;
+    return { ...s, currentLevel: level, selectedId: null };
   });
 }
+
+// ─── State management actions ─────────────────────────────────────────────────
 
 export function loadDiagram(state: DiagramState): void {
   diagramStore.set(state);
-}
-
-/** X offset applied to imported nodes/annotations to avoid immediate overlap */
-const MERGE_OFFSET_X = 200;
-
-/**
- * Merges the root-level content of an imported DiagramState into the currently
- * active diagram level. All IDs in the imported state are remapped to fresh ones
- * before merging to prevent collisions. Child diagram levels from the imported
- * file are preserved and remain drillable.
- */
-export function mergeImportedDiagram(imported: DiagramState): void {
-  const remapped = remapIds(imported);
-  const importedRoot = remapped.diagrams[remapped.rootId];
-  if (!importedRoot) return;
-
-  diagramStore.update((s) => {
-    const currentId = s.navigationStack[s.navigationStack.length - 1] ?? s.rootId;
-    const current = s.diagrams[currentId];
-    if (!current) return s;
-
-    // Offset imported nodes/annotations so they don't land on top of existing content
-    const offsetNodes = importedRoot.nodes.map((n) => ({
-      ...n,
-      position: { x: n.position.x + MERGE_OFFSET_X, y: n.position.y },
-    }));
-    const offsetAnnotations = (importedRoot.annotations ?? []).map((a) => ({
-      ...a,
-      position: { x: a.position.x + MERGE_OFFSET_X, y: a.position.y },
-    }));
-
-    // Merge root-level content into the current level
-    const mergedCurrent: DiagramLevel = {
-      ...current,
-      nodes: [...current.nodes, ...offsetNodes],
-      edges: [...current.edges, ...importedRoot.edges],
-      annotations: [...(current.annotations ?? []), ...offsetAnnotations],
-    };
-
-    // Collect all non-root levels from the imported state (child diagrams)
-    const childLevels: DiagramState['diagrams'] = {};
-    for (const [id, level] of Object.entries(remapped.diagrams)) {
-      if (id !== remapped.rootId) childLevels[id] = level;
-    }
-
-    return {
-      ...s,
-      diagrams: {
-        ...s.diagrams,
-        ...childLevels,
-        [currentId]: mergedCurrent,
-      },
-    };
-  });
 }
 
 export function resetDiagram(): void {
@@ -781,77 +581,36 @@ export function setPendingNodeType(type: PaletteItemType | null): void {
   diagramStore.update((s) => ({ ...s, pendingNodeType: type }));
 }
 
-export function updateNodePositions(updates: Array<{ id: string; position: { x: number; y: number } }>): void {
-  diagramStore.update((s) => {
-    const posMap = new Map(updates.map((u) => [u.id, u.position]));
-    // Apply position updates immutably then resolve overlaps
-    let newState = withCurrentDiagram(s, (d) => ({
-      ...d,
-      nodes: d.nodes.map((n) => (posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n)),
-    }));
-    // Resolve node overlaps for each moved node
-    const currentId = s.navigationStack[s.navigationStack.length - 1] ?? s.rootId;
-    for (const { id } of updates) {
-      const nodes = newState.diagrams[currentId]?.nodes ?? [];
-      if (nodes.some((n) => n.id === id)) {
-        newState = withDiagram(newState, currentId, (d) => ({
-          ...d,
-          nodes: resolveNodeOverlaps(id, d.nodes),
-        }));
-      }
-    }
-    return resolveBoundaryOverlaps(newState);
-  });
-}
-
-export function updateNodePositionsInDiagram(
-  diagramId: string,
-  updates: Array<{ id: string; position: { x: number; y: number } }>
-): void {
-  diagramStore.update((s) => {
-    if (!s.diagrams[diagramId]) return s;
-    const posMap = new Map(updates.map((u) => [u.id, u.position]));
-    const newState = withDiagram(s, diagramId, (d) => ({
-      ...d,
-      nodes: d.nodes.map((n) => (posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n)),
-    }));
-    return resolveBoundaryOverlaps(newState);
-  });
-}
-
 // ─── Annotation actions ───────────────────────────────────────────────────────
 
-/**
- * Add an annotation to the diagram that is currently visible to the user.
- * At root: adds to the root diagram.
- * When drilled in: adds to the parent diagram (the level the user sees the canvas of).
- */
 export function addAnnotation(annotation: Annotation): void {
-  diagramStore.update((s) => {
-    const diagramId = getAnnotationDiagramId(s);
-    if (!s.diagrams[diagramId]) return s;
-    return {
-      ...withDiagram(s, diagramId, (d) => ({
-        ...d,
-        annotations: [...(d.annotations ?? []), annotation],
-      })),
-      selectedId: annotation.id,
-    };
-  });
+  diagramStore.update((s) => ({
+    ...withCurrentLevel(s, (d) => ({
+      ...d,
+      annotations: [...(d.annotations ?? []), annotation],
+    })),
+    selectedId: annotation.id,
+  }));
 }
 
-export function updateAnnotation(diagramId: string, annotationId: string, patch: Partial<Annotation>): void {
+export function updateAnnotation(
+  level: C4LevelType,
+  annotationId: string,
+  patch: Partial<Annotation>
+): void {
   diagramStore.update((s) =>
-    withDiagram(s, diagramId, (d) => ({
+    withLevel(s, level, (d) => ({
       ...d,
-      annotations: (d.annotations ?? []).map((a) => (a.id === annotationId ? { ...a, ...patch } : a)),
+      annotations: (d.annotations ?? []).map((a) =>
+        a.id === annotationId ? { ...a, ...patch } : a
+      ),
     }))
   );
 }
 
-export function deleteAnnotation(diagramId: string, annotationId: string): void {
+export function deleteAnnotation(level: C4LevelType, annotationId: string): void {
   diagramStore.update((s) => ({
-    ...withDiagram(s, diagramId, (d) => ({
+    ...withLevel(s, level, (d) => ({
       ...d,
       annotations: (d.annotations ?? []).filter((a) => a.id !== annotationId),
     })),
@@ -860,16 +619,104 @@ export function deleteAnnotation(diagramId: string, annotationId: string): void 
 }
 
 export function updateAnnotationPositions(
-  diagramId: string,
+  level: C4LevelType,
   updates: Array<{ id: string; position: { x: number; y: number } }>
 ): void {
   const posMap = new Map(updates.map((u) => [u.id, u.position]));
   diagramStore.update((s) =>
-    withDiagram(s, diagramId, (d) => ({
+    withLevel(s, level, (d) => ({
       ...d,
       annotations: (d.annotations ?? []).map((a) =>
         posMap.has(a.id) ? { ...a, position: posMap.get(a.id)! } : a
       ),
     }))
   );
+}
+
+// ─── Import/merge ─────────────────────────────────────────────────────────────
+
+/** X offset applied to imported nodes/annotations to avoid immediate overlap */
+const MERGE_OFFSET_X = 200;
+
+/**
+ * Remap all IDs in an imported DiagramState (new flat-level format).
+ * Returns a new state — the input is not mutated.
+ */
+function remapIdsFlat(state: DiagramState): DiagramState {
+  const nodeIdMap = new Map<string, string>();
+  const edgeIdMap = new Map<string, string>();
+  const annotIdMap = new Map<string, string>();
+
+  for (const level of LEVEL_ORDER) {
+    const lvl = state.levels[level];
+    if (!lvl) continue;
+    for (const node of lvl.nodes) nodeIdMap.set(node.id, generateId());
+    for (const edge of lvl.edges) edgeIdMap.set(edge.id, generateId());
+    for (const annot of lvl.annotations ?? []) annotIdMap.set(annot.id, generateId());
+  }
+
+  const newLevels = {} as DiagramState['levels'];
+  for (const level of LEVEL_ORDER) {
+    const lvl = state.levels[level];
+    if (!lvl) continue;
+    newLevels[level] = {
+      ...lvl,
+      nodes: lvl.nodes.map((n) => ({
+        ...n,
+        id: nodeIdMap.get(n.id) ?? n.id,
+        parentNodeId: n.parentNodeId ? (nodeIdMap.get(n.parentNodeId) ?? n.parentNodeId) : undefined,
+      })),
+      edges: lvl.edges.map((e) => ({
+        ...e,
+        id: edgeIdMap.get(e.id) ?? e.id,
+        source: nodeIdMap.get(e.source) ?? e.source,
+        target: nodeIdMap.get(e.target) ?? e.target,
+      })),
+      annotations: (lvl.annotations ?? []).map((a) => ({
+        ...a,
+        id: annotIdMap.get(a.id) ?? a.id,
+      })),
+    };
+  }
+
+  return {
+    ...state,
+    levels: newLevels,
+    selectedId: null,
+    pendingNodeType: null,
+  };
+}
+
+/**
+ * Merges all levels of an imported DiagramState into the corresponding levels
+ * of the current state, with an X offset to avoid overlap. All IDs are
+ * remapped to fresh ones before merging to prevent collisions.
+ */
+export function mergeImportedDiagram(imported: DiagramState): void {
+  const remapped = remapIdsFlat(imported);
+
+  diagramStore.update((s) => {
+    let newState = s;
+    for (const level of LEVEL_ORDER) {
+      const importedLevel = remapped.levels[level];
+      if (!importedLevel) continue;
+
+      const offsetNodes = importedLevel.nodes.map((n) => ({
+        ...n,
+        position: { x: n.position.x + MERGE_OFFSET_X, y: n.position.y },
+      }));
+      const offsetAnnotations = (importedLevel.annotations ?? []).map((a) => ({
+        ...a,
+        position: { x: a.position.x + MERGE_OFFSET_X, y: a.position.y },
+      }));
+
+      newState = withLevel(newState, level, (d) => ({
+        ...d,
+        nodes:       [...d.nodes,       ...offsetNodes],
+        edges:       [...d.edges,       ...importedLevel.edges],
+        annotations: [...d.annotations, ...offsetAnnotations],
+      }));
+    }
+    return newState;
+  });
 }

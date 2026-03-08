@@ -7,11 +7,20 @@
 import type { Node, Edge } from '@xyflow/svelte';
 import type { Annotation, C4Node, C4Edge, C4NodeType, DiagramLevel, DiagramState, BoundaryGroup } from '../types';
 import { ANNOTATION_DEFAULT_COLORS, NODE_DEFAULT_COLORS } from '../utils/colors';
-import { getAnnotationDiagramId } from '../stores/diagramStore';
+import { nextLevel, prevLevel } from '../stores/diagramStore';
 
 // ─── Conversion helpers ───────────────────────────────────────────────────────
 
-export function toFlowNode(n: C4Node, selectedId?: string | null): Node {
+/**
+ * Convert a C4Node to a SvelteFlow Node.
+ * hasChildren indicates whether any nodes at the next level reference this node
+ * via parentNodeId — used by node components to show a drill-down indicator.
+ */
+export function toFlowNode(
+  n: C4Node,
+  selectedId: string | null | undefined,
+  hasChildren: boolean,
+): Node {
   return {
     id: n.id,
     type: n.type,
@@ -21,7 +30,7 @@ export function toFlowNode(n: C4Node, selectedId?: string | null): Node {
       label: n.label,
       description: n.description,
       technology: n.technology,
-      childDiagramId: n.childDiagramId,
+      hasChildren,
       color: n.color,
       members: n.members,
       columns: n.columns,
@@ -94,99 +103,82 @@ export interface FlowData {
 
 /**
  * Build the SvelteFlow node/edge arrays from the current diagram store state.
- * Handles boundary groups, all sibling groups' nodes as interactive active nodes,
- * cross-group edges, and annotations.
  *
- * All sibling groups are always fully interactive — there is no "focused" vs
- * "ghost context" distinction. Every group's nodes are parented to their boundary
- * rectangle and rendered at full opacity.
+ * At the context level there are no boundaries — all nodes are free-floating.
+ * At other levels, nodes are grouped by parentNodeId into boundary rectangles
+ * that correspond to drillable nodes at the level above.
  */
 export function buildFlowData(
   state: DiagramState,
-  currentDiagram: DiagramLevel | undefined,
+  currentLevelData: DiagramLevel | undefined,
   boundaries: BoundaryGroup[],
-  parentDiagram: DiagramLevel | null,
   selectedId: string | null,
 ): FlowData {
-  const currentDiagramId = state.navigationStack[state.navigationStack.length - 1];
-  const activeNodes: Node[] = currentDiagram?.nodes.map((n) => toFlowNode(n, selectedId)) ?? [];
-  const activeEdges: Edge[] = currentDiagram?.edges.map((e) => toFlowEdge(e, selectedId)) ?? [];
+  if (!currentLevelData) return { nodes: [], edges: [] };
 
+  // ── Compute which nodes have children at the next level ───────────────────
+  const nextLvl = nextLevel(state.currentLevel);
+  const nextLevelNodes = nextLvl ? (state.levels[nextLvl]?.nodes ?? []) : [];
+  const nodeIdsWithChildren = new Set(
+    nextLevelNodes.map((n) => n.parentNodeId).filter(Boolean) as string[]
+  );
+
+  // ── All nodes and edges at the current level ──────────────────────────────
+  const allC4Nodes: Node[] = currentLevelData.nodes.map((n) =>
+    toFlowNode(n, selectedId, nodeIdsWithChildren.has(n.id))
+  );
+  const allEdges: Edge[] = currentLevelData.edges.map((e) => toFlowEdge(e, selectedId));
+
+  // ── Boundary rectangles and node parenting ────────────────────────────────
+  // At the context level (no parent level) there are no boundaries.
+  // At all other levels, nodes belong to boundary groups by parentNodeId.
   const boundaryNodes: Node[] = [];
 
-  for (const group of boundaries) {
-    const boundaryId = `boundary-${group.parentNodeId}`;
-    const bBox = group.boundingBox;
+  if (boundaries.length > 0) {
+    const prevLvl = prevLevel(state.currentLevel);
+    const parentLevelData = prevLvl ? state.levels[prevLvl] : undefined;
 
-    // Look up parent node to get its color for the boundary
-    const parentDiagramId = state.navigationStack[state.navigationStack.length - 2] ?? '';
-    const pDiagram = state.diagrams[parentDiagramId];
-    const parentNode = pDiagram?.nodes.find((n) => n.id === group.parentNodeId);
-    const boundaryColor =
-      parentNode?.color ?? NODE_DEFAULT_COLORS[(parentNode?.type ?? 'system') as C4NodeType];
+    for (const group of boundaries) {
+      const boundaryId = `boundary-${group.parentNodeId}`;
+      const bb = group.boundingBox;
 
-    // Boundary rectangle node (rendered behind all content)
-    boundaryNodes.push({
-      id: boundaryId,
-      type: 'boundary',
-      position: { x: bBox.x, y: bBox.y },
-      style: `width: ${bBox.width}px; height: ${bBox.height}px;`,
-      data: { label: group.parentLabel, color: boundaryColor },
-      selectable: true,
-      draggable: true,
-      connectable: false,
-      class: 'boundary-node-wrapper',
-    });
+      const parentNode = parentLevelData?.nodes.find((n) => n.id === group.parentNodeId);
+      const boundaryColor =
+        parentNode?.color ?? NODE_DEFAULT_COLORS[(parentNode?.type ?? 'system') as C4NodeType];
 
-    if (group.childDiagramId !== currentDiagramId) {
-      // Sibling group (or unvisited drillable node with no childDiagramId yet) —
-      // render its nodes as fully interactive active nodes. childNodes is empty
-      // for unvisited siblings so the loop is a no-op in that case.
-      for (const cn of group.childNodes) {
-        const flowNode = toFlowNode(cn, selectedId);
-        flowNode.parentId = boundaryId;
-        flowNode.position = { x: cn.position.x - bBox.x, y: cn.position.y - bBox.y };
-        activeNodes.push(flowNode);
-      }
-      const siblingDiagram = group.childDiagramId ? state.diagrams[group.childDiagramId] : undefined;
-      if (siblingDiagram) {
-        for (const e of siblingDiagram.edges) {
-          activeEdges.push(toFlowEdge(e, selectedId));
-        }
-      }
-    } else {
-      // Current group — parent its active nodes to the boundary rectangle
-      for (const node of activeNodes) {
-        if (group.childNodes.some((cn) => cn.id === node.id)) {
-          node.parentId = boundaryId;
-          node.position = { x: node.position.x - bBox.x, y: node.position.y - bBox.y };
+      boundaryNodes.push({
+        id: boundaryId,
+        type: 'boundary',
+        position: { x: bb.x, y: bb.y },
+        style: `width: ${bb.width}px; height: ${bb.height}px;`,
+        data: { label: group.parentLabel, color: boundaryColor },
+        selectable: true,
+        draggable: true,
+        connectable: false,
+        class: 'boundary-node-wrapper',
+      });
+
+      // Parent all child flow nodes to this boundary rectangle
+      for (const flowNode of allC4Nodes) {
+        if (group.childNodes.some((cn) => cn.id === flowNode.id)) {
+          flowNode.parentId = boundaryId;
+          flowNode.position = {
+            x: flowNode.position.x - bb.x,
+            y: flowNode.position.y - bb.y,
+          };
         }
       }
     }
   }
 
-  // Collect cross-group edges from the parent diagram
-  if (parentDiagram) {
-    const allActiveNodeIds = new Set(activeNodes.map((n) => n.id));
-    for (const e of parentDiagram.edges) {
-      if (!e.sourceGroupId && !e.targetGroupId) continue;
-      if (allActiveNodeIds.has(e.source) && allActiveNodeIds.has(e.target)) {
-        activeEdges.push(toFlowEdge(e, selectedId));
-      }
-    }
-  }
-
-  // ── Annotations — always free-floating, never parented to boundaries ─────────
-  const annotDiagramId = getAnnotationDiagramId(state);
-  const annotDiagram = state.diagrams[annotDiagramId];
-  const annotationNodes: Node[] =
-    (annotDiagram?.annotations ?? []).map((a) => toFlowAnnotation(a, selectedId));
-
-  // Render order: containers (group/package — back), boundaries, active nodes, notes (front)
-  const containerAnnotations = annotationNodes.filter((n) => n.type === 'group' || n.type === 'package');
+  // ── Annotations ───────────────────────────────────────────────────────────
+  const annotations = currentLevelData.annotations ?? [];
+  const annotationNodes: Node[] = annotations.map((a) => toFlowAnnotation(a, selectedId));
+  const containerAnnotations  = annotationNodes.filter((n) => n.type === 'group' || n.type === 'package');
   const foregroundAnnotations = annotationNodes.filter((n) => n.type !== 'group' && n.type !== 'package');
+
   return {
-    nodes: [...containerAnnotations, ...boundaryNodes, ...activeNodes, ...foregroundAnnotations],
-    edges: activeEdges,
+    nodes: [...containerAnnotations, ...boundaryNodes, ...allC4Nodes, ...foregroundAnnotations],
+    edges: allEdges,
   };
 }
