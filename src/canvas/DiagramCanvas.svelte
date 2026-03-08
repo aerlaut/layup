@@ -10,7 +10,6 @@
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
 
-  import { get } from 'svelte/store';
   import {
     diagramStore,
     currentDiagram,
@@ -93,7 +92,7 @@
   // Sync diagram store → flow nodes/edges
   $effect(() => {
     const result = buildFlowData(
-      get(diagramStore),
+      $diagramStore,
       $currentDiagram,
       $contextBoundaries,
       $selectedId,
@@ -105,7 +104,7 @@
   // Refit viewport on level change (drill-down/drill-up)
   let prevLevelForFit = $state<C4LevelType | null>(null);
   $effect(() => {
-    const lvl = get(diagramStore).currentLevel;
+    const lvl = $diagramStore.currentLevel;
     if (prevLevelForFit !== null && lvl !== prevLevelForFit && flowFitView) {
       flowFitView({ duration: 200 });
     }
