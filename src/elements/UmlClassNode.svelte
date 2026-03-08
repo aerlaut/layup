@@ -120,6 +120,12 @@
 </div>
 
 <style>
+  /*
+   * ⚠️  Height-sensitive CSS: any changes to compartment padding, font-size,
+   *     or line-height must be reflected in the constants:
+   *       UML_NODE_HEIGHT_BASE, UML_MEMBER_ROW_HEIGHT, UML_COMPARTMENT_OVERHEAD
+   *     in src/utils/constants.ts (used by computeNodeHeight in diagramStore.ts).
+   */
   .uml-node {
     border: 2px solid;
     border-radius: 6px;
