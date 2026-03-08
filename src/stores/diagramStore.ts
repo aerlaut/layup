@@ -200,9 +200,9 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
 });
 
 /** Resolved selection: finds the selected node, edge, or annotation in the current level */
-export interface SelectedNodeResult { type: 'node'; node: C4Node; diagramId: C4LevelType }
-export interface SelectedEdgeResult { type: 'edge'; edge: C4Edge; diagramId: C4LevelType }
-export interface SelectedAnnotationResult { type: 'annotation'; annotation: Annotation; diagramId: C4LevelType }
+export interface SelectedNodeResult { type: 'node'; node: C4Node; level: C4LevelType }
+export interface SelectedEdgeResult { type: 'edge'; edge: C4Edge; level: C4LevelType }
+export interface SelectedAnnotationResult { type: 'annotation'; annotation: Annotation; level: C4LevelType }
 export type SelectedElementResult = SelectedNodeResult | SelectedEdgeResult | SelectedAnnotationResult;
 
 export const selectedElement = derived(diagramStore, ($s): SelectedElementResult | null => {
@@ -212,13 +212,13 @@ export const selectedElement = derived(diagramStore, ($s): SelectedElementResult
   const current = $s.levels[$s.currentLevel];
 
   const annotation = current.annotations?.find((a) => a.id === id);
-  if (annotation) return { type: 'annotation', annotation, diagramId: $s.currentLevel };
+  if (annotation) return { type: 'annotation', annotation, level: $s.currentLevel };
 
   const node = current.nodes.find((n) => n.id === id);
-  if (node) return { type: 'node', node, diagramId: $s.currentLevel };
+  if (node) return { type: 'node', node, level: $s.currentLevel };
 
   const edge = current.edges.find((e) => e.id === id);
-  if (edge) return { type: 'edge', edge, diagramId: $s.currentLevel };
+  if (edge) return { type: 'edge', edge, level: $s.currentLevel };
 
   return null;
 });
