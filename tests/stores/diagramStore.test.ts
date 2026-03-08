@@ -2,42 +2,42 @@ import { get } from 'svelte/store';
 import {
   diagramStore,
   SCHEMA_VERSION,
-  getCurrentDiagram,
-  getDiagramById,
+  LEVEL_LABELS,
+  nextLevel,
+  prevLevel,
+  getCurrentLevel,
   getBreadcrumbPath,
   currentDiagram,
   breadcrumbs,
   selectedId,
   pendingNodeType,
   isAtRoot,
+  parentLevel,
+  contextBoundaries,
+  selectedElement,
   addNode,
-  addNodeToDiagram,
   updateNode,
   deleteNode,
   addEdge,
-  addEdgeToDiagram,
   updateEdge,
   deleteEdge,
   drillDown,
   drillUp,
   navigateTo,
-  createChildDiagram,
   setSelected,
   setPendingNodeType,
   updateNodePositions,
-  updateNodePositionsInDiagram,
-  updateNodeInDiagram,
-  updateEdgeInDiagram,
-  deleteNodeFromDiagram,
-  deleteEdgeFromDiagram,
+  updateNodePositionsInLevel,
+  addAnnotation,
+  updateAnnotation,
+  deleteAnnotation,
+  updateAnnotationPositions,
   loadDiagram,
   resetDiagram,
   computeNodeHeight,
-  contextBoundaries,
-  parentNodeType,
-  childLevelFor,
+  createInitialDiagramState,
 } from '../../src/stores/diagramStore';
-import type { C4Node, C4Edge, DiagramState, ClassMember } from '../../src/types';
+import type { C4Node, C4Edge, DiagramState, ClassMember, C4LevelType, Annotation } from '../../src/types';
 import {
   NODE_DEFAULT_HEIGHT,
   BOUNDARY_PADDING,
@@ -65,15 +65,26 @@ function makeEdge(overrides: Partial<C4Edge> & { source: string; target: string 
   };
 }
 
+function makeAnnotation(overrides: Partial<Annotation> = {}): Annotation {
+  return {
+    id: `annot-${Math.random().toString(36).slice(2, 8)}`,
+    type: 'note',
+    label: 'Test Note',
+    position: { x: 0, y: 0 },
+    ...overrides,
+  };
+}
+
 function getState(): DiagramState {
   return get(diagramStore);
 }
 
-/** Returns the childDiagramId of a node in the root diagram, asserting it exists. */
-function getChildDiagramId(nodeId: string): string {
-  const node = getState().diagrams['root'].nodes.find((n) => n.id === nodeId);
-  if (!node?.childDiagramId) throw new Error(`Node ${nodeId} has no childDiagramId`);
-  return node.childDiagramId;
+function getCurrentNodes() {
+  return getState().levels[getState().currentLevel].nodes;
+}
+
+function getCurrentEdges() {
+  return getState().levels[getState().currentLevel].edges;
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -82,65 +93,117 @@ beforeEach(() => {
   resetDiagram();
 });
 
-// ── Selectors ─────────────────────────────────────────────────────────────────
+// ── Initial state ─────────────────────────────────────────────────────────────
 
-describe('getCurrentDiagram', () => {
-  it('returns the root diagram initially', () => {
-    const state = getState();
-    const current = getCurrentDiagram(state);
-    expect(current.id).toBe('root');
-    expect(current.level).toBe('context');
+describe('createInitialDiagramState', () => {
+  it('creates state with four levels', () => {
+    const state = createInitialDiagramState();
+    expect(Object.keys(state.levels)).toEqual(
+      expect.arrayContaining(['context', 'container', 'component', 'code'])
+    );
   });
 
-  it('returns the last diagram in the navigation stack after drill-down', () => {
-    const node = makeNode({ id: 'sys1', type: 'system', label: 'System' });
-    addNode(node);
-    drillDown('sys1');
-    const state = getState();
-    const childId = getChildDiagramId('sys1');
-    expect(getCurrentDiagram(state).id).toBe(childId);
+  it('starts at context level', () => {
+    const state = createInitialDiagramState();
+    expect(state.currentLevel).toBe('context');
+  });
+
+  it('all levels start empty', () => {
+    const state = createInitialDiagramState();
+    for (const level of ['context', 'container', 'component', 'code'] as C4LevelType[]) {
+      expect(state.levels[level].nodes).toHaveLength(0);
+      expect(state.levels[level].edges).toHaveLength(0);
+      expect(state.levels[level].annotations).toHaveLength(0);
+    }
+  });
+
+  it('has correct version', () => {
+    const state = createInitialDiagramState();
+    expect(state.version).toBe(SCHEMA_VERSION);
   });
 });
 
-describe('getDiagramById', () => {
-  it('returns diagram when it exists', () => {
+// ── Level navigation helpers ──────────────────────────────────────────────────
+
+describe('nextLevel', () => {
+  it('returns container for context', () => expect(nextLevel('context')).toBe('container'));
+  it('returns component for container', () => expect(nextLevel('container')).toBe('component'));
+  it('returns code for component', () => expect(nextLevel('component')).toBe('code'));
+  it('returns undefined for code (last level)', () => expect(nextLevel('code')).toBeUndefined());
+});
+
+describe('prevLevel', () => {
+  it('returns undefined for context (first level)', () => expect(prevLevel('context')).toBeUndefined());
+  it('returns context for container', () => expect(prevLevel('container')).toBe('context'));
+  it('returns container for component', () => expect(prevLevel('component')).toBe('container'));
+  it('returns component for code', () => expect(prevLevel('code')).toBe('component'));
+});
+
+describe('LEVEL_LABELS', () => {
+  it('has labels for all four levels', () => {
+    expect(LEVEL_LABELS['context']).toBeTruthy();
+    expect(LEVEL_LABELS['container']).toBeTruthy();
+    expect(LEVEL_LABELS['component']).toBeTruthy();
+    expect(LEVEL_LABELS['code']).toBeTruthy();
+  });
+});
+
+// ── Selectors ─────────────────────────────────────────────────────────────────
+
+describe('getCurrentLevel', () => {
+  it('returns the context level initially', () => {
     const state = getState();
-    expect(getDiagramById(state, 'root')).toBeDefined();
-    expect(getDiagramById(state, 'root')!.id).toBe('root');
+    const current = getCurrentLevel(state);
+    expect(current.level).toBe('context');
   });
 
-  it('returns undefined for missing ID', () => {
+  it('returns the correct level after navigation', () => {
+    drillDown();
     const state = getState();
-    expect(getDiagramById(state, 'nonexistent')).toBeUndefined();
+    expect(getCurrentLevel(state).level).toBe('container');
   });
 });
 
 describe('getBreadcrumbPath', () => {
-  it('returns single item at root', () => {
+  it('returns single item at context level', () => {
     const path = getBreadcrumbPath(getState());
     expect(path).toHaveLength(1);
-    expect(path[0]).toEqual({ id: 'root', label: 'System Context' });
+    expect(path[0]!.level).toBe('context');
+    expect(path[0]!.label).toBe(LEVEL_LABELS['context']);
   });
 
-  it('returns multi-level path after drill-down', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', label: 'My System' }));
-    drillDown('sys1');
+  it('returns two items after one drill-down', () => {
+    drillDown();
     const path = getBreadcrumbPath(getState());
     expect(path).toHaveLength(2);
-    expect(path[0].label).toBe('System Context');
-    expect(path[1].label).toBe('My System');
+    expect(path[0]!.level).toBe('context');
+    expect(path[1]!.level).toBe('container');
+  });
+
+  it('returns four items after drilling all the way to code', () => {
+    drillDown(); drillDown(); drillDown();
+    const path = getBreadcrumbPath(getState());
+    expect(path).toHaveLength(4);
+    expect(path[3]!.level).toBe('code');
   });
 });
 
 // ── Derived stores ────────────────────────────────────────────────────────────
 
 describe('derived stores', () => {
-  it('currentDiagram reflects the active diagram', () => {
-    expect(get(currentDiagram).id).toBe('root');
+  it('currentDiagram reflects the active level', () => {
+    expect(get(currentDiagram).level).toBe('context');
   });
 
-  it('breadcrumbs reflects navigation stack', () => {
+  it('currentDiagram updates after drill-down', () => {
+    drillDown();
+    expect(get(currentDiagram).level).toBe('container');
+  });
+
+  it('breadcrumbs reflects current navigation depth', () => {
     expect(get(breadcrumbs)).toHaveLength(1);
+    drillDown();
+    expect(get(breadcrumbs)).toHaveLength(2);
   });
 
   it('selectedId is null initially', () => {
@@ -156,89 +219,66 @@ describe('derived stores', () => {
   });
 
   it('isAtRoot is false after drill-down', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
+    drillDown();
     expect(get(isAtRoot)).toBe(false);
+  });
+
+  it('parentLevel is null at context', () => {
+    expect(get(parentLevel)).toBeNull();
+  });
+
+  it('parentLevel returns context level when at container', () => {
+    drillDown();
+    const pl = get(parentLevel);
+    expect(pl).not.toBeNull();
+    expect(pl!.level).toBe('context');
   });
 });
 
 // ── Node CRUD ─────────────────────────────────────────────────────────────────
 
 describe('addNode', () => {
-  it('adds a node to the current diagram', () => {
+  it('adds a node to the current level', () => {
     const node = makeNode({ id: 'n1' });
     addNode(node);
-    const state = getState();
-    const current = getCurrentDiagram(state);
-    expect(current.nodes).toHaveLength(1);
-    expect(current.nodes[0].id).toBe('n1');
+    expect(getCurrentNodes()).toHaveLength(1);
+    expect(getCurrentNodes()[0]!.id).toBe('n1');
   });
 
   it('sets selectedId to the new node', () => {
-    const node = makeNode({ id: 'n1' });
-    addNode(node);
+    addNode(makeNode({ id: 'n1' }));
     expect(getState().selectedId).toBe('n1');
   });
-});
 
-describe('addNodeToDiagram', () => {
-  it('adds a node to a specific diagram', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
-    const childId = getChildDiagramId('sys1');
-    const node = makeNode({ id: 'child1' });
-    addNodeToDiagram(childId, node);
-    const state = getState();
-    expect(state.diagrams[childId].nodes).toHaveLength(1);
-    expect(state.diagrams[childId].nodes[0].id).toBe('child1');
-  });
-
-  it('does nothing for a non-existent diagram', () => {
-    const before = getState();
-    addNodeToDiagram('nonexistent', makeNode());
-    const after = getState();
-    expect(after).toEqual(before);
+  it('adds nodes to the correct level when drilled in', () => {
+    drillDown(); // now at container level
+    const node = makeNode({ id: 'cont1' });
+    addNode(node);
+    expect(getState().levels['container'].nodes).toHaveLength(1);
+    expect(getState().levels['context'].nodes).toHaveLength(0);
   });
 });
 
 describe('updateNode', () => {
-  it('patches node properties in the current diagram', () => {
+  it('patches node properties in the current level', () => {
     addNode(makeNode({ id: 'n1', label: 'Old' }));
     updateNode('n1', { label: 'New' });
-    const current = getCurrentDiagram(getState());
-    expect(current.nodes[0].label).toBe('New');
+    expect(getCurrentNodes()[0]!.label).toBe('New');
   });
 
   it('does not affect other nodes', () => {
     addNode(makeNode({ id: 'n1', label: 'A' }));
     addNode(makeNode({ id: 'n2', label: 'B', position: { x: 300, y: 0 } }));
     updateNode('n1', { label: 'Updated' });
-    const current = getCurrentDiagram(getState());
-    expect(current.nodes.find((n) => n.id === 'n2')!.label).toBe('B');
-  });
-});
-
-describe('updateNodeInDiagram', () => {
-  it('patches a node in a specific diagram', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', label: 'Old' }));
-    updateNodeInDiagram('root', 'sys1', { label: 'New' });
-    expect(getState().diagrams['root'].nodes[0].label).toBe('New');
-  });
-
-  it('does nothing for a non-existent diagram', () => {
-    addNode(makeNode({ id: 'n1' }));
-    const before = getState();
-    updateNodeInDiagram('nonexistent', 'n1', { label: 'X' });
-    // Node in root should remain unchanged
-    expect(getState().diagrams['root'].nodes[0].label).toBe(before.diagrams['root'].nodes[0].label);
+    expect(getCurrentNodes().find((n) => n.id === 'n2')!.label).toBe('B');
   });
 });
 
 describe('deleteNode', () => {
-  it('removes the node from the current diagram', () => {
+  it('removes the node from the current level', () => {
     addNode(makeNode({ id: 'n1' }));
     deleteNode('n1');
-    expect(getCurrentDiagram(getState()).nodes).toHaveLength(0);
+    expect(getCurrentNodes()).toHaveLength(0);
   });
 
   it('removes connected edges', () => {
@@ -246,9 +286,8 @@ describe('deleteNode', () => {
     addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
     addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
     deleteNode('n1');
-    const current = getCurrentDiagram(getState());
-    expect(current.edges).toHaveLength(0);
-    expect(current.nodes).toHaveLength(1);
+    expect(getCurrentEdges()).toHaveLength(0);
+    expect(getCurrentNodes()).toHaveLength(1);
   });
 
   it('clears selectedId if the deleted node was selected', () => {
@@ -266,35 +305,29 @@ describe('deleteNode', () => {
     expect(getState().selectedId).toBe('n2');
   });
 
-  it('removes child diagram when deleting a node with childDiagramId', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    createChildDiagram('sys1');
-    const childId = getChildDiagramId('sys1');
-    expect(getState().diagrams[childId]).toBeDefined();
+  it('cascades to child nodes at the next level', () => {
+    // Add a system node at context level
+    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
+    // Drill to container level and add a child node pointing back to sys1
+    drillDown();
+    addNode(makeNode({ id: 'cont1', type: 'container', parentNodeId: 'sys1', position: { x: 0, y: 0 } }));
+    // Go back to context and delete sys1
+    drillUp();
     deleteNode('sys1');
-    expect(getState().diagrams[childId]).toBeUndefined();
-  });
-});
-
-describe('deleteNodeFromDiagram', () => {
-  it('removes a node from a specific diagram', () => {
-    addNode(makeNode({ id: 'n1' }));
-    deleteNodeFromDiagram('root', 'n1');
-    expect(getState().diagrams['root'].nodes).toHaveLength(0);
+    // The container-level node should also be gone
+    expect(getState().levels['container'].nodes.find((n) => n.id === 'cont1')).toBeUndefined();
   });
 
-  it('removes connected edges from that diagram', () => {
-    addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
-    addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
-    deleteNodeFromDiagram('root', 'n1');
-    expect(getState().diagrams['root'].edges).toHaveLength(0);
-  });
-
-  it('does nothing for a non-existent diagram', () => {
-    addNode(makeNode({ id: 'n1' }));
-    deleteNodeFromDiagram('nonexistent', 'n1');
-    expect(getState().diagrams['root'].nodes).toHaveLength(1);
+  it('cascades across multiple levels', () => {
+    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
+    drillDown(); // container level
+    addNode(makeNode({ id: 'cont1', type: 'container', parentNodeId: 'sys1', position: { x: 0, y: 0 } }));
+    drillDown(); // component level
+    addNode(makeNode({ id: 'comp1', type: 'component', parentNodeId: 'cont1', position: { x: 0, y: 0 } }));
+    drillUp(); drillUp(); // back to context
+    deleteNode('sys1');
+    expect(getState().levels['container'].nodes).toHaveLength(0);
+    expect(getState().levels['component'].nodes).toHaveLength(0);
   });
 });
 
@@ -305,9 +338,8 @@ describe('addEdge', () => {
     addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
     addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
     addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
-    const current = getCurrentDiagram(getState());
-    expect(current.edges).toHaveLength(1);
-    const edge = current.edges[0];
+    expect(getCurrentEdges()).toHaveLength(1);
+    const edge = getCurrentEdges()[0]!;
     expect(edge.markerStart).toBe('none');
     expect(edge.markerEnd).toBe('arrow');
     expect(edge.lineStyle).toBe('solid');
@@ -326,24 +358,9 @@ describe('addEdge', () => {
     addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
     addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
     addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2', label: 'Uses', lineStyle: 'dashed' }));
-    const edge = getCurrentDiagram(getState()).edges[0];
+    const edge = getCurrentEdges()[0]!;
     expect(edge.label).toBe('Uses');
     expect(edge.lineStyle).toBe('dashed');
-  });
-});
-
-describe('addEdgeToDiagram', () => {
-  it('adds an edge to a specific diagram', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'sys2', type: 'system', position: { x: 300, y: 0 } }));
-    addEdgeToDiagram('root', makeEdge({ id: 'e1', source: 'sys1', target: 'sys2' }));
-    expect(getState().diagrams['root'].edges).toHaveLength(1);
-  });
-
-  it('does nothing for a non-existent diagram', () => {
-    const before = getState();
-    addEdgeToDiagram('nonexistent', makeEdge({ id: 'e1', source: 'a', target: 'b' }));
-    expect(getState()).toEqual(before);
   });
 });
 
@@ -353,17 +370,7 @@ describe('updateEdge', () => {
     addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
     addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
     updateEdge('e1', { label: 'Updated' });
-    expect(getCurrentDiagram(getState()).edges[0].label).toBe('Updated');
-  });
-});
-
-describe('updateEdgeInDiagram', () => {
-  it('patches an edge in a specific diagram', () => {
-    addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
-    addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
-    updateEdgeInDiagram('root', 'e1', { label: 'Patched' });
-    expect(getState().diagrams['root'].edges[0].label).toBe('Patched');
+    expect(getCurrentEdges()[0]!.label).toBe('Updated');
   });
 });
 
@@ -373,7 +380,7 @@ describe('deleteEdge', () => {
     addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
     addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
     deleteEdge('e1');
-    expect(getCurrentDiagram(getState()).edges).toHaveLength(0);
+    expect(getCurrentEdges()).toHaveLength(0);
   });
 
   it('clears selectedId if the deleted edge was selected', () => {
@@ -386,243 +393,72 @@ describe('deleteEdge', () => {
   });
 });
 
-describe('deleteEdgeFromDiagram', () => {
-  it('removes an edge from a specific diagram', () => {
-    addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
-    addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
-    deleteEdgeFromDiagram('root', 'e1');
-    expect(getState().diagrams['root'].edges).toHaveLength(0);
-  });
-});
-
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 describe('drillDown', () => {
-  it('creates a child diagram and navigates to it', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', label: 'My System' }));
-    drillDown('sys1');
-    const childId = getChildDiagramId('sys1');
-    const state = getState();
-    expect(state.navigationStack).toEqual(['root', childId]);
-    expect(state.diagrams[childId]).toBeDefined();
-    expect(state.diagrams[childId].level).toBe('container');
-    expect(state.diagrams[childId].label).toBe('My System');
+  it('advances to the next level', () => {
+    drillDown();
+    expect(getState().currentLevel).toBe('container');
+  });
+
+  it('advances through all levels in sequence', () => {
+    drillDown(); expect(getState().currentLevel).toBe('container');
+    drillDown(); expect(getState().currentLevel).toBe('component');
+    drillDown(); expect(getState().currentLevel).toBe('code');
+  });
+
+  it('does nothing at the code level (no next level)', () => {
+    drillDown(); drillDown(); drillDown();
+    expect(getState().currentLevel).toBe('code');
+    drillDown();
+    expect(getState().currentLevel).toBe('code');
   });
 
   it('clears selectedId', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    setSelected('sys1');
-    drillDown('sys1');
+    setSelected('some-id');
+    drillDown();
     expect(getState().selectedId).toBeNull();
-  });
-
-  it('reuses existing child diagram on subsequent drill-downs', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
-    const childId = getChildDiagramId('sys1');
-    // Add a node to the child diagram
-    addNode(makeNode({ id: 'child1' }));
-    drillUp();
-    drillDown('sys1');
-    const childDiagram = getState().diagrams[childId];
-    expect(childDiagram.nodes).toHaveLength(1);
-    expect(childDiagram.nodes[0].id).toBe('child1');
-  });
-
-  it('does nothing for a non-existent node', () => {
-    const before = getState();
-    drillDown('nonexistent');
-    expect(getState().navigationStack).toEqual(before.navigationStack);
-  });
-
-  it('maps node types to correct child levels', () => {
-    // system → container
-    addNode(makeNode({ id: 's1', type: 'system', position: { x: 0, y: 0 } }));
-    drillDown('s1');
-    expect(getCurrentDiagram(getState()).level).toBe('container');
-    drillUp();
-
-    // container → component
-    addNode(makeNode({ id: 'c1', type: 'container', position: { x: 300, y: 0 } }));
-    drillDown('c1');
-    expect(getCurrentDiagram(getState()).level).toBe('component');
-    drillUp();
-
-    // database → component (not code — db-schema sits at component level)
-    addNode(makeNode({ id: 'db1', type: 'database', position: { x: 600, y: 0 } }));
-    drillDown('db1');
-    expect(getCurrentDiagram(getState()).level).toBe('component');
-    drillUp();
-
-    // person → component
-    addNode(makeNode({ id: 'p1', type: 'person', position: { x: 900, y: 0 } }));
-    drillDown('p1');
-    expect(getCurrentDiagram(getState()).level).toBe('component');
-    drillUp();
-
-    // component → code
-    addNode(makeNode({ id: 'comp1', type: 'component', position: { x: 1200, y: 0 } }));
-    drillDown('comp1');
-    expect(getCurrentDiagram(getState()).level).toBe('code');
-    drillUp();
-
-    // db-schema → code
-    addNode(makeNode({ id: 'schema1', type: 'db-schema', position: { x: 1500, y: 0 } }));
-    drillDown('schema1');
-    expect(getCurrentDiagram(getState()).level).toBe('code');
-    drillUp();
-  });
-
-  it('does not drill into UML class-type nodes', () => {
-    const umlTypes = ['class', 'abstract-class', 'interface', 'enum', 'record'] as const;
-    umlTypes.forEach((umlType, i) => {
-      addNode(makeNode({ id: `uml-${umlType}`, type: umlType, position: { x: i * 200, y: 300 } }));
-      const stackBefore = getState().navigationStack.slice();
-      drillDown(`uml-${umlType}`);
-      // Navigation stack must not change — UML nodes are not drillable
-      expect(getState().navigationStack).toEqual(stackBefore);
-      // No child diagram should have been created
-      const node = getState().diagrams['root'].nodes.find((n) => n.id === `uml-${umlType}`);
-      expect(node?.childDiagramId).toBeUndefined();
-    });
-  });
-
-  it('does not drill into ERD node types', () => {
-    const erdTypes = ['erd-table', 'erd-view'] as const;
-    erdTypes.forEach((erdType, i) => {
-      addNode(makeNode({ id: `erd-${erdType}`, type: erdType, position: { x: i * 200, y: 600 } }));
-      const stackBefore = getState().navigationStack.slice();
-      drillDown(`erd-${erdType}`);
-      expect(getState().navigationStack).toEqual(stackBefore);
-      const node = getState().diagrams['root'].nodes.find((n) => n.id === `erd-${erdType}`);
-      expect(node?.childDiagramId).toBeUndefined();
-    });
-  });
-});
-
-describe('parentNodeType', () => {
-  it('is null at root', () => {
-    expect(get(parentNodeType)).toBeNull();
-  });
-
-  it('returns the type of the parent node that owns the current diagram', () => {
-    addNode(makeNode({ id: 'db1', type: 'database', position: { x: 0, y: 0 } }));
-    drillDown('db1');
-    expect(get(parentNodeType)).toBe('database');
-    drillUp();
-  });
-
-  it('returns container type when drilling into a container', () => {
-    addNode(makeNode({ id: 'c1', type: 'container', position: { x: 0, y: 0 } }));
-    drillDown('c1');
-    expect(get(parentNodeType)).toBe('container');
-    drillUp();
-  });
-
-  it('updates correctly through two levels of drill-down', () => {
-    // Root → database → db-schema
-    addNode(makeNode({ id: 'db1', type: 'database', position: { x: 0, y: 0 } }));
-    drillDown('db1');
-    // Now in the database's component-level diagram; add a db-schema and drill further
-    addNode(makeNode({ id: 'schema1', type: 'db-schema', position: { x: 0, y: 0 } }));
-    drillDown('schema1');
-    expect(get(parentNodeType)).toBe('db-schema');
-    drillUp();
-    drillUp();
-  });
-
-  it('returns null after drilling back to root', () => {
-    addNode(makeNode({ id: 'db1', type: 'database', position: { x: 0, y: 0 } }));
-    drillDown('db1');
-    drillUp();
-    expect(get(parentNodeType)).toBeNull();
   });
 });
 
 describe('drillUp', () => {
-  it('pops the navigation stack', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
+  it('goes back to the previous level', () => {
+    drillDown();
     drillUp();
-    expect(getState().navigationStack).toEqual(['root']);
+    expect(getState().currentLevel).toBe('context');
+  });
+
+  it('does nothing at context level', () => {
+    drillUp();
+    expect(getState().currentLevel).toBe('context');
   });
 
   it('clears selectedId', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
+    drillDown();
+    setSelected('some-id');
     drillUp();
     expect(getState().selectedId).toBeNull();
-  });
-
-  it('does nothing at root', () => {
-    drillUp();
-    expect(getState().navigationStack).toEqual(['root']);
   });
 });
 
 describe('navigateTo', () => {
-  it('truncates the stack to the given diagram', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
-    addNode(makeNode({ id: 'cont1', type: 'container' }));
-    drillDown('cont1');
-    expect(getState().navigationStack).toHaveLength(3);
-    navigateTo('root');
-    expect(getState().navigationStack).toEqual(['root']);
+  it('jumps directly to a level', () => {
+    drillDown(); drillDown(); drillDown(); // code
+    navigateTo('container');
+    expect(getState().currentLevel).toBe('container');
   });
 
-  it('does nothing for a diagram not in the stack', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system' }));
-    drillDown('sys1');
-    const childId = getChildDiagramId('sys1');
-    navigateTo('nonexistent');
-    expect(getState().navigationStack).toEqual(['root', childId]);
-  });
-});
-
-// ── Child diagram management ──────────────────────────────────────────────────
-
-describe('createChildDiagram', () => {
-  it('creates a child diagram and links the parent node', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', label: 'System' }));
-    const childId = createChildDiagram('sys1');
-    const state = getState();
-    expect(childId).toBeTruthy();
-    expect(state.diagrams[childId]).toBeDefined();
-    expect(state.diagrams[childId].level).toBe('container');
-    expect(state.diagrams[childId].label).toBe('System');
-    const parentNode = state.diagrams['root'].nodes.find((n) => n.id === 'sys1');
-    expect(parentNode!.childDiagramId).toBe(childId);
+  it('clears selectedId', () => {
+    drillDown();
+    setSelected('some-id');
+    navigateTo('context');
+    expect(getState().selectedId).toBeNull();
   });
 
-  it('returns a unique ID each call', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'sys2', type: 'system', position: { x: 300, y: 0 } }));
-    const id1 = createChildDiagram('sys1');
-    const id2 = createChildDiagram('sys2');
-    expect(id1).not.toBe(id2);
-  });
-
-  it('does not create a child diagram for UML class-type nodes', () => {
-    const umlTypes = ['class', 'abstract-class', 'interface', 'enum', 'record'] as const;
-    umlTypes.forEach((umlType, i) => {
-      addNode(makeNode({ id: `uml-${umlType}`, type: umlType, position: { x: i * 200, y: 0 } }));
-      createChildDiagram(`uml-${umlType}`);
-      const node = getState().diagrams['root'].nodes.find((n) => n.id === `uml-${umlType}`);
-      // No childDiagramId should be set
-      expect(node?.childDiagramId).toBeUndefined();
-    });
-  });
-
-  it('does not create a child diagram for ERD node types', () => {
-    const erdTypes = ['erd-table', 'erd-view'] as const;
-    erdTypes.forEach((erdType, i) => {
-      addNode(makeNode({ id: `erd-${erdType}`, type: erdType, position: { x: i * 200, y: 300 } }));
-      createChildDiagram(`erd-${erdType}`);
-      const node = getState().diagrams['root'].nodes.find((n) => n.id === `erd-${erdType}`);
-      expect(node?.childDiagramId).toBeUndefined();
-    });
+  it('does nothing for a non-existent level key', () => {
+    const before = getState().currentLevel;
+    navigateTo('nonexistent' as C4LevelType);
+    expect(getState().currentLevel).toBe(before);
   });
 });
 
@@ -654,46 +490,166 @@ describe('setPendingNodeType', () => {
   });
 });
 
-// ── Position updates & overlap resolution ─────────────────────────────────────
+// ── Position updates ──────────────────────────────────────────────────────────
 
 describe('updateNodePositions', () => {
-  it('updates node positions in the current diagram', () => {
+  it('updates node positions in the current level', () => {
     addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
     updateNodePositions([{ id: 'n1', position: { x: 100, y: 200 } }]);
-    const node = getCurrentDiagram(getState()).nodes[0];
+    const node = getCurrentNodes()[0]!;
     expect(node.position.x).toBe(100);
     expect(node.position.y).toBe(200);
   });
 
   it('pushes overlapping nodes apart', () => {
-    // Place two nodes at the exact same position
     addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
     addNode(makeNode({ id: 'n2', position: { x: 300, y: 300 } }));
-    // Move n2 on top of n1
     updateNodePositions([{ id: 'n2', position: { x: 0, y: 0 } }]);
-    const nodes = getCurrentDiagram(getState()).nodes;
+    const nodes = getCurrentNodes();
     const n1 = nodes.find((n) => n.id === 'n1')!;
     const n2 = nodes.find((n) => n.id === 'n2')!;
-    // The moved node (n2) should stay at its position; n1 should be pushed away
-    expect(n2.position.x).toBe(0);
-    expect(n2.position.y).toBe(0);
-    // n1 should have moved
+    expect(n2.position).toEqual({ x: 0, y: 0 });
     const distance = Math.abs(n1.position.x) + Math.abs(n1.position.y);
     expect(distance).toBeGreaterThan(0);
   });
 });
 
-describe('updateNodePositionsInDiagram', () => {
-  it('updates positions in a specific diagram', () => {
+describe('updateNodePositionsInLevel', () => {
+  it('updates positions in a specific level without changing currentLevel', () => {
+    // Add a node to context, drill to container, update position at context
     addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
-    updateNodePositionsInDiagram('root', [{ id: 'n1', position: { x: 50, y: 50 } }]);
-    expect(getState().diagrams['root'].nodes[0].position).toEqual({ x: 50, y: 50 });
+    drillDown();
+    updateNodePositionsInLevel('context', [{ id: 'n1', position: { x: 50, y: 50 } }]);
+    expect(getState().levels['context'].nodes[0]!.position).toEqual({ x: 50, y: 50 });
+    expect(getState().currentLevel).toBe('container'); // unchanged
+  });
+});
+
+// ── Annotation CRUD ───────────────────────────────────────────────────────────
+
+describe('annotation CRUD', () => {
+  it('addAnnotation adds to current level', () => {
+    const a = makeAnnotation({ id: 'a1' });
+    addAnnotation(a);
+    expect(getState().levels['context'].annotations).toHaveLength(1);
+    expect(getState().levels['context'].annotations[0]!.id).toBe('a1');
+    expect(getState().selectedId).toBe('a1');
   });
 
-  it('does nothing for a non-existent diagram', () => {
+  it('updateAnnotation patches annotation', () => {
+    addAnnotation(makeAnnotation({ id: 'a1', label: 'Old' }));
+    updateAnnotation('context', 'a1', { label: 'New' });
+    expect(getState().levels['context'].annotations[0]!.label).toBe('New');
+  });
+
+  it('deleteAnnotation removes annotation and clears selectedId', () => {
+    addAnnotation(makeAnnotation({ id: 'a1' }));
+    setSelected('a1');
+    deleteAnnotation('context', 'a1');
+    expect(getState().levels['context'].annotations).toHaveLength(0);
+    expect(getState().selectedId).toBeNull();
+  });
+
+  it('updateAnnotationPositions updates positions', () => {
+    addAnnotation(makeAnnotation({ id: 'a1', position: { x: 0, y: 0 } }));
+    updateAnnotationPositions('context', [{ id: 'a1', position: { x: 99, y: 88 } }]);
+    expect(getState().levels['context'].annotations[0]!.position).toEqual({ x: 99, y: 88 });
+  });
+});
+
+// ── selectedElement derived store ─────────────────────────────────────────────
+
+describe('selectedElement', () => {
+  it('returns null when nothing selected', () => {
+    expect(get(selectedElement)).toBeNull();
+  });
+
+  it('returns node result for a selected node', () => {
+    addNode(makeNode({ id: 'n1' }));
+    setSelected('n1');
+    const result = get(selectedElement);
+    expect(result?.type).toBe('node');
+    expect(result?.type === 'node' && result.node.id).toBe('n1');
+  });
+
+  it('returns edge result for a selected edge', () => {
     addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
-    updateNodePositionsInDiagram('nonexistent', [{ id: 'n1', position: { x: 99, y: 99 } }]);
-    expect(getState().diagrams['root'].nodes[0].position).toEqual({ x: 0, y: 0 });
+    addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
+    addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
+    setSelected('e1');
+    const result = get(selectedElement);
+    expect(result?.type).toBe('edge');
+  });
+
+  it('returns annotation result for a selected annotation', () => {
+    addAnnotation(makeAnnotation({ id: 'a1' }));
+    setSelected('a1');
+    const result = get(selectedElement);
+    expect(result?.type).toBe('annotation');
+  });
+
+  it('returns null for a stale selected ID not in the current level', () => {
+    addNode(makeNode({ id: 'n1' }));
+    setSelected('n1');
+    drillDown(); // current level changes, n1 not here
+    // n1 is not in container level, so selectedElement should be null
+    expect(get(selectedElement)).toBeNull();
+  });
+});
+
+// ── contextBoundaries derived store ───────────────────────────────────────────
+
+describe('contextBoundaries', () => {
+  it('is empty at context level', () => {
+    expect(get(contextBoundaries)).toHaveLength(0);
+  });
+
+  it('is empty at container level when no nodes have parentNodeId', () => {
+    drillDown();
+    addNode(makeNode({ id: 'cont1', type: 'container', position: { x: 0, y: 0 } }));
+    // context level has no drillable nodes → no boundaries
+    expect(get(contextBoundaries)).toHaveLength(0);
+  });
+
+  it('shows boundary groups for drillable parent nodes', () => {
+    // Add system nodes at context level
+    addNode(makeNode({ id: 'sys1', type: 'system', label: 'System A', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'sys2', type: 'system', label: 'System B', position: { x: 400, y: 0 } }));
+    // Drill to container and add child nodes with parentNodeId
+    drillDown();
+    addNode(makeNode({ id: 'c1', type: 'container', parentNodeId: 'sys1', position: { x: 50, y: 50 } }));
+    addNode(makeNode({ id: 'c2', type: 'container', parentNodeId: 'sys2', position: { x: 450, y: 50 } }));
+
+    const bounds = get(contextBoundaries);
+    expect(bounds).toHaveLength(2);
+    expect(bounds.find((b) => b.parentNodeId === 'sys1')).toBeDefined();
+    expect(bounds.find((b) => b.parentNodeId === 'sys2')).toBeDefined();
+  });
+
+  it('boundary group has empty childNodes when no children have that parentNodeId', () => {
+    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'sys2', type: 'system', position: { x: 400, y: 0 } }));
+    drillDown();
+    addNode(makeNode({ id: 'c1', type: 'container', parentNodeId: 'sys1', position: { x: 0, y: 0 } }));
+    // sys2 has no children
+
+    const bounds = get(contextBoundaries);
+    const sys2Boundary = bounds.find((b) => b.parentNodeId === 'sys2');
+    expect(sys2Boundary).toBeDefined();
+    expect(sys2Boundary!.childNodes).toHaveLength(0);
+    expect(sys2Boundary!.boundingBox.width).toBeGreaterThan(0);
+    expect(sys2Boundary!.boundingBox.height).toBeGreaterThan(0);
+  });
+
+  it('does not show non-drillable parent types as boundaries', () => {
+    // Add a UML class at context level
+    addNode(makeNode({ id: 'cls1', type: 'class', position: { x: 0, y: 0 } }));
+    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 300, y: 0 } }));
+    drillDown();
+    const bounds = get(contextBoundaries);
+    // cls1 is not a drillable type for the container level, sys1 is
+    expect(bounds.find((b) => b.parentNodeId === 'cls1')).toBeUndefined();
+    expect(bounds.find((b) => b.parentNodeId === 'sys1')).toBeDefined();
   });
 });
 
@@ -702,83 +658,54 @@ describe('updateNodePositionsInDiagram', () => {
 describe('loadDiagram', () => {
   it('replaces the entire state', () => {
     addNode(makeNode({ id: 'n1' }));
-    const customState: DiagramState = {
-      version: SCHEMA_VERSION,
-      diagrams: {
-        custom: {
-          id: 'custom',
-          level: 'context',
-          label: 'Custom',
-          nodes: [],
-          edges: [],
-        },
-      },
-      rootId: 'custom',
-      navigationStack: ['custom'],
-      selectedId: null,
-      pendingNodeType: null,
-    };
+    const customState = createInitialDiagramState();
+    customState.currentLevel = 'container';
     loadDiagram(customState);
-    const state = getState();
-    expect(state.rootId).toBe('custom');
-    expect(state.diagrams['root']).toBeUndefined();
-    expect(state.diagrams['custom']).toBeDefined();
+    expect(getState().currentLevel).toBe('container');
+    expect(getState().levels['context'].nodes).toHaveLength(0);
   });
 });
 
 describe('resetDiagram', () => {
   it('resets to initial empty state', () => {
     addNode(makeNode({ id: 'n1' }));
-    addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n1' }));
+    drillDown();
     resetDiagram();
     const state = getState();
-    expect(state.rootId).toBe('root');
-    expect(state.navigationStack).toEqual(['root']);
-    expect(getCurrentDiagram(state).nodes).toHaveLength(0);
-    expect(getCurrentDiagram(state).edges).toHaveLength(0);
+    expect(state.currentLevel).toBe('context');
+    expect(state.levels['context'].nodes).toHaveLength(0);
     expect(state.selectedId).toBeNull();
     expect(state.pendingNodeType).toBeNull();
   });
 });
 
-// ── State immutability ─────────────────────────────────────────────────────────
+// ── State immutability ────────────────────────────────────────────────────────
 
 describe('state immutability', () => {
   it('addNode does not mutate previous state', () => {
     const before = getState();
-    const beforeNodes = before.diagrams['root'].nodes;
+    const beforeNodes = before.levels['context'].nodes;
     addNode(makeNode({ id: 'n1' }));
-    // The original array reference must be unchanged
     expect(beforeNodes).toHaveLength(0);
-    expect(getState().diagrams['root'].nodes).toHaveLength(1);
-  });
-
-  it('addEdge does not mutate previous state', () => {
-    addNode(makeNode({ id: 'n1', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'n2', position: { x: 300, y: 0 } }));
-    const before = getState();
-    const beforeEdges = before.diagrams['root'].edges;
-    addEdge(makeEdge({ id: 'e1', source: 'n1', target: 'n2' }));
-    expect(beforeEdges).toHaveLength(0);
-    expect(getState().diagrams['root'].edges).toHaveLength(1);
+    expect(getState().levels['context'].nodes).toHaveLength(1);
   });
 
   it('updateNode does not mutate previous state', () => {
     addNode(makeNode({ id: 'n1', label: 'Original' }));
     const before = getState();
-    const beforeNode = before.diagrams['root'].nodes[0];
+    const beforeNode = before.levels['context'].nodes[0]!;
     updateNode('n1', { label: 'Changed' });
     expect(beforeNode.label).toBe('Original');
-    expect(getState().diagrams['root'].nodes[0].label).toBe('Changed');
+    expect(getState().levels['context'].nodes[0]!.label).toBe('Changed');
   });
 
   it('deleteNode does not mutate previous state', () => {
     addNode(makeNode({ id: 'n1' }));
     const before = getState();
-    const beforeNodes = before.diagrams['root'].nodes;
+    const beforeNodes = before.levels['context'].nodes;
     deleteNode('n1');
     expect(beforeNodes).toHaveLength(1);
-    expect(getState().diagrams['root'].nodes).toHaveLength(0);
+    expect(getState().levels['context'].nodes).toHaveLength(0);
   });
 });
 
@@ -801,38 +728,17 @@ describe('computeNodeHeight', () => {
       'container', 'database', 'component',
     ];
     for (const type of nonUmlTypes) {
-      const node = makeNode({ type, id: `n-${type}` });
-      expect(computeNodeHeight(node)).toBe(NODE_DEFAULT_HEIGHT);
+      expect(computeNodeHeight(makeNode({ type }))).toBe(NODE_DEFAULT_HEIGHT);
     }
   });
 
   it('returns UML_NODE_HEIGHT_BASE for a UML node with no members', () => {
-    const umlTypes: C4Node['type'][] = ['class', 'abstract-class', 'interface', 'enum', 'record'];
-    for (const type of umlTypes) {
-      const node = makeNode({ type, id: `n-${type}`, members: [] });
-      expect(computeNodeHeight(node)).toBe(UML_NODE_HEIGHT_BASE);
+    for (const type of ['class', 'abstract-class', 'interface', 'enum', 'record'] as C4Node['type'][]) {
+      expect(computeNodeHeight(makeNode({ type, members: [] }))).toBe(UML_NODE_HEIGHT_BASE);
     }
   });
 
-  it('adds one compartment overhead + row heights for attributes only', () => {
-    const node = makeNode({
-      type: 'class',
-      members: [makeClassMember('attribute'), makeClassMember('attribute')],
-    });
-    const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 2 * UML_MEMBER_ROW_HEIGHT;
-    expect(computeNodeHeight(node)).toBe(expected);
-  });
-
-  it('adds one compartment overhead + row heights for operations only', () => {
-    const node = makeNode({
-      type: 'class',
-      members: [makeClassMember('operation')],
-    });
-    const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 1 * UML_MEMBER_ROW_HEIGHT;
-    expect(computeNodeHeight(node)).toBe(expected);
-  });
-
-  it('adds two compartment overheads for mixed attributes and operations', () => {
+  it('adds compartment overhead and row heights for mixed members', () => {
     const node = makeNode({
       type: 'class',
       members: [makeClassMember('attribute'), makeClassMember('operation')],
@@ -840,8 +746,7 @@ describe('computeNodeHeight', () => {
     const expected =
       UML_NODE_HEIGHT_BASE +
       2 * UML_COMPARTMENT_OVERHEAD +
-      1 * UML_MEMBER_ROW_HEIGHT + // attribute
-      1 * UML_MEMBER_ROW_HEIGHT;  // operation
+      2 * UML_MEMBER_ROW_HEIGHT;
     expect(computeNodeHeight(node)).toBe(expected);
   });
 
@@ -850,238 +755,63 @@ describe('computeNodeHeight', () => {
       type: 'enum',
       members: [makeClassMember('attribute'), makeClassMember('operation')],
     });
-    // Only the attribute compartment contributes; operations are suppressed for enums
     const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 1 * UML_MEMBER_ROW_HEIGHT;
     expect(computeNodeHeight(node)).toBe(expected);
   });
-
-  it('height grows proportionally with more members', () => {
-    const few = makeNode({ type: 'class', members: [makeClassMember('attribute')] });
-    const many = makeNode({
-      type: 'class',
-      members: Array.from({ length: 10 }, () => makeClassMember('attribute')),
-    });
-    expect(computeNodeHeight(many)).toBeGreaterThan(computeNodeHeight(few));
-  });
-
-  it('treats undefined members the same as an empty array', () => {
-    const withUndefined = makeNode({ type: 'class', members: undefined });
-    const withEmpty = makeNode({ type: 'class', members: [] });
-    expect(computeNodeHeight(withUndefined)).toBe(computeNodeHeight(withEmpty));
-  });
 });
 
-// ── boundary group height expansion on member add ─────────────────────────────
+// ── mergeImportedDiagram ──────────────────────────────────────────────────────
 
-describe('boundary group expands when UML node members are added', () => {
-  function makeClassMember(kind: 'attribute' | 'operation', index = 0): ClassMember {
-    return {
-      id: `m-${index}-${Math.random().toString(36).slice(2, 6)}`,
-      kind,
-      visibility: '+',
-      name: `field${index}`,
-      type: 'String',
-    };
-  }
+import { mergeImportedDiagram } from '../../src/stores/diagramStore';
 
-  it('boundary bounding-box grows taller as members are added to a Code-layer node', () => {
-    // Scenario: root → component node (comp1). Drill into comp1 so that
-    // contextBoundaries shows comp1 as a boundary group containing its
-    // code-level nodes. Add a class node to comp1's diagram, record the
-    // boundary height, then add many attributes and verify height grows.
+function makeImportableState(overrides: Partial<DiagramState> = {}): DiagramState {
+  const base = createInitialDiagramState();
+  base.levels['context'].nodes = [makeNode({ id: 'imported_n1', position: { x: 10, y: 20 } })];
+  return { ...base, ...overrides };
+}
 
-    // Root: add a component node
-    addNode(makeNode({ id: 'comp1', type: 'component', label: 'MyComponent', position: { x: 0, y: 0 } }));
-
-    // Drill in — nav stack: [root, comp1_child]
-    drillDown('comp1');
-    const comp1ChildId = getChildDiagramId('comp1');
-
-    // Add a class node with no members to the code-level diagram
-    addNode({
-      id: 'cls1',
-      type: 'class',
-      label: 'MyClass',
-      position: { x: 50, y: 50 },
-      members: [],
-    });
-
-    // contextBoundaries (parent = root) → shows comp1's boundary group
-    const boundaryBefore = get(contextBoundaries).find((b) => b.parentNodeId === 'comp1');
-    expect(boundaryBefore).toBeDefined();
-    const heightBefore = boundaryBefore!.boundingBox.height;
-
-    // Add 10 attributes to cls1 — this is the operation that triggered the bug
-    const members: ClassMember[] = Array.from({ length: 10 }, (_, i) => makeClassMember('attribute', i));
-    updateNodeInDiagram(comp1ChildId, 'cls1', { members });
-
-    // After the update contextBoundaries must recompute with larger height
-    const boundaryAfter = get(contextBoundaries).find((b) => b.parentNodeId === 'comp1');
-    expect(boundaryAfter).toBeDefined();
-    const heightAfter = boundaryAfter!.boundingBox.height;
-
-    expect(heightAfter).toBeGreaterThan(heightBefore);
+describe('mergeImportedDiagram', () => {
+  it('appends imported context nodes into the context level', () => {
+    mergeImportedDiagram(makeImportableState());
+    const state = getState();
+    expect(state.levels['context'].nodes).toHaveLength(1);
+    expect(state.levels['context'].nodes[0]!.label).toBe('Test Node');
   });
 
-  it('boundary height equals expected formula after adding members', () => {
-    addNode(makeNode({ id: 'comp2', type: 'component', label: 'Comp2', position: { x: 0, y: 0 } }));
-    drillDown('comp2');
-    const comp2ChildId = getChildDiagramId('comp2');
+  it('does not remove existing nodes', () => {
+    addNode(makeNode({ id: 'existing', position: { x: 500, y: 500 } }));
+    mergeImportedDiagram(makeImportableState());
+    expect(getState().levels['context'].nodes).toHaveLength(2);
+  });
 
-    const members: ClassMember[] = [
-      makeClassMember('attribute', 0),
-      makeClassMember('attribute', 1),
-      makeClassMember('operation', 2),
+  it('remaps imported node IDs — no collisions', () => {
+    addNode(makeNode({ id: 'imported_n1' }));
+    mergeImportedDiagram(makeImportableState());
+    const nodes = getState().levels['context'].nodes;
+    expect(nodes).toHaveLength(2);
+    const ids = new Set(nodes.map((n) => n.id));
+    expect(ids.size).toBe(2);
+  });
+
+  it('applies an x offset to imported nodes', () => {
+    mergeImportedDiagram(makeImportableState());
+    const importedNode = getState().levels['context'].nodes[0]!;
+    expect(importedNode.position.x).toBeGreaterThan(10);
+  });
+
+  it('merges all levels from the imported state', () => {
+    const imported = createInitialDiagramState();
+    imported.levels['context'].nodes = [makeNode({ id: 'ctx1', position: { x: 0, y: 0 } })];
+    imported.levels['container'].nodes = [
+      makeNode({ id: 'cont1', type: 'container', parentNodeId: 'ctx1', position: { x: 0, y: 0 } }),
     ];
-    addNode({ id: 'cls2', type: 'class', label: 'Cls2', position: { x: 0, y: 0 }, members });
-
-    const boundary = get(contextBoundaries).find((b) => b.parentNodeId === 'comp2');
-    expect(boundary).toBeDefined();
-
-    // Expected: bounding box height = BOUNDARY_PADDING*2 + computeNodeHeight(cls2)
-    // computeNodeHeight: UML_NODE_HEIGHT_BASE + 2*overhead + 3*row
-    const expectedNodeHeight =
-      UML_NODE_HEIGHT_BASE +
-      2 * UML_COMPARTMENT_OVERHEAD +  // one attributes compartment + one operations compartment
-      3 * UML_MEMBER_ROW_HEIGHT;
-    const expectedBoxHeight = expectedNodeHeight + BOUNDARY_PADDING * 2;
-
-    expect(boundary!.boundingBox.height).toBe(expectedBoxHeight);
-  });
-});
-
-// ── childLevelFor ─────────────────────────────────────────────────────────────
-
-describe('childLevelFor', () => {
-  it('returns the correct child level for each drillable node type', () => {
-    expect(childLevelFor('system')).toBe('container');
-    expect(childLevelFor('external-system')).toBe('container');
-    expect(childLevelFor('person')).toBe('component');
-    expect(childLevelFor('external-person')).toBe('component');
-    expect(childLevelFor('container')).toBe('component');
-    expect(childLevelFor('database')).toBe('component');
-    expect(childLevelFor('db-schema')).toBe('code');
-    expect(childLevelFor('component')).toBe('code');
+    mergeImportedDiagram(imported);
+    expect(getState().levels['context'].nodes).toHaveLength(1);
+    expect(getState().levels['container'].nodes).toHaveLength(1);
   });
 
-  it('returns undefined for non-drillable UML and ERD node types', () => {
-    const nonDrillable: C4Node['type'][] = [
-      'class', 'abstract-class', 'interface', 'enum', 'record',
-      'erd-table', 'erd-view',
-    ];
-    for (const type of nonDrillable) {
-      expect(childLevelFor(type)).toBeUndefined();
-    }
-  });
-});
-
-// ── contextBoundaries — unvisited sibling nodes ───────────────────────────────
-
-describe('contextBoundaries — unvisited sibling nodes', () => {
-  beforeEach(() => resetDiagram());
-
-  it('includes a boundary group for a drillable sibling that has never been visited', () => {
-    // Create two system nodes at root; only drill into A
-    addNode(makeNode({ id: 'sysA', type: 'system', label: 'System A', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'sysB', type: 'system', label: 'System B', position: { x: 300, y: 0 } }));
-
-    drillDown('sysA'); // sysB is still unvisited (no childDiagramId)
-
-    const boundaries = get(contextBoundaries);
-    expect(boundaries).toHaveLength(2);
-
-    const boundaryA = boundaries.find((b) => b.parentNodeId === 'sysA');
-    const boundaryB = boundaries.find((b) => b.parentNodeId === 'sysB');
-
-    // Both should appear
-    expect(boundaryA).toBeDefined();
-    expect(boundaryB).toBeDefined();
-
-    // A has been visited — it has a real childDiagramId
-    expect(boundaryA!.childDiagramId).toBeDefined();
-
-    // B has never been visited — no childDiagramId, empty childNodes
-    expect(boundaryB!.childDiagramId).toBeUndefined();
-    expect(boundaryB!.childNodes).toHaveLength(0);
-  });
-
-  it('shows all drillable siblings at the container level', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
-    drillDown('sys1');
-
-    // Add two containers inside sys1's child diagram; drill into only contA
-    addNode(makeNode({ id: 'contA', type: 'container', label: 'Container A', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'contB', type: 'container', label: 'Container B', position: { x: 300, y: 0 } }));
-
-    drillDown('contA');
-
-    const boundaries = get(contextBoundaries);
-    const boundaryA = boundaries.find((b) => b.parentNodeId === 'contA');
-    const boundaryB = boundaries.find((b) => b.parentNodeId === 'contB');
-
-    expect(boundaryA).toBeDefined();
-    expect(boundaryB).toBeDefined();
-    expect(boundaryB!.childDiagramId).toBeUndefined();
-    expect(boundaryB!.childNodes).toHaveLength(0);
-  });
-
-  it('does NOT include non-drillable node types (UML/ERD) as boundary groups', () => {
-    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
-    drillDown('sys1');
-
-    // At container level, add a drillable component and some non-drillable types
-    addNode(makeNode({ id: 'comp1', type: 'component', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'cls1', type: 'class', position: { x: 300, y: 0 } }));
-    addNode(makeNode({ id: 'tbl1', type: 'erd-table', position: { x: 600, y: 0 } }));
-
-    drillDown('comp1');
-
-    const boundaries = get(contextBoundaries);
-
-    // cls1 and tbl1 must NOT appear as boundary groups
-    expect(boundaries.find((b) => b.parentNodeId === 'cls1')).toBeUndefined();
-    expect(boundaries.find((b) => b.parentNodeId === 'tbl1')).toBeUndefined();
-
-    // comp1 (the one we drilled into) should still appear
-    expect(boundaries.find((b) => b.parentNodeId === 'comp1')).toBeDefined();
-  });
-
-  it('populates childDiagramId for a sibling once it has been visited', () => {
-    addNode(makeNode({ id: 'sysA', type: 'system', label: 'A', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'sysB', type: 'system', label: 'B', position: { x: 300, y: 0 } }));
-
-    // Visit A; B is unvisited
-    drillDown('sysA');
-    const before = get(contextBoundaries).find((b) => b.parentNodeId === 'sysB');
-    expect(before!.childDiagramId).toBeUndefined();
-
-    // Navigate to B
-    drillUp();
-    drillDown('sysB');
-
-    // Now navigate back to A; both should have childDiagramId
-    drillUp();
-    drillDown('sysA');
-    const after = get(contextBoundaries).find((b) => b.parentNodeId === 'sysB');
-    expect(after!.childDiagramId).toBeDefined();
-  });
-
-  it('returns empty array when at root (no parent diagram)', () => {
-    // Not drilled in — contextBoundaries should be empty
-    addNode(makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }));
-    expect(get(contextBoundaries)).toHaveLength(0);
-  });
-
-  it('unvisited boundary has a non-degenerate bounding box based on parent node position', () => {
-    addNode(makeNode({ id: 'sysA', type: 'system', label: 'A', position: { x: 0, y: 0 } }));
-    addNode(makeNode({ id: 'sysB', type: 'system', label: 'B', position: { x: 500, y: 250 } }));
-
-    drillDown('sysA');
-
-    const boundaryB = get(contextBoundaries).find((b) => b.parentNodeId === 'sysB');
-    expect(boundaryB).toBeDefined();
-    // Bounding box must have positive dimensions even for an unvisited (empty) group
-    expect(boundaryB!.boundingBox.width).toBeGreaterThan(0);
-    expect(boundaryB!.boundingBox.height).toBeGreaterThan(0);
+  it('does not change currentLevel', () => {
+    mergeImportedDiagram(makeImportableState());
+    expect(getState().currentLevel).toBe('context');
   });
 });

@@ -24,5 +24,5 @@ export const BOUNDARY_MIN_HEIGHT = 160;
 export const STORAGE_WARN_BYTES = 4 * 1024 * 1024;
 
 /** Diagram schema versions */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const APP_STATE_VERSION = 1;
