@@ -1,0 +1,77 @@
+/* Shared member/column editor styles for UmlMemberEditor and ErdColumnEditor */
+
+.members-field { gap: 6px; }
+
+.field-group-label {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.type-sep {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.member-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.icon-btn {
+  padding: 1px 5px;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  min-width: unset;
+  border-radius: 3px;
+  background: transparent;
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.icon-btn.danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.icon-btn.danger:hover {
+  background: var(--color-danger-bg);
+}
+
+.flag-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.flag-label input[type='checkbox'] {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.add-member-btns {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.add-btn {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+}
