@@ -9,7 +9,7 @@ import type {
   Annotation,
   PaletteItemType,
 } from '../types';
-import { remapIds } from '../utils/remapIds';
+
 import {
   SCHEMA_VERSION,
 } from '../utils/constants';
@@ -387,42 +387,4 @@ export function performRedo(): void {
   if (next) diagramStore.set(next);
 }
 
-// ─── Import/merge ─────────────────────────────────────────────────────────────
 
-/** X offset applied to imported nodes/annotations to avoid immediate overlap */
-const MERGE_OFFSET_X = 200;
-
-/**
- * Merges all levels of an imported DiagramState into the corresponding levels
- * of the current state, with an X offset to avoid overlap. All IDs are
- * remapped to fresh ones before merging to prevent collisions.
- */
-export function mergeImportedDiagram(imported: DiagramState): void {
-  snapshot();
-  const remapped = remapIds(imported);
-
-  diagramStore.update((s) => {
-    let newState = s;
-    for (const level of LEVEL_ORDER) {
-      const importedLevel = remapped.levels[level];
-      if (!importedLevel) continue;
-
-      const offsetNodes = importedLevel.nodes.map((n) => ({
-        ...n,
-        position: { x: n.position.x + MERGE_OFFSET_X, y: n.position.y },
-      }));
-      const offsetAnnotations = (importedLevel.annotations ?? []).map((a) => ({
-        ...a,
-        position: { x: a.position.x + MERGE_OFFSET_X, y: a.position.y },
-      }));
-
-      newState = withLevel(newState, level, (d) => ({
-        ...d,
-        nodes:       [...d.nodes,       ...offsetNodes],
-        edges:       [...d.edges,       ...importedLevel.edges],
-        annotations: [...d.annotations, ...offsetAnnotations],
-      }));
-    }
-    return newState;
-  });
-}
