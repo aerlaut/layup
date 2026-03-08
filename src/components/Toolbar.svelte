@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { isAtRoot, drillUp, diagramStore, navigateTo, LEVEL_LABELS } from '../stores/diagramStore';
+  import { isAtRoot, drillUp, diagramStore, navigateTo, LEVEL_LABELS, performUndo, performRedo } from '../stores/diagramStore';
   import { goHome, activeProject, activeDiagram } from '../stores/appStore';
   import { exportDiagramJSON, exportLevelJSON, importDiagramJSON, ImportError } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
   import { get } from 'svelte/store';
   import { loadDiagram, mergeImportedDiagram } from '../stores/diagramStore';
+  import { canUndo, canRedo } from '../stores/undoHistory';
 
   let { importError = $bindable<string | null>(null) }: { importError?: string | null } = $props();
 
@@ -102,6 +103,8 @@
   </div>
 
   <div class="toolbar-right">
+    <button onclick={performUndo} disabled={!$canUndo} title="Undo (⌘Z)">↩ Undo</button>
+    <button onclick={performRedo} disabled={!$canRedo} title="Redo (⌘⇧Z)">↪ Redo</button>
     <button onclick={handleExport} title="Export diagram as JSON">
       Export JSON
     </button>

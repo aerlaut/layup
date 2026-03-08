@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import { appView } from '../stores/appStore';
-  import { diagramStore, currentDiagram } from '../stores/diagramStore';
+  import { diagramStore, currentDiagram, performUndo, performRedo } from '../stores/diagramStore';
   import { isNearStorageLimit } from '../utils/persistence';
   import HomeScreen from '../screens/HomeScreen.svelte';
   import Toolbar from './Toolbar.svelte';
@@ -12,6 +12,21 @@
   let importError: string | null = $state(null);
   let showStorageWarning = $state(false);
 
+  function handleGlobalKeyDown(e: KeyboardEvent) {
+    if ($appView.screen !== 'editor') return;
+    const isMac = navigator.platform.includes('Mac');
+    const mod = isMac ? e.metaKey : e.ctrlKey;
+    if (!mod) return;
+
+    if (e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      performUndo();
+    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+      e.preventDefault();
+      performRedo();
+    }
+  }
+
   // Check storage usage whenever store changes (only relevant in editor).
   // The unsubscriber is returned so Svelte cleans it up on teardown, preventing
   // orphaned subscriptions from accumulating across effect re-runs.
@@ -21,6 +36,8 @@
     });
   });
 </script>
+
+<svelte:window onkeydown={handleGlobalKeyDown} />
 
 {#if $appView.screen === 'home'}
   <HomeScreen />
