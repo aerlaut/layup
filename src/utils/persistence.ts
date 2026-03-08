@@ -272,45 +272,6 @@ export function parseDiagramJSON(text: string): DiagramState {
   return migrated;
 }
 
-// ─── Level export ─────────────────────────────────────────────────────────────
-
-/**
- * Extracts all levels from `fromLevel` downward and returns a new self-contained
- * DiagramState. Levels above `fromLevel` are zeroed out.
- */
-export function extractFromLevel(
-  state: DiagramState,
-  fromLevel: C4LevelType
-): DiagramState {
-  const levelIdx = LEVEL_ORDER.indexOf(fromLevel);
-  const levelsToInclude = LEVEL_ORDER.slice(levelIdx) as C4LevelType[];
-
-  const newLevels = {} as DiagramState['levels'];
-  for (const l of LEVEL_ORDER) {
-    if (levelsToInclude.includes(l as C4LevelType)) {
-      newLevels[l as C4LevelType] = state.levels[l as C4LevelType];
-    } else {
-      newLevels[l as C4LevelType] = { level: l as C4LevelType, nodes: [], edges: [], annotations: [] };
-    }
-  }
-
-  return {
-    version: state.version,
-    levels: newLevels,
-    currentLevel: fromLevel,
-    selectedId: null,
-    pendingNodeType: null,
-  };
-}
-
-/**
- * Exports only the current level and its descendants as a self-contained JSON file.
- */
-export function exportLevelJSON(state: DiagramState, fromLevel: C4LevelType, name?: string): void {
-  const subtree = extractFromLevel(state, fromLevel);
-  exportDiagramJSON(subtree, name);
-}
-
 export async function importDiagramJSON(file: File): Promise<DiagramState> {
   const text = await file.text();
   return parseDiagramJSON(text);
