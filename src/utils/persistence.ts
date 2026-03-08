@@ -18,6 +18,7 @@ function getDiagramValidator(): ReturnType<Ajv['compile']> {
 
 export { remapIds } from './remapIds';
 export { exportNodeSubtree } from './nodeSubtreeExport';
+export { parseNodeSubtreeJSON, getValidParentNodes, importNodeSubtree } from './nodeSubtreeImport';
 
 const STORAGE_KEY = 'layup_diagram';
 const STORAGE_KEY_APP = 'layup_app';
