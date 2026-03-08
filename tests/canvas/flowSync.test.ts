@@ -190,3 +190,30 @@ describe('buildFlowData — undefined currentLevelData', () => {
     expect(edges).toHaveLength(0);
   });
 });
+
+describe('buildFlowData — immutability', () => {
+  it('does not mutate the input state', () => {
+    const state = createInitialDiagramState();
+    state.levels.context.nodes.push({ id: 'n1', type: 'system', label: 'S', position: { x: 100, y: 100 } });
+    const frozen = JSON.stringify(state);
+
+    buildFlowData(state, state.levels.context, [], null);
+
+    expect(JSON.stringify(state)).toBe(frozen);
+  });
+
+  it('does not mutate intermediate node objects when boundary groups are present', () => {
+    const child = makeNode({ id: 'c1', position: { x: 100, y: 100 }, parentNodeId: 'sysA' });
+    const currentLevel = makeLevel('container', [child]);
+    const state = makeState({
+      currentLevel: 'container',
+      levels: { ...createInitialDiagramState().levels, container: currentLevel },
+    });
+    const boundary = makeBoundary('sysA', [child]);
+    const frozenState = JSON.stringify(state);
+
+    buildFlowData(state, currentLevel, [boundary], null);
+
+    expect(JSON.stringify(state)).toBe(frozenState);
+  });
+});
