@@ -4,11 +4,10 @@
  * Palette drag-and-drop handlers for DiagramCanvas. Extracted to keep
  * DiagramCanvas.svelte thin.
  */
-import type { Annotation, AnnotationType, C4Node, C4NodeType } from '../types';
+import type { Annotation, AnnotationType, C4NodeType } from '../types';
 import {
   diagramStore,
   addNode as storeAddNode,
-  addNodeToDiagram,
   addAnnotation,
   contextBoundaries,
 } from '../stores/diagramStore';
@@ -23,6 +22,7 @@ const NODE_DEFAULT_LABELS: Record<C4NodeType, string> = {
   container: 'Container',
   database: 'Database',
   component: 'Component',
+  'db-schema': 'Schema',
   class: 'Class',
   'abstract-class': 'Abstract Class',
   interface: 'Interface',
@@ -53,7 +53,7 @@ export function makeHandleDrop(
     const screenToFlowPosition = getScreenToFlowPosition();
     if (!screenToFlowPosition) return;
 
-    // ── Annotation drop (no boundary constraint) ──────────────────────────────
+    // ── Annotation drop ───────────────────────────────────────────────────
     const annotationType = e.dataTransfer.getData('application/annotation-type') as AnnotationType | '';
     if (annotationType) {
       e.preventDefault();
@@ -69,27 +69,26 @@ export function makeHandleDrop(
       return;
     }
 
-    // ── C4 node drop (boundary-constrained when drilled in) ───────────────────
+    // ── C4 node drop ──────────────────────────────────────────────────────
     const nodeType = e.dataTransfer.getData('application/c4-node-type') as C4NodeType | '';
     if (!nodeType) return;
     e.preventDefault();
 
     const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
     const s = get(diagramStore);
-    const isAtRoot = s.navigationStack.length === 1;
 
-    const newNode: C4Node = {
-      id: generateId(),
-      type: nodeType,
-      label: NODE_DEFAULT_LABELS[nodeType],
-      description: '',
-      technology: '',
-      position: flowPos,
-    };
-
-    if (isAtRoot) {
-      storeAddNode(newNode);
+    if (s.currentLevel === 'context') {
+      // Context level: no parent constraint — drop anywhere
+      storeAddNode({
+        id: generateId(),
+        type: nodeType,
+        label: NODE_DEFAULT_LABELS[nodeType],
+        description: '',
+        technology: '',
+        position: flowPos,
+      });
     } else {
+      // Non-context level: must land inside a boundary group's bounding box
       const boundaries = get(contextBoundaries);
       const targetGroup = boundaries.find((g) => {
         const bb = g.boundingBox;
@@ -98,8 +97,17 @@ export function makeHandleDrop(
           flowPos.y >= bb.y && flowPos.y <= bb.y + bb.height
         );
       });
-      if (!targetGroup) return; // Drop outside any boundary — ignore
-      addNodeToDiagram(targetGroup.childDiagramId, newNode);
+      if (!targetGroup) return; // Drop outside any boundary — reject
+
+      storeAddNode({
+        id: generateId(),
+        type: nodeType,
+        label: NODE_DEFAULT_LABELS[nodeType],
+        description: '',
+        technology: '',
+        position: flowPos,
+        parentNodeId: targetGroup.parentNodeId, // ← key v2 change
+      });
     }
   };
 }
