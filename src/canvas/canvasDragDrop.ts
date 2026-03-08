@@ -5,6 +5,7 @@
  * DiagramCanvas.svelte thin.
  */
 import type { Annotation, AnnotationType, C4NodeType } from '../types';
+import { NODE_DEFAULT_LABELS, ANNOTATION_DEFAULT_LABELS } from '../utils/nodeTypes';
 import {
   diagramStore,
   addNode as storeAddNode,
@@ -14,29 +15,6 @@ import {
 import { get } from 'svelte/store';
 import { generateId } from '../utils/id';
 
-const NODE_DEFAULT_LABELS: Record<C4NodeType, string> = {
-  person: 'Person',
-  'external-person': 'External Person',
-  system: 'Software System',
-  'external-system': 'External System',
-  container: 'Container',
-  database: 'Database',
-  component: 'Component',
-  'db-schema': 'Schema',
-  class: 'Class',
-  'abstract-class': 'Abstract Class',
-  interface: 'Interface',
-  enum: 'Enum',
-  record: 'Record',
-  'erd-table': 'Table',
-  'erd-view': 'View',
-};
-
-const ANNOTATION_DEFAULT_LABELS: Record<AnnotationType, string> = {
-  group: 'Group',
-  note: 'Note',
-  package: 'Package',
-};
 
 export function handleDragOver(e: DragEvent): void {
   const types = e.dataTransfer?.types ?? [];

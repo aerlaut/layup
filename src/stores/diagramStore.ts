@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { generateId } from '../utils/id';
 import { remapIds } from '../utils/remapIds';
+import { UML_CLASS_TYPES, ERD_NODE_TYPES } from '../utils/nodeTypes';
 import {
   NODE_DEFAULT_WIDTH,
   NODE_DEFAULT_HEIGHT,
@@ -101,13 +102,7 @@ export const parentLevel = derived(diagramStore, ($s): DiagramLevel | null => {
   return prev ? $s.levels[prev] : null;
 });
 
-/** UML node types whose height grows with member count */
-const UML_CLASS_TYPES = new Set<C4NodeType>([
-  'class', 'abstract-class', 'interface', 'enum', 'record',
-]);
 
-/** ERD node types whose height grows with column count */
-const ERD_NODE_TYPES = new Set<C4NodeType>(['erd-table', 'erd-view']);
 
 /**
  * Estimate the rendered pixel height of a C4Node.

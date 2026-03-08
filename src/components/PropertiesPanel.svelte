@@ -9,8 +9,9 @@
     deleteAnnotation,
     setSelected,
   } from '../stores/diagramStore';
-  import type { C4Node, C4Edge, Annotation, ClassMember, MemberVisibility, C4NodeType, TableColumn } from '../types';
+  import type { C4Node, C4Edge, Annotation, ClassMember, MemberVisibility, TableColumn } from '../types';
   import { NODE_DEFAULT_COLORS, EDGE_DEFAULT_COLOR, ANNOTATION_DEFAULT_COLORS, PASTEL_PALETTE } from '../utils/colors';
+  import { UML_CLASS_TYPES, ERD_NODE_TYPES } from '../utils/nodeTypes';
   import { generateId } from '../utils/id';
 
   const sel = $derived($selectedElement);
@@ -91,10 +92,8 @@
 
   // ─── UML member helpers ──────────────────────────────────────────────────────
 
-  const UML_CLASS_TYPES: C4NodeType[] = ['class', 'abstract-class', 'interface', 'enum', 'record'];
-  const ERD_NODE_TYPES: C4NodeType[] = ['erd-table', 'erd-view'];
-  const isUmlClassNode = $derived(selectedNode ? UML_CLASS_TYPES.includes(selectedNode.type) : false);
-  const isErdNode = $derived(selectedNode ? ERD_NODE_TYPES.includes(selectedNode.type) : false);
+  const isUmlClassNode = $derived(selectedNode ? UML_CLASS_TYPES.has(selectedNode.type) : false);
+  const isErdNode = $derived(selectedNode ? ERD_NODE_TYPES.has(selectedNode.type) : false);
   const isEnumNode = $derived(selectedNode?.type === 'enum');
   const isAbstractNode = $derived(selectedNode?.type === 'abstract-class' || selectedNode?.type === 'interface');
 
