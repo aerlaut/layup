@@ -1,46 +1,47 @@
-import type { DiagramState } from '../types';
+import type { DiagramState, C4LevelType } from '../types';
 import { generateId } from './id';
+import { LEVEL_ORDER } from '../stores/diagramStore';
 
 /**
  * Remaps all IDs in a DiagramState to fresh generated IDs.
- * Preserves all internal cross-references (childDiagramId, edge source/target, etc).
+ * Preserves all internal cross-references (parentNodeId, edge source/target, etc).
  * Returns a new DiagramState — the input is not mutated.
  */
 export function remapIds(state: DiagramState): DiagramState {
-  // Build remapping tables
-  const levelIdMap = new Map<string, string>();
+  // Build a node ID remap table across all levels
   const nodeIdMap = new Map<string, string>();
   const edgeIdMap = new Map<string, string>();
   const annotIdMap = new Map<string, string>();
 
-  for (const levelId of Object.keys(state.diagrams)) {
-    levelIdMap.set(levelId, generateId());
-  }
-  for (const level of Object.values(state.diagrams)) {
-    for (const node of level.nodes) nodeIdMap.set(node.id, generateId());
-    for (const edge of level.edges) edgeIdMap.set(edge.id, generateId());
-    for (const annot of level.annotations ?? []) annotIdMap.set(annot.id, generateId());
+  for (const level of LEVEL_ORDER) {
+    const d = state.levels[level as C4LevelType];
+    if (!d) continue;
+    for (const node  of d.nodes)       nodeIdMap.set(node.id,  generateId());
+    for (const edge  of d.edges)       edgeIdMap.set(edge.id,  generateId());
+    for (const annot of d.annotations) annotIdMap.set(annot.id, generateId());
   }
 
-  // Rewrite all levels
-  const newDiagrams: DiagramState['diagrams'] = {};
-  for (const [oldLevelId, level] of Object.entries(state.diagrams)) {
-    const newLevelId = levelIdMap.get(oldLevelId)!;
-    newDiagrams[newLevelId] = {
-      ...level,
-      id: newLevelId,
-      nodes: level.nodes.map((n) => ({
+  // Rewrite all levels with remapped IDs
+  const newLevels: DiagramState['levels'] = {} as DiagramState['levels'];
+
+  for (const level of LEVEL_ORDER) {
+    const d = state.levels[level as C4LevelType];
+    if (!d) continue;
+    newLevels[level as C4LevelType] = {
+      ...d,
+      nodes: d.nodes.map((n) => ({
         ...n,
-        id: nodeIdMap.get(n.id)!,
-        childDiagramId: n.childDiagramId ? levelIdMap.get(n.childDiagramId) : undefined,
+        id:           nodeIdMap.get(n.id)!,
+        // parentNodeId points to a node at the level above — remap it
+        parentNodeId: n.parentNodeId ? nodeIdMap.get(n.parentNodeId) : undefined,
       })),
-      edges: level.edges.map((e) => ({
+      edges: d.edges.map((e) => ({
         ...e,
-        id: edgeIdMap.get(e.id)!,
+        id:     edgeIdMap.get(e.id)!,
         source: nodeIdMap.get(e.source) ?? e.source,
         target: nodeIdMap.get(e.target) ?? e.target,
       })),
-      annotations: (level.annotations ?? []).map((a) => ({
+      annotations: d.annotations.map((a) => ({
         ...a,
         id: annotIdMap.get(a.id)!,
       })),
@@ -49,11 +50,7 @@ export function remapIds(state: DiagramState): DiagramState {
 
   return {
     ...state,
-    diagrams: newDiagrams,
-    rootId: levelIdMap.get(state.rootId)!,
-    navigationStack: state.navigationStack
-      .map((id) => levelIdMap.get(id))
-      .filter((id): id is string => !!id),
+    levels: newLevels,
     selectedId: null,
     pendingNodeType: null,
   };
