@@ -1,0 +1,95 @@
+/* Shared panel shell styles for NodeProperties, EdgeProperties, AnnotationProperties */
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panel-title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.panel-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.12s;
+}
+
+.swatch:hover {
+  transform: scale(1.15);
+  border-color: var(--color-text-muted);
+}
+
+.swatch.active {
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 1px var(--color-surface), 0 0 0 3px var(--color-text);
+}
+
+.color-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.color-custom input[type='color'] {
+  width: 28px;
+  height: 22px;
+  padding: 1px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.color-value {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  font-family: monospace;
+}
+
+.danger-btn {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  margin-top: 8px;
+}
+
+.danger-btn:hover {
+  background: var(--color-danger-bg);
+}
