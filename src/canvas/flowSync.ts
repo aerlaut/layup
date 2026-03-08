@@ -9,6 +9,7 @@ import type { Annotation, C4Node, C4Edge, C4NodeType, DiagramLevel, DiagramState
 import { ANNOTATION_DEFAULT_COLORS, NODE_DEFAULT_COLORS } from '../utils/colors';
 import { nextLevel, prevLevel } from '../stores/diagramStore';
 import { toBoundaryId } from './boundaryId';
+import { toRelativePosition } from './positionUtils';
 
 // ─── Conversion helpers ───────────────────────────────────────────────────────
 
@@ -156,10 +157,11 @@ export function buildFlowData(
       });
 
       for (const child of group.childNodes) {
+        const rel = toRelativePosition(child.position, { x: bb.x, y: bb.y });
         boundaryAssignments.set(child.id, {
           parentId: boundaryId,
-          relativeX: child.position.x - bb.x,
-          relativeY: child.position.y - bb.y,
+          relativeX: rel.x,
+          relativeY: rel.y,
         });
       }
     }

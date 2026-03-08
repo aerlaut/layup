@@ -9,6 +9,7 @@ import type { Node, Edge, Connection } from '@xyflow/svelte';
 import type { AnnotationType, C4NodeType } from '../types';
 import { NON_DRILLABLE_TYPES } from '../utils/nodeTypes';
 import { isBoundaryId, fromBoundaryId } from './boundaryId';
+import { toAbsolutePosition } from './positionUtils';
 import {
   diagramStore,
   addEdge as storeAddEdge,
@@ -130,10 +131,7 @@ export function makeHandleNodeDragStop(
           if (!boundaryFlowNode) continue;
           nodeUpdates.push({
             id: n.id,
-            position: {
-              x: n.position.x + boundaryFlowNode.position.x,
-              y: n.position.y + boundaryFlowNode.position.y,
-            },
+            position: toAbsolutePosition(n.position, boundaryFlowNode.position),
           });
         } else {
           nodeUpdates.push({ id: n.id, position: n.position });
