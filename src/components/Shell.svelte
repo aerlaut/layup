@@ -12,9 +12,11 @@
   let importError: string | null = $state(null);
   let showStorageWarning = $state(false);
 
-  // Check storage usage whenever store changes (only relevant in editor)
+  // Check storage usage whenever store changes (only relevant in editor).
+  // The unsubscriber is returned so Svelte cleans it up on teardown, preventing
+  // orphaned subscriptions from accumulating across effect re-runs.
   $effect(() => {
-    diagramStore.subscribe(() => {
+    return diagramStore.subscribe(() => {
       showStorageWarning = isNearStorageLimit();
     });
   });
