@@ -117,22 +117,18 @@ export function buildFlowData(
 ): FlowData {
   if (!currentLevelData) return { nodes: [], edges: [] };
 
-  // ── Compute which nodes have children at the next level ───────────────────
+  // ── Pass 1: Compute which nodes have children at the next level ───────────
   const nextLvl = nextLevel(state.currentLevel);
   const nextLevelNodes = nextLvl ? (state.levels[nextLvl]?.nodes ?? []) : [];
   const nodeIdsWithChildren = new Set(
     nextLevelNodes.map((n) => n.parentNodeId).filter(Boolean) as string[]
   );
 
-  // ── All nodes and edges at the current level ──────────────────────────────
-  const allC4Nodes: Node[] = currentLevelData.nodes.map((n) =>
-    toFlowNode(n, selectedId, nodeIdsWithChildren.has(n.id))
-  );
-  const allEdges: Edge[] = currentLevelData.edges.map((e) => toFlowEdge(e, selectedId));
-
-  // ── Boundary rectangles and node parenting ────────────────────────────────
+  // ── Pass 2: Build boundary assignment map and boundary flow nodes ─────────
   // At the context level (no parent level) there are no boundaries.
   // At all other levels, nodes belong to boundary groups by parentNodeId.
+  type BoundaryAssignment = { parentId: string; relativeX: number; relativeY: number };
+  const boundaryAssignments = new Map<string, BoundaryAssignment>();
   const boundaryNodes: Node[] = [];
 
   if (boundaries.length > 0) {
@@ -159,18 +155,27 @@ export function buildFlowData(
         class: 'boundary-node-wrapper',
       });
 
-      // Parent all child flow nodes to this boundary rectangle
-      for (const flowNode of allC4Nodes) {
-        if (group.childNodes.some((cn) => cn.id === flowNode.id)) {
-          flowNode.parentId = boundaryId;
-          flowNode.position = {
-            x: flowNode.position.x - bb.x,
-            y: flowNode.position.y - bb.y,
-          };
-        }
+      for (const child of group.childNodes) {
+        boundaryAssignments.set(child.id, {
+          parentId: boundaryId,
+          relativeX: child.position.x - bb.x,
+          relativeY: child.position.y - bb.y,
+        });
       }
     }
   }
+
+  // ── Pass 3: Produce final C4 flow nodes with boundary reparenting applied ─
+  const allC4Nodes: Node[] = currentLevelData.nodes.map((n) => {
+    const base = toFlowNode(n, selectedId, nodeIdsWithChildren.has(n.id));
+    const assignment = boundaryAssignments.get(n.id);
+    if (!assignment) return base;
+    return {
+      ...base,
+      parentId: assignment.parentId,
+      position: { x: assignment.relativeX, y: assignment.relativeY },
+    };
+  });
 
   // ── Annotations ───────────────────────────────────────────────────────────
   const annotations = currentLevelData.annotations ?? [];
@@ -180,6 +185,6 @@ export function buildFlowData(
 
   return {
     nodes: [...containerAnnotations, ...boundaryNodes, ...allC4Nodes, ...foregroundAnnotations],
-    edges: allEdges,
+    edges: currentLevelData.edges.map((e) => toFlowEdge(e, selectedId)),
   };
 }
