@@ -103,6 +103,18 @@ describe('parseDiagramJSON', () => {
     const obj = { version: SCHEMA_VERSION, diagrams: {}, rootId: 'root', navigationStack: 'bad' };
     expect(() => parseDiagramJSON(JSON.stringify(obj))).toThrow('Missing "navigationStack".');
   });
+
+  it('throws ImportError for structurally invalid data (schema validation)', () => {
+    const bad = JSON.stringify({
+      version: 2,
+      levels: { context: { level: 'context', nodes: 'WRONG', edges: [], annotations: [] } },
+      currentLevel: 'context',
+      selectedId: null,
+      pendingNodeType: null,
+    });
+    expect(() => parseDiagramJSON(bad)).toThrow(ImportError);
+    expect(() => parseDiagramJSON(bad)).toThrow('Invalid diagram structure:');
+  });
 });
 
 // ─── Storage size helpers ─────────────────────────────────────────────────────

@@ -7,6 +7,16 @@ describe('diagram.schema.json', () => {
   const schemaPath = resolve(__dirname, '../../schema/diagram.schema.json');
   const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'));
 
+  /** Build an empty DiagramLevel bucket for each C4 level */
+  function emptyLevels() {
+    return {
+      context:   { level: 'context',   nodes: [], edges: [], annotations: [] },
+      container: { level: 'container', nodes: [], edges: [], annotations: [] },
+      component: { level: 'component', nodes: [], edges: [], annotations: [] },
+      code:      { level: 'code',      nodes: [], edges: [], annotations: [] },
+    };
+  }
+
   it('is valid JSON Schema (draft-07)', () => {
     const ajv = new Ajv();
     const valid = ajv.validateSchema(schema);
@@ -18,19 +28,9 @@ describe('diagram.schema.json', () => {
     const validate = ajv.compile(schema);
 
     const minimal = {
-      version: 1,
-      diagrams: {
-        root: {
-          id: 'root',
-          level: 'context',
-          label: 'System Context',
-          nodes: [],
-          edges: [],
-          annotations: [],
-        },
-      },
-      rootId: 'root',
-      navigationStack: ['root'],
+      version: 2,
+      levels: emptyLevels(),
+      currentLevel: 'context',
       selectedId: null,
       pendingNodeType: null,
     };
@@ -45,12 +45,11 @@ describe('diagram.schema.json', () => {
     const validate = ajv.compile(schema);
 
     const state = {
-      version: 1,
-      diagrams: {
-        root: {
-          id: 'root',
+      version: 2,
+      levels: {
+        ...emptyLevels(),
+        code: {
           level: 'code',
-          label: 'Code',
           nodes: [
             {
               id: 'cls-1',
@@ -83,8 +82,7 @@ describe('diagram.schema.json', () => {
           annotations: [],
         },
       },
-      rootId: 'root',
-      navigationStack: ['root'],
+      currentLevel: 'code',
       selectedId: null,
       pendingNodeType: null,
     };
@@ -99,8 +97,8 @@ describe('diagram.schema.json', () => {
     const validate = ajv.compile(schema);
 
     const invalid = {
-      version: 1,
-      // missing diagrams, rootId, navigationStack, selectedId, pendingNodeType
+      version: 2,
+      // missing levels, currentLevel, selectedId, pendingNodeType
     };
 
     expect(validate(invalid)).toBe(false);
@@ -112,12 +110,11 @@ describe('diagram.schema.json', () => {
     const validate = ajv.compile(schema);
 
     const state = {
-      version: 1,
-      diagrams: {
-        root: {
-          id: 'root',
+      version: 2,
+      levels: {
+        ...emptyLevels(),
+        code: {
           level: 'code',
-          label: 'Code',
           nodes: [
             {
               id: 'n1',
@@ -130,8 +127,7 @@ describe('diagram.schema.json', () => {
           annotations: [],
         },
       },
-      rootId: 'root',
-      navigationStack: ['root'],
+      currentLevel: 'code',
       selectedId: null,
       pendingNodeType: null,
     };

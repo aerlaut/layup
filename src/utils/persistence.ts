@@ -3,6 +3,18 @@ import { SCHEMA_VERSION, LEVEL_ORDER } from '../stores/diagramStore';
 import { createInitialAppState } from '../stores/appStore';
 import { APP_STATE_VERSION } from './constants';
 import { STORAGE_WARN_BYTES } from './constants';
+import Ajv from 'ajv';
+import diagramSchema from '../../schema/diagram.schema.json';
+
+// Lazily compiled validator — only created on first import attempt.
+let _validate: ReturnType<Ajv['compile']> | null = null;
+function getDiagramValidator(): ReturnType<Ajv['compile']> {
+  if (!_validate) {
+    const ajv = new Ajv({ allErrors: true });
+    _validate = ajv.compile(diagramSchema);
+  }
+  return _validate;
+}
 
 export { remapIds } from './remapIds';
 
@@ -241,18 +253,23 @@ export function parseDiagramJSON(text: string): DiagramState {
   }
 
   // Migrate v1 → v2
+  let migrated: DiagramState = state;
   if (state.version === 1) {
-    return migrateDiagramStateV1toV2(state as unknown as DiagramStateV1);
+    migrated = migrateDiagramStateV1toV2(state as unknown as DiagramStateV1);
   }
 
-  // v2 validation
-  if (!state.levels || typeof state.levels !== 'object') {
-    throw new ImportError('Missing "levels" map.');
+  // ── Schema validation ───────────────────────────────────────────────────────
+  const validate = getDiagramValidator();
+  const valid = validate(migrated);
+  if (!valid) {
+    const errorSummary = (validate.errors ?? [])
+      .slice(0, 3) // cap to avoid overwhelming the user
+      .map((e) => `${e.instancePath || '(root)'}: ${e.message}`)
+      .join('; ');
+    throw new ImportError(`Invalid diagram structure: ${errorSummary}`);
   }
-  if (typeof state.currentLevel !== 'string') {
-    throw new ImportError('Missing "currentLevel".');
-  }
-  return state;
+
+  return migrated;
 }
 
 // ─── Level export ─────────────────────────────────────────────────────────────
