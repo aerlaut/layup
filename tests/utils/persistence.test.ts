@@ -12,7 +12,8 @@ import {
   debounce,
 } from '../../src/utils/persistence';
 import { SCHEMA_VERSION } from '../../src/stores/diagramStore';
-import { createInitialAppState, APP_STATE_VERSION } from '../../src/stores/appStore';
+import { createInitialAppState } from '../../src/stores/appStore';
+import { APP_STATE_VERSION } from '../../src/utils/constants';
 import type { AppState, DiagramState } from '../../src/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

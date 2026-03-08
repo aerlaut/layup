@@ -1,6 +1,7 @@
 import type { AppState, DiagramState, DiagramLevel, C4LevelType } from '../types';
 import { SCHEMA_VERSION, LEVEL_ORDER } from '../stores/diagramStore';
-import { APP_STATE_VERSION, createInitialAppState } from '../stores/appStore';
+import { createInitialAppState } from '../stores/appStore';
+import { APP_STATE_VERSION } from './constants';
 import { STORAGE_WARN_BYTES } from './constants';
 
 export { remapIds } from './remapIds';

@@ -3,7 +3,6 @@ import type { Account, AppState, AppView, DiagramMeta, DiagramState, Project } f
 import { diagramStore, loadDiagram, resetDiagram, SCHEMA_VERSION, createInitialDiagramState } from './diagramStore';
 import { generateId } from '../utils/id';
 import { APP_STATE_VERSION } from '../utils/constants';
-export { APP_STATE_VERSION };
 
 function createDefaultAccount(): Account {
   const now = Date.now();

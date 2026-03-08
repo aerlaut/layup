@@ -19,8 +19,8 @@ import {
   updateAccount,
   resetAppState,
   loadAppState,
-  APP_STATE_VERSION,
 } from '../../src/stores/appStore';
+import { APP_STATE_VERSION } from '../../src/utils/constants';
 import { diagramStore, addNode, resetDiagram } from '../../src/stores/diagramStore';
 import type { AppState, C4Node } from '../../src/types';
 
