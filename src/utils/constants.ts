@@ -3,13 +3,26 @@ export const NODE_DEFAULT_WIDTH = 160;
 export const NODE_DEFAULT_HEIGHT = 80;
 
 /**
- * UML class-node height estimation constants.
- * These mirror the CSS in UmlClassNode.svelte and are used by computeNodeHeight()
- * in the diagram store to size boundary groups dynamically.
+ * UML / ERD node height estimation constants.
  *
- * UML_NODE_HEIGHT_BASE   — header compartment: border(4) + padding(18) + stereotype(12) + label(17) + bottom-pad(10) — approximate for a stereotyped class with no members.
- * UML_MEMBER_ROW_HEIGHT  — per member row: 0.7rem × 14px × line-height 1.5 ≈ 14.7px, rounded down.
- * UML_COMPARTMENT_OVERHEAD — per non-empty compartment: border-top(1) + padding-top(4) + padding-bottom(6) + 1px margin.
+ * These values are used by `computeNodeHeight()` in diagramStore.ts to size
+ * boundary groups. They MUST be kept in sync with the CSS in:
+ *   - src/elements/UmlClassNode.svelte
+ *   - src/elements/ErdTableNode.svelte
+ *
+ * ⚠️  If you change any CSS layout property (padding, font-size, line-height,
+ *     border-width) in those components, update the constants below accordingly.
+ *
+ * Derivation:
+ *   UML_NODE_HEIGHT_BASE = header compartment:
+ *     border-top(2) + border-bottom(2) + padding-top(8) + stereotype(12px) +
+ *     gap(2) + label(~17px) + padding-bottom(10) ≈ 52px for a stereotyped class.
+ *
+ *   UML_MEMBER_ROW_HEIGHT = per row:
+ *     font-size(0.7rem = ~11.2px) × line-height(1.5) ≈ 16.8px → 14px conservative
+ *
+ *   UML_COMPARTMENT_OVERHEAD = per visible compartment:
+ *     border-top(1) + padding-top(4) + padding-bottom(6) = 11px → rounded to 12
  */
 export const UML_NODE_HEIGHT_BASE = 52;
 export const UML_MEMBER_ROW_HEIGHT = 14;
