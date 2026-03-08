@@ -151,6 +151,34 @@ export interface DiagramState {
   pendingNodeType: PaletteItemType | null;
 }
 
+// ─── Node Subtree Export ──────────────────────────────────────────────────────
+
+export interface NodeSubtreeLevelData {
+  level: C4LevelType;
+  nodes: C4Node[];
+  edges: C4Edge[];
+  // Annotations are intentionally excluded — they are free-floating and have
+  // no semantic relationship to the exported node's subtree.
+}
+
+export interface NodeSubtreeExport {
+  /** Distinguishes this format from a full DiagramState export. */
+  exportType: 'node-subtree';
+  /** Bump when the format changes in a breaking way. */
+  version: 1;
+  /** The C4 level at which the root node lives. */
+  rootLevel: C4LevelType;
+  /**
+   * Data for rootLevel and every level below it.
+   * levels[rootLevel].nodes[0] is always the root node, with parentNodeId
+   * stripped (undefined) so it can be re-parented on import.
+   * Edges at rootLevel are excluded because they connect to nodes outside the
+   * subtree. Edges at descendant levels are included only when both the source
+   * and target node are within the subtree.
+   */
+  levels: Partial<Record<C4LevelType, NodeSubtreeLevelData>>;
+}
+
 export interface BoundaryGroup {
   parentNodeId: string;
   parentLabel: string;
