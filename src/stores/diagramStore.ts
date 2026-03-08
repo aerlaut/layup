@@ -11,6 +11,8 @@ import type {
   PaletteItemType,
 } from '../types';
 import { generateId } from '../utils/id';
+import { remapIds } from '../utils/remapIds';
+import { UML_CLASS_TYPES, ERD_NODE_TYPES } from '../utils/nodeTypes';
 import {
   NODE_DEFAULT_WIDTH,
   NODE_DEFAULT_HEIGHT,
@@ -100,13 +102,7 @@ export const parentLevel = derived(diagramStore, ($s): DiagramLevel | null => {
   return prev ? $s.levels[prev] : null;
 });
 
-/** UML node types whose height grows with member count */
-const UML_CLASS_TYPES = new Set<C4NodeType>([
-  'class', 'abstract-class', 'interface', 'enum', 'record',
-]);
 
-/** ERD node types whose height grows with column count */
-const ERD_NODE_TYPES = new Set<C4NodeType>(['erd-table', 'erd-view']);
 
 /**
  * Estimate the rendered pixel height of a C4Node.
@@ -639,61 +635,12 @@ export function updateAnnotationPositions(
 const MERGE_OFFSET_X = 200;
 
 /**
- * Remap all IDs in an imported DiagramState (new flat-level format).
- * Returns a new state — the input is not mutated.
- */
-function remapIdsFlat(state: DiagramState): DiagramState {
-  const nodeIdMap = new Map<string, string>();
-  const edgeIdMap = new Map<string, string>();
-  const annotIdMap = new Map<string, string>();
-
-  for (const level of LEVEL_ORDER) {
-    const lvl = state.levels[level];
-    if (!lvl) continue;
-    for (const node of lvl.nodes) nodeIdMap.set(node.id, generateId());
-    for (const edge of lvl.edges) edgeIdMap.set(edge.id, generateId());
-    for (const annot of lvl.annotations ?? []) annotIdMap.set(annot.id, generateId());
-  }
-
-  const newLevels = {} as DiagramState['levels'];
-  for (const level of LEVEL_ORDER) {
-    const lvl = state.levels[level];
-    if (!lvl) continue;
-    newLevels[level] = {
-      ...lvl,
-      nodes: lvl.nodes.map((n) => ({
-        ...n,
-        id: nodeIdMap.get(n.id) ?? n.id,
-        parentNodeId: n.parentNodeId ? (nodeIdMap.get(n.parentNodeId) ?? n.parentNodeId) : undefined,
-      })),
-      edges: lvl.edges.map((e) => ({
-        ...e,
-        id: edgeIdMap.get(e.id) ?? e.id,
-        source: nodeIdMap.get(e.source) ?? e.source,
-        target: nodeIdMap.get(e.target) ?? e.target,
-      })),
-      annotations: (lvl.annotations ?? []).map((a) => ({
-        ...a,
-        id: annotIdMap.get(a.id) ?? a.id,
-      })),
-    };
-  }
-
-  return {
-    ...state,
-    levels: newLevels,
-    selectedId: null,
-    pendingNodeType: null,
-  };
-}
-
-/**
  * Merges all levels of an imported DiagramState into the corresponding levels
  * of the current state, with an X offset to avoid overlap. All IDs are
  * remapped to fresh ones before merging to prevent collisions.
  */
 export function mergeImportedDiagram(imported: DiagramState): void {
-  const remapped = remapIdsFlat(imported);
+  const remapped = remapIds(imported);
 
   diagramStore.update((s) => {
     let newState = s;

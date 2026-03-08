@@ -6,7 +6,8 @@
  * the event handler. Extracted from DiagramCanvas to keep it thin.
  */
 import type { Node, Edge, Connection } from '@xyflow/svelte';
-import type { AnnotationType } from '../types';
+import type { AnnotationType, C4NodeType } from '../types';
+import { NON_DRILLABLE_TYPES } from '../utils/nodeTypes';
 import {
   diagramStore,
   addEdge as storeAddEdge,
@@ -173,27 +174,13 @@ export function handleDelete({
   }
 }
 
-/**
- * Node types that cannot be drilled into. UML class and ERD types expose their
- * internal structure natively (member lists, column lists) so drill-down is
- * redundant and disabled. Person nodes are excluded by long-standing convention.
- */
-const NON_DRILLABLE_TYPES = new Set([
-  'person',
-  'class',
-  'abstract-class',
-  'interface',
-  'enum',
-  'record',
-  'erd-table',
-  'erd-view',
-]);
+
 
 // ─── Double-click (drill down/up) ─────────────────────────────────────────────
 
 export function makeHandleDblClick(
   getScreenToFlowPosition: () => ((pos: { x: number; y: number }) => { x: number; y: number }) | undefined,
-  getCurrentLevelNodes: () => Array<{ id: string; type: string }>,
+  getCurrentLevelNodes: () => Array<{ id: string; type: C4NodeType }>,
 ): (e: MouseEvent) => void {
   return (e: MouseEvent) => {
     const target = e.target as HTMLElement;
