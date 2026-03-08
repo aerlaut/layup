@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import type {
   DiagramState,
   DiagramLevel,
@@ -13,6 +13,14 @@ import { remapIds } from '../utils/remapIds';
 import {
   SCHEMA_VERSION,
 } from '../utils/constants';
+import { debounce } from '../utils/persistence';
+import {
+  undoStack,
+  pushUndo,
+  undo as undoHistory,
+  redo as redoHistory,
+  clearHistory,
+} from './undoHistory';
 import {
   computeBoundingBox, resolveNodeOverlaps,
   childTypeIsValid, resolveBoundaryOverlaps, collectDescendants,
@@ -152,9 +160,27 @@ function withCurrentLevel(
   return withLevel(state, state.currentLevel, updater);
 }
 
+// ─── Undo/redo helpers ────────────────────────────────────────────────────────
+
+/** Snapshot current state before a mutation so it can be undone. */
+function snapshot(): void {
+  pushUndo(get(diagramStore));
+}
+
+/**
+ * Debounced snapshot for drag operations.
+ * Rapid position updates (within 300 ms) collapse into a single undo step.
+ */
+const debouncedPositionSnapshot = debounce(() => {
+  const current = get(diagramStore);
+  const top = get(undoStack).at(-1);
+  if (top !== current) pushUndo(current);
+}, 300);
+
 // ─── Node CRUD actions ────────────────────────────────────────────────────────
 
 export function addNode(node: C4Node): void {
+  snapshot();
   diagramStore.update((s) => {
     const newState = withCurrentLevel(s, (d) => ({ ...d, nodes: [...d.nodes, node] }));
     return resolveBoundaryOverlaps({ ...newState, selectedId: node.id });
@@ -162,6 +188,7 @@ export function addNode(node: C4Node): void {
 }
 
 export function updateNode(nodeId: string, patch: Partial<C4Node>): void {
+  snapshot();
   diagramStore.update((s) =>
     withCurrentLevel(s, (d) => ({
       ...d,
@@ -171,6 +198,7 @@ export function updateNode(nodeId: string, patch: Partial<C4Node>): void {
 }
 
 export function deleteNode(nodeId: string): void {
+  snapshot();
   diagramStore.update((s) => {
     const toDelete = collectDescendants(s, nodeId, s.currentLevel);
 
@@ -200,6 +228,7 @@ function normalizeEdge(edge: C4Edge): C4Edge {
 }
 
 export function addEdge(edge: C4Edge): void {
+  snapshot();
   const normalized = normalizeEdge(edge);
   diagramStore.update((s) => {
     const newState = withCurrentLevel(s, (d) => ({ ...d, edges: [...d.edges, normalized] }));
@@ -208,6 +237,7 @@ export function addEdge(edge: C4Edge): void {
 }
 
 export function updateEdge(edgeId: string, patch: Partial<C4Edge>): void {
+  snapshot();
   diagramStore.update((s) =>
     withCurrentLevel(s, (d) => ({
       ...d,
@@ -217,6 +247,7 @@ export function updateEdge(edgeId: string, patch: Partial<C4Edge>): void {
 }
 
 export function deleteEdge(edgeId: string): void {
+  snapshot();
   diagramStore.update((s) => {
     const newState = withCurrentLevel(s, (d) => ({
       ...d,
@@ -231,6 +262,7 @@ export function deleteEdge(edgeId: string): void {
 export function updateNodePositions(
   updates: Array<{ id: string; position: { x: number; y: number } }>
 ): void {
+  debouncedPositionSnapshot();
   diagramStore.update((s) => {
     const posMap = new Map(updates.map((u) => [u.id, u.position]));
     let newState = withCurrentLevel(s, (d) => ({
@@ -255,6 +287,7 @@ export function updateNodePositionsInLevel(
   level: C4LevelType,
   updates: Array<{ id: string; position: { x: number; y: number } }>
 ): void {
+  debouncedPositionSnapshot();
   diagramStore.update((s) => {
     const posMap = new Map(updates.map((u) => [u.id, u.position]));
     const newState = withLevel(s, level, (d) => ({
@@ -269,6 +302,7 @@ export function updateNodePositionsInLevel(
 
 export function loadDiagram(state: DiagramState): void {
   diagramStore.set(state);
+  clearHistory();
 }
 
 export function resetDiagram(): void {
@@ -286,6 +320,7 @@ export function setPendingNodeType(type: PaletteItemType | null): void {
 // ─── Annotation actions ───────────────────────────────────────────────────────
 
 export function addAnnotation(annotation: Annotation): void {
+  snapshot();
   diagramStore.update((s) => ({
     ...withCurrentLevel(s, (d) => ({
       ...d,
@@ -300,6 +335,7 @@ export function updateAnnotation(
   annotationId: string,
   patch: Partial<Annotation>
 ): void {
+  snapshot();
   diagramStore.update((s) =>
     withLevel(s, level, (d) => ({
       ...d,
@@ -311,6 +347,7 @@ export function updateAnnotation(
 }
 
 export function deleteAnnotation(level: C4LevelType, annotationId: string): void {
+  snapshot();
   diagramStore.update((s) => ({
     ...withLevel(s, level, (d) => ({
       ...d,
@@ -324,6 +361,7 @@ export function updateAnnotationPositions(
   level: C4LevelType,
   updates: Array<{ id: string; position: { x: number; y: number } }>
 ): void {
+  debouncedPositionSnapshot();
   const posMap = new Map(updates.map((u) => [u.id, u.position]));
   diagramStore.update((s) =>
     withLevel(s, level, (d) => ({
@@ -333,6 +371,20 @@ export function updateAnnotationPositions(
       ),
     }))
   );
+}
+
+// ─── Undo/redo actions ────────────────────────────────────────────────────────
+
+export function performUndo(): void {
+  const current = get(diagramStore);
+  const previous = undoHistory(current);
+  if (previous) diagramStore.set(previous);
+}
+
+export function performRedo(): void {
+  const current = get(diagramStore);
+  const next = redoHistory(current);
+  if (next) diagramStore.set(next);
 }
 
 // ─── Import/merge ─────────────────────────────────────────────────────────────
@@ -346,6 +398,7 @@ const MERGE_OFFSET_X = 200;
  * remapped to fresh ones before merging to prevent collisions.
  */
 export function mergeImportedDiagram(imported: DiagramState): void {
+  snapshot();
   const remapped = remapIds(imported);
 
   diagramStore.update((s) => {
