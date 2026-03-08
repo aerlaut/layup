@@ -1,17 +1,15 @@
 <script lang="ts">
-  import { isAtRoot, drillUp, diagramStore, navigateTo, LEVEL_LABELS, performUndo, performRedo } from '../stores/diagramStore';
+  import { isAtRoot, drillUp, diagramStore, navigateTo, performUndo, performRedo } from '../stores/diagramStore';
   import { goHome, activeProject, activeDiagram } from '../stores/appStore';
-  import { exportDiagramJSON, exportLevelJSON, importDiagramJSON, ImportError } from '../utils/persistence';
+  import { exportDiagramJSON, importDiagramJSON, ImportError } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
   import { get } from 'svelte/store';
-  import { loadDiagram, mergeImportedDiagram } from '../stores/diagramStore';
+  import { loadDiagram } from '../stores/diagramStore';
   import { canUndo, canRedo } from '../stores/undoHistory';
 
   let { importError = $bindable<string | null>(null) }: { importError?: string | null } = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
-  let importMode: 'replace' | 'merge' = $state('replace');
-
   function handleHome() {
     goHome();
   }
@@ -20,22 +18,12 @@
     exportDiagramJSON(get(diagramStore), get(activeDiagram)?.name);
   }
 
-  function handleExportLevel() {
-    const state = get(diagramStore);
-    const levelLabel = LEVEL_LABELS[state.currentLevel];
-    exportLevelJSON(state, state.currentLevel, `${get(activeDiagram)?.name ?? 'diagram'} — ${levelLabel}`);
-  }
-
   async function handleImport(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
     try {
       const state = await importDiagramJSON(file);
-      if (importMode === 'replace') {
-        loadDiagram(state);
-      } else {
-        mergeImportedDiagram(state);
-      }
+      loadDiagram(state);
       importError = null;
     } catch (err) {
       importError = err instanceof ImportError ? err.message : 'Failed to import diagram.';
@@ -45,12 +33,6 @@
   }
 
   function handleImportReplace() {
-    importMode = 'replace';
-    fileInput?.click();
-  }
-
-  function handleImportMerge() {
-    importMode = 'merge';
     fileInput?.click();
   }
 
@@ -108,16 +90,8 @@
     <button onclick={handleExport} title="Export diagram as JSON">
       Export JSON
     </button>
-    {#if !$isAtRoot}
-      <button onclick={handleExportLevel} title="Export current level and its children as JSON">
-        Export Level
-      </button>
-    {/if}
     <button onclick={handleImportReplace} title="Import diagram from JSON (replaces current)">
       Import JSON
-    </button>
-    <button onclick={handleImportMerge} title="Merge diagram from JSON into current level">
-      Merge JSON
     </button>
     <input
       bind:this={fileInput}

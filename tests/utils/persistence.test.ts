@@ -7,7 +7,6 @@ import {
   exportDiagramJSON,
   parseDiagramJSON,
   extractSubtree,
-  exportLevelJSON,
   ImportError,
   debounce,
 } from '../../src/utils/persistence';
