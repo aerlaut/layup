@@ -1,15 +1,21 @@
 <script lang="ts">
   import { isAtRoot, drillUp, diagramStore, navigateTo, performUndo, performRedo } from '../stores/diagramStore';
   import { goHome, activeProject, activeDiagram } from '../stores/appStore';
-  import { exportDiagramJSON, importDiagramJSON, ImportError } from '../utils/persistence';
+  import { exportDiagramJSON, importDiagramJSON, ImportError, parseNodeSubtreeJSON, getValidParentNodes, importNodeSubtree } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
+  import ImportNodeDialog from './ImportNodeDialog.svelte';
   import { get } from 'svelte/store';
   import { loadDiagram } from '../stores/diagramStore';
-  import { canUndo, canRedo } from '../stores/undoHistory';
+  import { canUndo, canRedo, pushUndo } from '../stores/undoHistory';
+  import type { NodeSubtreeExport, C4Node } from '../types';
 
   let { importError = $bindable<string | null>(null) }: { importError?: string | null } = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
+  let nodeFileInput: HTMLInputElement | undefined = $state();
+  let pendingSubtree: NodeSubtreeExport | null = $state(null);
+  let pendingValidParents: C4Node[] = $state([]);
+  let showImportNodeDialog = $state(false);
   function handleHome() {
     goHome();
   }
@@ -34,6 +40,33 @@
 
   function handleImportReplace() {
     fileInput?.click();
+  }
+
+  async function handleNodeFileChange(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const subtree = parseNodeSubtreeJSON(text);
+      const parents = getValidParentNodes(get(diagramStore), subtree);
+      pendingSubtree = subtree;
+      pendingValidParents = parents;
+      showImportNodeDialog = true;
+      importError = null;
+    } catch (err) {
+      importError = err instanceof ImportError ? err.message : 'Failed to import node.';
+    }
+    (e.target as HTMLInputElement).value = '';
+  }
+
+  function handleImportNodeConfirm(parentNodeId: string | undefined) {
+    if (!pendingSubtree) return;
+    const currentState = get(diagramStore);
+    pushUndo(currentState);
+    const newState = importNodeSubtree(currentState, pendingSubtree, parentNodeId);
+    diagramStore.set(newState);
+    showImportNodeDialog = false;
+    pendingSubtree = null;
   }
 
   function handleBack() {
@@ -93,6 +126,9 @@
     <button onclick={handleImportReplace} title="Import diagram from JSON (replaces current)">
       Import JSON
     </button>
+    <button onclick={() => nodeFileInput?.click()} title="Import a node subtree from JSON">
+      Import Node
+    </button>
     <input
       bind:this={fileInput}
       type="file"
@@ -100,8 +136,24 @@
       style="display:none"
       onchange={handleImport}
     />
+    <input
+      bind:this={nodeFileInput}
+      type="file"
+      accept=".json,application/json"
+      style="display:none"
+      onchange={handleNodeFileChange}
+    />
   </div>
 </div>
+
+{#if showImportNodeDialog && pendingSubtree}
+  <ImportNodeDialog
+    subtree={pendingSubtree}
+    validParents={pendingValidParents}
+    onConfirm={handleImportNodeConfirm}
+    onCancel={() => { showImportNodeDialog = false; pendingSubtree = null; }}
+  />
+{/if}
 
 <style>
   .toolbar {
