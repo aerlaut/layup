@@ -1,6 +1,4 @@
 import {
-  saveToLocalStorage,
-  loadFromLocalStorage,
   saveAppState,
   loadAppState,
   migrateFromLegacy,
@@ -106,30 +104,6 @@ describe('parseDiagramJSON', () => {
   });
 });
 
-// ─── localStorage round-trip ──────────────────────────────────────────────────
-
-describe('saveToLocalStorage / loadFromLocalStorage', () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
-  it('round-trips a DiagramState', () => {
-    const state = makeValidState();
-    saveToLocalStorage(state);
-    const loaded = loadFromLocalStorage();
-    expect(loaded).toEqual(state);
-  });
-
-  it('returns null when nothing is stored', () => {
-    expect(loadFromLocalStorage()).toBeNull();
-  });
-
-  it('returns null on corrupted data', () => {
-    localStorage.setItem('layup_diagram', '{broken json');
-    expect(loadFromLocalStorage()).toBeNull();
-  });
-});
-
 // ─── Storage size helpers ─────────────────────────────────────────────────────
 
 describe('getLocalStorageUsageBytes', () => {
@@ -142,8 +116,8 @@ describe('getLocalStorageUsageBytes', () => {
   });
 
   it('returns approximate byte size after saving', () => {
-    const state = makeValidState();
-    saveToLocalStorage(state);
+    const state = createInitialAppState();
+    saveAppState(state);
     const bytes = getLocalStorageUsageBytes();
     expect(bytes).toBeGreaterThan(0);
   });
@@ -155,7 +129,7 @@ describe('isNearStorageLimit', () => {
   });
 
   it('returns false for small data', () => {
-    saveToLocalStorage(makeValidState());
+    saveAppState(createInitialAppState());
     expect(isNearStorageLimit()).toBe(false);
   });
 });
@@ -255,7 +229,7 @@ describe('getLocalStorageUsageBytes with AppState key', () => {
   });
 
   it('falls back to legacy key if app key missing', () => {
-    saveToLocalStorage(makeValidState());
+    localStorage.setItem('layup_diagram', JSON.stringify(makeValidState()));
     const bytes = getLocalStorageUsageBytes();
     expect(bytes).toBeGreaterThan(0);
   });

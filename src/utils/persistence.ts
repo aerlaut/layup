@@ -77,30 +77,6 @@ export function migrateFromLegacy(): AppState | null {
   }
 }
 
-// ─── Legacy localStorage (deprecated — kept for migration) ────────────────────
-
-/** @deprecated Use saveAppState instead */
-export function saveToLocalStorage(state: DiagramState): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    console.warn('layup: failed to save to localStorage', e);
-  }
-}
-
-/** @deprecated Use loadAppState instead */
-export function loadFromLocalStorage(): DiagramState | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as DiagramState;
-    return parsed;
-  } catch (e) {
-    console.warn('layup: failed to load from localStorage', e);
-    return null;
-  }
-}
-
 export function getLocalStorageUsageBytes(): number {
   try {
     // Check new key first, fall back to legacy
