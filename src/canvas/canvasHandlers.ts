@@ -8,6 +8,7 @@
 import type { Node, Edge, Connection } from '@xyflow/svelte';
 import type { AnnotationType, C4NodeType } from '../types';
 import { NON_DRILLABLE_TYPES } from '../utils/nodeTypes';
+import { isBoundaryId, fromBoundaryId } from './boundaryId';
 import {
   diagramStore,
   addEdge as storeAddEdge,
@@ -58,9 +59,9 @@ export function handleReconnect(oldEdge: Edge, newConnection: Connection): void 
 // ─── Node click ───────────────────────────────────────────────────────────────
 
 export function handleNodeClick({ node }: { node: Node; event: MouseEvent | TouchEvent }): void {
-  if (node.id.startsWith('boundary-')) {
+  if (isBoundaryId(node.id)) {
     // Clicking a boundary selects its parent node in the parent diagram
-    setSelected(node.id.replace('boundary-', ''));
+    setSelected(fromBoundaryId(node.id));
     return;
   }
   setSelected(node.id);
@@ -90,12 +91,12 @@ export function makeHandleNodeDragStop(
     const boundaries = get(contextBoundaries);
     const allNodes = getNodes();
 
-    const boundaryDrags = draggedNodes.filter((n) => n.id.startsWith('boundary-'));
-    const regularDrags  = draggedNodes.filter((n) => !n.id.startsWith('boundary-'));
+    const boundaryDrags = draggedNodes.filter((n) => isBoundaryId(n.id));
+    const regularDrags  = draggedNodes.filter((n) => !isBoundaryId(n.id));
 
     // Boundary drags: translate all child nodes by the drag delta
     for (const bNode of boundaryDrags) {
-      const parentNodeId = bNode.id.replace('boundary-', '');
+      const parentNodeId = fromBoundaryId(bNode.id);
       const group = boundaries.find((g) => g.parentNodeId === parentNodeId);
       if (!group || group.childNodes.length === 0) continue;
 
@@ -122,7 +123,7 @@ export function makeHandleNodeDragStop(
           continue;
         }
 
-        if (n.parentId?.startsWith('boundary-')) {
+        if (n.parentId && isBoundaryId(n.parentId)) {
           // Node is parented to a boundary rectangle in the flow graph.
           // Its position is relative to the boundary; convert to absolute.
           const boundaryFlowNode = allNodes.find((bn) => bn.id === n.parentId);
@@ -161,7 +162,7 @@ export function handleDelete({
   const s = get(diagramStore);
 
   for (const n of delNodes) {
-    if (n.id.startsWith('boundary-')) continue;
+    if (isBoundaryId(n.id)) continue;
     if (ANNOTATION_TYPES.has(n.type ?? '')) {
       deleteAnnotation(s.currentLevel, n.id);
     } else {

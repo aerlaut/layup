@@ -8,6 +8,7 @@ import type { Node, Edge } from '@xyflow/svelte';
 import type { Annotation, C4Node, C4Edge, C4NodeType, DiagramLevel, DiagramState, BoundaryGroup } from '../types';
 import { ANNOTATION_DEFAULT_COLORS, NODE_DEFAULT_COLORS } from '../utils/colors';
 import { nextLevel, prevLevel } from '../stores/diagramStore';
+import { toBoundaryId } from './boundaryId';
 
 // ─── Conversion helpers ───────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ export function buildFlowData(
     const parentLevelData = prevLvl ? state.levels[prevLvl] : undefined;
 
     for (const group of boundaries) {
-      const boundaryId = `boundary-${group.parentNodeId}`;
+      const boundaryId = toBoundaryId(group.parentNodeId);
       const bb = group.boundingBox;
 
       const parentNode = parentLevelData?.nodes.find((n) => n.id === group.parentNodeId);
