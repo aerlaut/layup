@@ -295,7 +295,7 @@
         </div>
       {/if}
       <div class="field">
-        <label>Color</label>
+        <label for="node-color">Color</label>
         <div class="color-swatches">
           {#each PASTEL_PALETTE as swatch}
             <button
@@ -319,7 +319,7 @@
       </div>
       {#if isUmlClassNode}
         <div class="field members-field">
-          <label>{isEnumNode ? 'Literals' : 'Members'}</label>
+          <span class="field-group-label">{isEnumNode ? 'Literals' : 'Members'}</span>
           <div class="members-list">
             {#each (selectedNode.members ?? []) as member, idx (member.id)}
               <div class="member-row">
@@ -391,7 +391,7 @@
 
       {#if isErdNode}
         <div class="field members-field">
-          <label>Columns</label>
+          <span class="field-group-label">Columns</span>
           <div class="members-list">
             {#each (selectedNode.columns ?? []) as col, idx (col.id)}
               <div class="column-row-editor">
@@ -544,7 +544,7 @@
         </select>
       </div>
       <div class="field">
-        <label>Color</label>
+        <label for="edge-color">Color</label>
         <div class="color-swatches">
           {#each PASTEL_PALETTE as swatch}
             <button
@@ -567,7 +567,7 @@
         </div>
       </div>
       <div class="field">
-        <label>Ends</label>
+        <span class="field-group-label">Ends</span>
         <div class="ends-grid">
           <span class="ends-header">Source</span>
           <span class="ends-header">Target</span>
@@ -632,7 +632,7 @@
         </div>
       {/if}
       <div class="field">
-        <label>Color</label>
+        <label for="annot-color">Color</label>
         <div class="color-swatches">
           {#each PASTEL_PALETTE as swatch}
             <button
@@ -846,6 +846,12 @@
     display: flex;
     gap: 4px;
     margin-left: auto;
+  }
+
+  .field-group-label {
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
   }
 
   .flag-label {

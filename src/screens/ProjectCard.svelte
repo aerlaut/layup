@@ -129,7 +129,7 @@
     <div class="project-actions">
       <button class="menu-btn" onclick={handleMenuToggle} title="Project actions">⋯</button>
       {#if showMenu}
-        <div class="menu-dropdown" onclick={(e) => e.stopPropagation()} role="menu">
+        <div class="menu-dropdown" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="menu" tabindex="-1">
           <button class="menu-item" onclick={handleRenameStart}>Rename</button>
           <button class="menu-item danger" onclick={handleDeleteRequest}>Delete</button>
         </div>

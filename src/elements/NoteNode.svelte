@@ -128,14 +128,14 @@
         rows="4"
       ></textarea>
     {:else}
-      <p
+      <div
         class="note-text nodrag"
         ondblclick={startEditText}
         role="button"
         tabindex="0"
         onkeydown={(e) => { if (e.key === 'Enter') startEditText(e as unknown as MouseEvent); }}
         title="Double-click to edit text"
-      >{data.text || 'Double-click to add text…'}</p>
+      >{data.text || 'Double-click to add text…'}</div>
     {/if}
   </div>
 </div>
