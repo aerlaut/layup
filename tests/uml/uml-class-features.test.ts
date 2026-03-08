@@ -11,10 +11,10 @@ import {
   addNode,
   addEdge,
   addAnnotation,
-  updateNodeInDiagram,
-  updateEdgeInDiagram,
+  updateNode,
+  updateEdge,
   resetDiagram,
-  getCurrentDiagram,
+  getCurrentLevel,
 } from '../../src/stores/diagramStore';
 import type { C4Node, C4Edge, ClassMember, Annotation } from '../../src/types';
 import { ANNOTATION_DEFAULT_COLORS } from '../../src/utils/colors';
@@ -55,15 +55,15 @@ function getState() {
 }
 
 function getRootNodes(): C4Node[] {
-  return getCurrentDiagram(getState()).nodes;
+  return getCurrentLevel(getState()).nodes;
 }
 
 function getRootEdges(): C4Edge[] {
-  return getCurrentDiagram(getState()).edges;
+  return getCurrentLevel(getState()).edges;
 }
 
 function getRootAnnotations(): Annotation[] {
-  return getCurrentDiagram(getState()).annotations;
+  return getCurrentLevel(getState()).annotations;
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -96,22 +96,22 @@ describe('ClassMember — node.members field', () => {
     expect(stored!.members![1]).toEqual(members[1]);
   });
 
-  it('updateNodeInDiagram replaces members array', () => {
+  it('updateNode replaces members array', () => {
     const node = makeClassNode({ members: [{ id: 'm1', kind: 'attribute', visibility: '+', name: 'old', type: 'int' }] });
     addNode(node);
     const newMembers: ClassMember[] = [
       { id: 'm2', kind: 'operation', visibility: '#', name: 'newOp', type: 'bool' },
     ];
-    updateNodeInDiagram('root', node.id, { members: newMembers });
+    updateNode(node.id, { members: newMembers });
     const stored = getRootNodes().find((n) => n.id === node.id);
     expect(stored!.members).toHaveLength(1);
     expect(stored!.members![0]!.name).toBe('newOp');
   });
 
-  it('updateNodeInDiagram can clear members with empty array', () => {
+  it('updateNode can clear members with empty array', () => {
     const node = makeClassNode({ members: [{ id: 'm1', kind: 'attribute', visibility: '+', name: 'x', type: 'int' }] });
     addNode(node);
-    updateNodeInDiagram('root', node.id, { members: [] });
+    updateNode(node.id, { members: [] });
     const stored = getRootNodes().find((n) => n.id === node.id);
     expect(stored!.members).toHaveLength(0);
   });
@@ -122,7 +122,7 @@ describe('ClassMember — node.members field', () => {
     ];
     const node = makeClassNode({ members });
     addNode(node);
-    updateNodeInDiagram('root', node.id, { label: 'RenamedClass' });
+    updateNode(node.id, { label: 'RenamedClass' });
     const stored = getRootNodes().find((n) => n.id === node.id);
     expect(stored!.label).toBe('RenamedClass');
     expect(stored!.members).toHaveLength(1);
@@ -191,14 +191,14 @@ describe('C4Edge — multiplicity and role fields', () => {
     expect(stored!.roleTarget).toBe('employee');
   });
 
-  it('updateEdgeInDiagram can set multiplicity and role fields', () => {
+  it('updateEdge can set multiplicity and role fields', () => {
     const n1 = makeClassNode({ id: 'n1' });
     const n2 = makeClassNode({ id: 'n2' });
     addNode(n1);
     addNode(n2);
     const edge = makeEdge('n1', 'n2');
     addEdge(edge);
-    updateEdgeInDiagram('root', edge.id, { multiplicitySource: '1', multiplicityTarget: '1..*', roleSource: 'owner', roleTarget: 'item' });
+    updateEdge(edge.id, { multiplicitySource: '1', multiplicityTarget: '1..*', roleSource: 'owner', roleTarget: 'item' });
     const stored = getRootEdges().find((e) => e.id === edge.id);
     expect(stored!.multiplicitySource).toBe('1');
     expect(stored!.multiplicityTarget).toBe('1..*');

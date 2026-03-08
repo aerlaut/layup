@@ -4,7 +4,7 @@
  *   - computeNodeHeight for erd-table / erd-view node types
  *   - toFlowNode passes columns in data payload
  *   - NODE_DEFAULT_COLORS has entries for ERD types
- *   - ERD node types are NOT drillable (no child diagram created)
+ *   - ERD node types are NOT drillable (no navigation occurs)
  */
 
 import { get } from 'svelte/store';
@@ -12,10 +12,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   diagramStore,
   addNode,
-  addAnnotation,
-  updateNodeInDiagram,
+  updateNode,
   resetDiagram,
-  getCurrentDiagram,
+  getCurrentLevel,
   drillDown,
   computeNodeHeight,
 } from '../../src/stores/diagramStore';
@@ -55,7 +54,7 @@ function getState() {
 }
 
 function getRootNodes(): C4Node[] {
-  return getCurrentDiagram(getState()).nodes;
+  return getCurrentLevel(getState()).nodes;
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -94,9 +93,8 @@ describe('TableColumn — node.columns field', () => {
     const columns: TableColumn[] = [
       { id: 'c1', name: 'user_id', dataType: 'INT', isForeignKey: true, isNullable: false },
     ];
-    const node = makeErdNode({ columns });
-    addNode(node);
-    const stored = getRootNodes().find((n) => n.id === node.id);
+    addNode(makeErdNode({ columns }));
+    const stored = getRootNodes()[getRootNodes().length - 1]!;
     expect(stored!.columns![0]!.isForeignKey).toBe(true);
   });
 
@@ -104,9 +102,8 @@ describe('TableColumn — node.columns field', () => {
     const columns: TableColumn[] = [
       { id: 'c1', name: 'slug', dataType: 'VARCHAR(100)', isUnique: true },
     ];
-    const node = makeErdNode({ columns });
-    addNode(node);
-    const stored = getRootNodes().find((n) => n.id === node.id);
+    addNode(makeErdNode({ columns }));
+    const stored = getRootNodes()[getRootNodes().length - 1]!;
     expect(stored!.columns![0]!.isUnique).toBe(true);
   });
 
@@ -114,14 +111,14 @@ describe('TableColumn — node.columns field', () => {
     const columns: TableColumn[] = [
       { id: 'c1', name: 'status', dataType: 'VARCHAR(20)', defaultValue: 'active' },
     ];
-    const node = makeErdNode({ columns });
-    addNode(node);
-    const stored = getRootNodes().find((n) => n.id === node.id);
+    addNode(makeErdNode({ columns }));
+    const stored = getRootNodes()[getRootNodes().length - 1]!;
     expect(stored!.columns![0]!.defaultValue).toBe('active');
   });
 
-  it('updateNodeInDiagram replaces columns array', () => {
+  it('updateNode replaces columns array', () => {
     const node = makeErdNode({
+      id: 'tbl-upd',
       columns: [{ id: 'c1', name: 'old_col', dataType: 'INT' }],
     });
     addNode(node);
@@ -129,19 +126,20 @@ describe('TableColumn — node.columns field', () => {
       { id: 'c2', name: 'new_col', dataType: 'VARCHAR(50)', isPrimaryKey: true },
       { id: 'c3', name: 'another_col', dataType: 'BOOLEAN', isNullable: false },
     ];
-    updateNodeInDiagram('root', node.id, { columns: newColumns });
+    updateNode(node.id, { columns: newColumns });
     const stored = getRootNodes().find((n) => n.id === node.id);
     expect(stored!.columns).toHaveLength(2);
     expect(stored!.columns![0]!.name).toBe('new_col');
     expect(stored!.columns![1]!.name).toBe('another_col');
   });
 
-  it('updateNodeInDiagram can clear columns with empty array', () => {
+  it('updateNode can clear columns with empty array', () => {
     const node = makeErdNode({
+      id: 'tbl-clr',
       columns: [{ id: 'c1', name: 'id', dataType: 'INT' }],
     });
     addNode(node);
-    updateNodeInDiagram('root', node.id, { columns: [] });
+    updateNode(node.id, { columns: [] });
     const stored = getRootNodes().find((n) => n.id === node.id);
     expect(stored!.columns).toHaveLength(0);
   });
@@ -150,9 +148,9 @@ describe('TableColumn — node.columns field', () => {
     const columns: TableColumn[] = [
       { id: 'c1', name: 'id', dataType: 'INT', isPrimaryKey: true },
     ];
-    const node = makeErdNode({ columns });
+    const node = makeErdNode({ id: 'tbl-lbl', columns });
     addNode(node);
-    updateNodeInDiagram('root', node.id, { label: 'accounts' });
+    updateNode(node.id, { label: 'accounts' });
     const stored = getRootNodes().find((n) => n.id === node.id);
     expect(stored!.label).toBe('accounts');
     expect(stored!.columns).toHaveLength(1);
@@ -176,32 +174,25 @@ describe('TableColumn — node.columns field', () => {
 
 describe('computeNodeHeight — erd-table and erd-view', () => {
   it('erd-table with no columns returns UML_NODE_HEIGHT_BASE', () => {
-    const node = makeErdNode();
-    expect(computeNodeHeight(node)).toBe(UML_NODE_HEIGHT_BASE);
+    expect(computeNodeHeight(makeErdNode())).toBe(UML_NODE_HEIGHT_BASE);
   });
 
   it('erd-table with columns grows by UML_COMPARTMENT_OVERHEAD + n * UML_MEMBER_ROW_HEIGHT', () => {
-    const columns: TableColumn[] = [
-      makeColumn({ id: 'c1' }),
-      makeColumn({ id: 'c2' }),
-      makeColumn({ id: 'c3' }),
-    ];
+    const columns = [makeColumn({ id: 'c1' }), makeColumn({ id: 'c2' }), makeColumn({ id: 'c3' })];
     const node = makeErdNode({ columns });
-    const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 3 * UML_MEMBER_ROW_HEIGHT;
-    expect(computeNodeHeight(node)).toBe(expected);
+    expect(computeNodeHeight(node)).toBe(UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 3 * UML_MEMBER_ROW_HEIGHT);
   });
 
   it('erd-table with a single column adds one row overhead', () => {
     const node = makeErdNode({ columns: [makeColumn()] });
-    const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + UML_MEMBER_ROW_HEIGHT;
-    expect(computeNodeHeight(node)).toBe(expected);
+    expect(computeNodeHeight(node)).toBe(UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + UML_MEMBER_ROW_HEIGHT);
   });
 
   it('erd-view height is computed the same as erd-table', () => {
     const columns = [makeColumn({ id: 'c1' }), makeColumn({ id: 'c2' })];
-    const tableNode = makeErdNode({ type: 'erd-table', columns });
-    const viewNode = makeErdNode({ type: 'erd-view', columns });
-    expect(computeNodeHeight(tableNode)).toBe(computeNodeHeight(viewNode));
+    expect(computeNodeHeight(makeErdNode({ type: 'erd-table', columns }))).toBe(
+      computeNodeHeight(makeErdNode({ type: 'erd-view', columns }))
+    );
   });
 
   it('non-ERD non-UML node types return NODE_DEFAULT_HEIGHT', () => {
@@ -218,14 +209,20 @@ describe('toFlowNode — ERD columns in data payload', () => {
       { id: 'c1', name: 'id', dataType: 'INT', isPrimaryKey: true },
     ];
     const node = makeErdNode({ columns });
-    const flowNode = toFlowNode(node, null);
+    const flowNode = toFlowNode(node, null, false);
     expect((flowNode.data as Record<string, unknown>).columns).toEqual(columns);
   });
 
   it('toFlowNode includes undefined columns when not set', () => {
-    const node = makeErdNode(); // no columns
-    const flowNode = toFlowNode(node, null);
+    const node = makeErdNode();
+    const flowNode = toFlowNode(node, null, false);
     expect((flowNode.data as Record<string, unknown>).columns).toBeUndefined();
+  });
+
+  it('toFlowNode includes hasChildren in data', () => {
+    const node = makeErdNode();
+    expect((toFlowNode(node, null, true).data as any).hasChildren).toBe(true);
+    expect((toFlowNode(node, null, false).data as any).hasChildren).toBe(false);
   });
 });
 
@@ -251,28 +248,21 @@ describe('NODE_DEFAULT_COLORS — ERD node types', () => {
 
 // ─── ERD types are not drillable ─────────────────────────────────────────────
 
-describe('drillDown — ERD nodes are not drillable', () => {
-  it('drilling into erd-table does not navigate or create a child diagram', () => {
-    const node = makeErdNode({ id: 'tbl1' });
-    addNode(node);
-    const stackBefore = getState().navigationStack.slice();
-    drillDown('tbl1');
-    const state = getState();
-    // Navigation stack must be unchanged
-    expect(state.navigationStack).toEqual(stackBefore);
-    // No childDiagramId should have been set on the node
-    const tblNode = state.diagrams['root']!.nodes.find((n) => n.id === 'tbl1');
-    expect(tblNode?.childDiagramId).toBeUndefined();
+describe('drillDown — ERD nodes are not drillable (no effect; drillDown is level-based)', () => {
+  it('at code level (final level), drillDown does not change currentLevel', () => {
+    // Navigate to code level manually
+    drillDown(); drillDown(); drillDown(); // context → container → component → code
+    expect(getState().currentLevel).toBe('code');
+    // Add an ERD node
+    addNode(makeErdNode({ id: 'tbl1' }));
+    // Attempt to go further — nothing happens at code level
+    drillDown();
+    expect(getState().currentLevel).toBe('code');
   });
 
-  it('drilling into erd-view does not navigate or create a child diagram', () => {
-    const node = makeErdNode({ id: 'view1', type: 'erd-view' });
-    addNode(node);
-    const stackBefore = getState().navigationStack.slice();
-    drillDown('view1');
-    const state = getState();
-    expect(state.navigationStack).toEqual(stackBefore);
-    const viewNode = state.diagrams['root']!.nodes.find((n) => n.id === 'view1');
-    expect(viewNode?.childDiagramId).toBeUndefined();
+  it('erd-table nodes do not get a parentNodeId set automatically', () => {
+    addNode(makeErdNode({ id: 'tbl1' }));
+    const node = getRootNodes().find((n) => n.id === 'tbl1');
+    expect(node?.parentNodeId).toBeUndefined();
   });
 });
