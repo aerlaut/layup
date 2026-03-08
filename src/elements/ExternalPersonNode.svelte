@@ -11,7 +11,7 @@
     data: {
       label: string;
       description?: string;
-      childDiagramId?: string;
+      hasChildren?: boolean;
       color?: string;
     };
     [key: string]: unknown;
@@ -77,7 +77,7 @@
   {#if data.description && !editing}
     <div class="person-desc" style="color: {colors.muted};">{data.description}</div>
   {/if}
-  {#if data.childDiagramId}
+  {#if data.hasChildren}
     <div class="drill-indicator" style="color: {colors.primary};" title="Double-click to drill in">▸</div>
   {/if}
   <Handle id="bottom-source" type="source" position={Position.Bottom} />

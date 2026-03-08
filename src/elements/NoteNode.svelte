@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { updateAnnotation, getAnnotationDiagramId, diagramStore } from '../stores/diagramStore';
+  import { updateAnnotation, diagramStore } from '../stores/diagramStore';
   import { ANNOTATION_DEFAULT_COLORS } from '../utils/colors';
   import { get } from 'svelte/store';
 
@@ -34,10 +34,6 @@
   let labelInputEl = $state<HTMLInputElement | undefined>(undefined);
   let textareaEl = $state<HTMLTextAreaElement | undefined>(undefined);
 
-  function getAnnotDiagramId(): string {
-    return getAnnotationDiagramId(get(diagramStore));
-  }
-
   function startEditLabel(e: MouseEvent) {
     e.stopPropagation();
     editingLabel = true;
@@ -47,7 +43,7 @@
 
   function commitLabel() {
     if (editingLabel && labelValue.trim()) {
-      updateAnnotation(getAnnotDiagramId(), id, { label: labelValue.trim() });
+      updateAnnotation(get(diagramStore).currentLevel, id, { label: labelValue.trim() });
     }
     editingLabel = false;
   }
@@ -69,7 +65,7 @@
 
   function commitText() {
     if (editingText) {
-      updateAnnotation(getAnnotDiagramId(), id, { text: textValue });
+      updateAnnotation(get(diagramStore).currentLevel, id, { text: textValue });
     }
     editingText = false;
   }

@@ -1,11 +1,11 @@
 <script lang="ts">
   import {
     selectedElement,
-    updateNodeInDiagram,
-    updateEdgeInDiagram,
+    updateNode,
+    updateEdge,
     updateAnnotation,
-    deleteNodeFromDiagram,
-    deleteEdgeFromDiagram,
+    deleteNode,
+    deleteEdge,
     deleteAnnotation,
     setSelected,
   } from '../stores/diagramStore';
@@ -21,72 +21,72 @@
 
   function handleNodeLabelChange(e: Event) {
     if (!selectedNode || !diagramId) return;
-    updateNodeInDiagram(diagramId, selectedNode.id, { label: (e.target as HTMLInputElement).value });
+    updateNode(selectedNode.id, { label: (e.target as HTMLInputElement).value });
   }
 
   function handleNodeDescChange(e: Event) {
     if (!selectedNode || !diagramId) return;
-    updateNodeInDiagram(diagramId, selectedNode.id, { description: (e.target as HTMLInputElement).value });
+    updateNode(selectedNode.id, { description: (e.target as HTMLInputElement).value });
   }
 
   function handleNodeTechChange(e: Event) {
     if (!selectedNode || !diagramId) return;
-    updateNodeInDiagram(diagramId, selectedNode.id, { technology: (e.target as HTMLInputElement).value });
+    updateNode(selectedNode.id, { technology: (e.target as HTMLInputElement).value });
   }
 
   function handleNodeColorChange(e: Event) {
     if (!selectedNode || !diagramId) return;
-    updateNodeInDiagram(diagramId, selectedNode.id, { color: (e.target as HTMLInputElement).value });
+    updateNode(selectedNode.id, { color: (e.target as HTMLInputElement).value });
   }
 
   function setNodeColor(color: string) {
     if (!selectedNode || !diagramId) return;
-    updateNodeInDiagram(diagramId, selectedNode.id, { color });
+    updateNode(selectedNode.id, { color });
   }
 
   function handleEdgeLabelChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { label: (e.target as HTMLInputElement).value });
+    updateEdge(selectedEdge.id, { label: (e.target as HTMLInputElement).value });
   }
 
   function handleEdgeDescChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { description: (e.target as HTMLInputElement).value });
+    updateEdge(selectedEdge.id, { description: (e.target as HTMLInputElement).value });
   }
 
   function handleEdgeTechChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { technology: (e.target as HTMLInputElement).value });
+    updateEdge(selectedEdge.id, { technology: (e.target as HTMLInputElement).value });
   }
 
   function handleMarkerStartChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { markerStart: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
+    updateEdge(selectedEdge.id, { markerStart: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
   }
 
   function handleMarkerEndChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { markerEnd: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
+    updateEdge(selectedEdge.id, { markerEnd: (e.target as HTMLSelectElement).value as import('../types').MarkerType });
   }
 
   function handleLineStyleChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { lineStyle: (e.target as HTMLSelectElement).value as import('../types').LineStyle });
+    updateEdge(selectedEdge.id, { lineStyle: (e.target as HTMLSelectElement).value as import('../types').LineStyle });
   }
 
   function handleLineTypeChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { lineType: (e.target as HTMLSelectElement).value as import('../types').LineType });
+    updateEdge(selectedEdge.id, { lineType: (e.target as HTMLSelectElement).value as import('../types').LineType });
   }
 
   function handleEdgeColorChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { color: (e.target as HTMLInputElement).value });
+    updateEdge(selectedEdge.id, { color: (e.target as HTMLInputElement).value });
   }
 
   function setEdgeColor(color: string) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { color });
+    updateEdge(selectedEdge.id, { color });
   }
 
   // ─── UML member helpers ──────────────────────────────────────────────────────
@@ -101,7 +101,7 @@
   function updateMembers(updater: (m: ClassMember[]) => ClassMember[]) {
     if (!selectedNode || !diagramId) return;
     const current = selectedNode.members ?? [];
-    updateNodeInDiagram(diagramId, selectedNode.id, { members: updater(current) });
+    updateNode(selectedNode.id, { members: updater(current) });
   }
 
   function addMember(kind: 'attribute' | 'operation') {
@@ -136,7 +136,7 @@
   function updateColumns(updater: (cols: TableColumn[]) => TableColumn[]) {
     if (!selectedNode || !diagramId) return;
     const current = selectedNode.columns ?? [];
-    updateNodeInDiagram(diagramId, selectedNode.id, { columns: updater(current) });
+    updateNode(selectedNode.id, { columns: updater(current) });
   }
 
   function addColumn() {
@@ -197,39 +197,39 @@
     if (!selectedEdge || !diagramId) return;
     const preset = (e.target as HTMLSelectElement).value as RelationshipPreset;
     if (preset === 'custom') return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, PRESETS[preset]);
+    updateEdge(selectedEdge.id, PRESETS[preset]);
   }
 
   // ─── Multiplicity / role handlers ────────────────────────────────────────────
 
   function handleMultiplicitySrcChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { multiplicitySource: (e.target as HTMLInputElement).value });
+    updateEdge(selectedEdge.id, { multiplicitySource: (e.target as HTMLInputElement).value });
   }
 
   function handleMultiplicityTgtChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { multiplicityTarget: (e.target as HTMLInputElement).value });
+    updateEdge(selectedEdge.id, { multiplicityTarget: (e.target as HTMLInputElement).value });
   }
 
   function handleRoleSrcChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { roleSource: (e.target as HTMLInputElement).value });
+    updateEdge(selectedEdge.id, { roleSource: (e.target as HTMLInputElement).value });
   }
 
   function handleRoleTgtChange(e: Event) {
     if (!selectedEdge || !diagramId) return;
-    updateEdgeInDiagram(diagramId, selectedEdge.id, { roleTarget: (e.target as HTMLInputElement).value });
+    updateEdge(selectedEdge.id, { roleTarget: (e.target as HTMLInputElement).value });
   }
 
   function handleDeleteNode() {
     if (!selectedNode || !diagramId) return;
-    deleteNodeFromDiagram(diagramId, selectedNode.id);
+    deleteNode(selectedNode.id);
   }
 
   function handleDeleteEdge() {
     if (!selectedEdge || !diagramId) return;
-    deleteEdgeFromDiagram(diagramId, selectedEdge.id);
+    deleteEdge(selectedEdge.id);
   }
 
   function handleAnnotationLabelChange(e: Event) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { isAtRoot, drillUp, diagramStore, currentDiagram, rootDiagramId, navigateTo } from '../stores/diagramStore';
+  import { isAtRoot, drillUp, diagramStore, navigateTo, LEVEL_LABELS } from '../stores/diagramStore';
   import { goHome, activeProject, activeDiagram } from '../stores/appStore';
   import { exportDiagramJSON, exportLevelJSON, importDiagramJSON, ImportError } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
@@ -20,8 +20,9 @@
   }
 
   function handleExportLevel() {
-    const diagram = get(currentDiagram);
-    exportLevelJSON(get(diagramStore), diagram.id, diagram.label);
+    const state = get(diagramStore);
+    const levelLabel = LEVEL_LABELS[state.currentLevel];
+    exportLevelJSON(state, state.currentLevel, `${get(activeDiagram)?.name ?? 'diagram'} — ${levelLabel}`);
   }
 
   async function handleImport(e: Event) {
@@ -92,7 +93,7 @@
       {:else}
         <button
           class="context-btn diagram-label"
-          onclick={() => navigateTo($rootDiagramId)}
+          onclick={() => navigateTo('context')}
           title="Back to root — {$activeDiagram.name}"
         >{$activeDiagram.name}</button>
       {/if}

@@ -1,5 +1,5 @@
-import type { AppState, DiagramState } from '../types';
-import { SCHEMA_VERSION } from '../stores/diagramStore';
+import type { AppState, DiagramState, DiagramLevel, C4LevelType } from '../types';
+import { SCHEMA_VERSION, LEVEL_ORDER } from '../stores/diagramStore';
 import { APP_STATE_VERSION, createInitialAppState } from '../stores/appStore';
 import { STORAGE_WARN_BYTES } from './constants';
 
@@ -41,12 +41,24 @@ export function migrateFromLegacy(): AppState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const diagramState = JSON.parse(raw) as DiagramState;
-    if (typeof diagramState !== 'object' || diagramState === null) return null;
-    if (!diagramState.diagrams || typeof diagramState.rootId !== 'string') return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+
+    // Accept both v1 (diagrams/rootId) and v2 (levels/currentLevel) formats
+    const asRecord = parsed as Record<string, unknown>;
+    const isV1 = 'diagrams' in asRecord && typeof asRecord.rootId === 'string';
+    const isV2 = 'levels' in asRecord && typeof asRecord.currentLevel === 'string';
+    if (!isV1 && !isV2) return null;
+
+    // Run through parseDiagramJSON to apply any necessary migration
+    let diagramState: DiagramState;
+    try {
+      diagramState = parseDiagramJSON(raw);
+    } catch {
+      return null;
+    }
 
     const appState = createInitialAppState();
-    // Replace the default diagram's state with the legacy one
     const projectId = Object.keys(appState.projects)[0] ?? '';
     const project = appState.projects[projectId];
     if (!project) return null;
@@ -119,6 +131,117 @@ export function exportDiagramJSON(state: DiagramState, name?: string): void {
 
 export class ImportError extends Error {}
 
+// ─── V1 format types (for migration) ─────────────────────────────────────────
+
+// Local type alias for the old v1 format — used only in the migration path
+interface DiagramStateV1 {
+  version: 1;
+  diagrams: Record<string, {
+    id: string;
+    level: string;
+    label: string;
+    nodes: Array<{
+      id: string;
+      type: string;
+      label: string;
+      position: { x: number; y: number };
+      childDiagramId?: string;
+      parentNodeId?: string;
+      [key: string]: unknown;
+    }>;
+    edges: Array<{
+      id: string;
+      source: string;
+      target: string;
+      sourceGroupId?: string;
+      targetGroupId?: string;
+      [key: string]: unknown;
+    }>;
+    annotations?: Array<{ id: string; [key: string]: unknown }>;
+  }>;
+  rootId: string;
+  navigationStack: string[];
+  selectedId: string | null;
+  pendingNodeType: unknown;
+}
+
+function migrateDiagramStateV1toV2(v1: DiagramStateV1): DiagramState {
+  // Initialise empty buckets for all four levels
+  type LevelBucket = {
+    nodes: DiagramStateV1['diagrams'][string]['nodes'];
+    edges: DiagramStateV1['diagrams'][string]['edges'];
+    annotations: DiagramStateV1['diagrams'][string]['annotations'];
+  };
+  const buckets: Record<string, LevelBucket> = {};
+  for (const l of LEVEL_ORDER) {
+    buckets[l] = { nodes: [], edges: [], annotations: [] };
+  }
+
+  // Walk the v1 diagram tree depth-first.
+  // parentNodeId is the node in the parent diagram whose childDiagramId === this diagram's id.
+  function walk(diagramId: string, parentNodeId: string | undefined): void {
+    const diag = v1.diagrams[diagramId];
+    if (!diag) return;
+
+    const level = diag.level as C4LevelType;
+    if (!buckets[level]) return; // unknown level — skip
+
+    for (const node of diag.nodes) {
+      buckets[level].nodes.push({
+        ...node,
+        parentNodeId: level === 'context' ? undefined : parentNodeId,
+      } as DiagramStateV1['diagrams'][string]['nodes'][number]);
+
+      if (node.childDiagramId) {
+        walk(node.childDiagramId, node.id);
+      }
+    }
+
+    for (const edge of diag.edges) {
+      if (!edge.sourceGroupId && !edge.targetGroupId) {
+        // Intra-level edge: belongs at this diagram's level
+        const { sourceGroupId: _s, targetGroupId: _t, ...cleanEdge } = edge;
+        buckets[level].edges.push(cleanEdge);
+      } else {
+        // Cross-group edge: source and target live in child diagrams
+        const srcDiag = edge.sourceGroupId ? v1.diagrams[edge.sourceGroupId] : undefined;
+        const edgeLevel = (srcDiag?.level ?? level) as C4LevelType;
+        if (buckets[edgeLevel]) {
+          const { sourceGroupId: _s, targetGroupId: _t, ...cleanEdge } = edge;
+          buckets[edgeLevel].edges.push(cleanEdge);
+        }
+      }
+    }
+
+    for (const annot of diag.annotations ?? []) {
+      buckets[level].annotations!.push(annot);
+    }
+  }
+
+  walk(v1.rootId, undefined);
+
+  // Build the v2 DiagramState
+  const levels = {} as DiagramState['levels'];
+  for (const l of LEVEL_ORDER) {
+    levels[l as C4LevelType] = {
+      level: l as C4LevelType,
+      nodes:       buckets[l].nodes       as DiagramState['levels'][C4LevelType]['nodes'],
+      edges:       buckets[l].edges       as DiagramState['levels'][C4LevelType]['edges'],
+      annotations: (buckets[l].annotations ?? []) as DiagramState['levels'][C4LevelType]['annotations'],
+    };
+  }
+
+  return {
+    version: 2, // SCHEMA_VERSION
+    levels,
+    currentLevel: 'context',
+    selectedId: null,
+    pendingNodeType: null,
+  };
+}
+
+// ─── Parse & validate ─────────────────────────────────────────────────────────
+
 export function parseDiagramJSON(text: string): DiagramState {
   let parsed: unknown;
   try {
@@ -139,42 +262,48 @@ export function parseDiagramJSON(text: string): DiagramState {
       `Diagram was created with a newer version (v${state.version}). Please upgrade layup.`
     );
   }
-  if (!state.diagrams || typeof state.diagrams !== 'object') {
-    throw new ImportError('Missing "diagrams" map.');
+
+  // Migrate v1 → v2
+  if (state.version === 1) {
+    return migrateDiagramStateV1toV2(state as unknown as DiagramStateV1);
   }
-  if (typeof state.rootId !== 'string') {
-    throw new ImportError('Missing "rootId".');
+
+  // v2 validation
+  if (!state.levels || typeof state.levels !== 'object') {
+    throw new ImportError('Missing "levels" map.');
   }
-  if (!Array.isArray(state.navigationStack)) {
-    throw new ImportError('Missing "navigationStack".');
+  if (typeof state.currentLevel !== 'string') {
+    throw new ImportError('Missing "currentLevel".');
   }
   return state;
 }
 
-/**
- * Extracts a subtree of DiagramLevels rooted at `rootLevelId` and returns
- * a new self-contained DiagramState. The result is directly importable.
- */
-export function extractSubtree(state: DiagramState, rootLevelId: string): DiagramState {
-  const collected: DiagramState['diagrams'] = {};
+// ─── Level export ─────────────────────────────────────────────────────────────
 
-  function walk(levelId: string): void {
-    if (collected[levelId]) return; // already visited
-    const level = state.diagrams[levelId];
-    if (!level) return;
-    collected[levelId] = level;
-    for (const node of level.nodes) {
-      if (node.childDiagramId) walk(node.childDiagramId);
+/**
+ * Extracts all levels from `fromLevel` downward and returns a new self-contained
+ * DiagramState. Levels above `fromLevel` are zeroed out.
+ */
+export function extractFromLevel(
+  state: DiagramState,
+  fromLevel: C4LevelType
+): DiagramState {
+  const levelIdx = LEVEL_ORDER.indexOf(fromLevel);
+  const levelsToInclude = LEVEL_ORDER.slice(levelIdx) as C4LevelType[];
+
+  const newLevels = {} as DiagramState['levels'];
+  for (const l of LEVEL_ORDER) {
+    if (levelsToInclude.includes(l as C4LevelType)) {
+      newLevels[l as C4LevelType] = state.levels[l as C4LevelType];
+    } else {
+      newLevels[l as C4LevelType] = { level: l as C4LevelType, nodes: [], edges: [], annotations: [] };
     }
   }
 
-  walk(rootLevelId);
-
   return {
     version: state.version,
-    diagrams: collected,
-    rootId: rootLevelId,
-    navigationStack: [rootLevelId],
+    levels: newLevels,
+    currentLevel: fromLevel,
     selectedId: null,
     pendingNodeType: null,
   };
@@ -183,8 +312,8 @@ export function extractSubtree(state: DiagramState, rootLevelId: string): Diagra
 /**
  * Exports only the current level and its descendants as a self-contained JSON file.
  */
-export function exportLevelJSON(state: DiagramState, levelId: string, name?: string): void {
-  const subtree = extractSubtree(state, levelId);
+export function exportLevelJSON(state: DiagramState, fromLevel: C4LevelType, name?: string): void {
+  const subtree = extractFromLevel(state, fromLevel);
   exportDiagramJSON(subtree, name);
 }
 
