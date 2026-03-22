@@ -4,9 +4,12 @@
   import { exportDiagramJSON, importDiagramJSON, ImportError, parseNodeSubtreeJSON, getValidParentNodes, importNodeSubtree } from '../utils/persistence';
   import BreadcrumbBar from './BreadcrumbBar.svelte';
   import ImportNodeDialog from './ImportNodeDialog.svelte';
+  import AutoLayoutDialog from './AutoLayoutDialog.svelte';
   import { get } from 'svelte/store';
   import { loadDiagram } from '../stores/diagramStore';
   import { canUndo, canRedo, pushUndo } from '../stores/undoHistory';
+  import { applyAutoLayout } from '../stores/autoLayout';
+  import type { LayoutOptions } from '../stores/autoLayout';
   import type { NodeSubtreeExport, C4Node } from '../types';
 
   let { importError = $bindable<string | null>(null) }: { importError?: string | null } = $props();
@@ -16,6 +19,7 @@
   let pendingSubtree: NodeSubtreeExport | null = $state(null);
   let pendingValidParents: C4Node[] = $state([]);
   let showImportNodeDialog = $state(false);
+  let showAutoLayoutDialog = $state(false);
   function handleHome() {
     goHome();
   }
@@ -69,6 +73,14 @@
     pendingSubtree = null;
   }
 
+  async function handleAutoLayoutConfirm(options: LayoutOptions) {
+    showAutoLayoutDialog = false;
+    const currentState = get(diagramStore);
+    pushUndo(currentState);
+    const newState = await applyAutoLayout(currentState, options);
+    diagramStore.set(newState);
+  }
+
   function handleBack() {
     drillUp();
   }
@@ -120,6 +132,9 @@
   <div class="toolbar-right">
     <button onclick={performUndo} disabled={!$canUndo} title="Undo (⌘Z)">↩ Undo</button>
     <button onclick={performRedo} disabled={!$canRedo} title="Redo (⌘⇧Z)">↪ Redo</button>
+    <button onclick={() => showAutoLayoutDialog = true} title="Automatically arrange nodes">
+      Auto-layout
+    </button>
     <button onclick={handleExport} title="Export diagram as JSON">
       Export JSON
     </button>
@@ -152,6 +167,13 @@
     validParents={pendingValidParents}
     onConfirm={handleImportNodeConfirm}
     onCancel={() => { showImportNodeDialog = false; pendingSubtree = null; }}
+  />
+{/if}
+
+{#if showAutoLayoutDialog}
+  <AutoLayoutDialog
+    onConfirm={handleAutoLayoutConfirm}
+    onCancel={() => showAutoLayoutDialog = false}
   />
 {/if}
 
