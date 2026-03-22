@@ -40,6 +40,8 @@ export interface C4Node {
   columns?: TableColumn[];
   /** User-specified minimum size for this node's boundary group at the level below. */
   boundarySize?: { width: number; height: number };
+  /** Explicit position for this node's boundary group when it has no children. Overrides the fallback of using this node's own position. */
+  boundaryPosition?: { x: number; y: number };
 }
 
 /**

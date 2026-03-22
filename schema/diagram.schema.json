@@ -163,6 +163,23 @@
     "C4Node": {
       "additionalProperties": false,
       "properties": {
+        "boundaryPosition": {
+          "additionalProperties": false,
+          "description": "Explicit position for this node's boundary group when it has no children. Overrides the fallback of using this node's own position.",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
         "boundarySize": {
           "additionalProperties": false,
           "description": "User-specified minimum size for this node's boundary group at the level below.",
