@@ -100,6 +100,23 @@
     "C4Node": {
       "additionalProperties": false,
       "properties": {
+        "boundarySize": {
+          "additionalProperties": false,
+          "description": "User-specified minimum size for this node's boundary group at the level below.",
+          "properties": {
+            "height": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "type": "object"
+        },
         "color": {
           "description": "Custom color (hex) for this node; uses type default if omitted",
           "type": "string"

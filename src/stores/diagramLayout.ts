@@ -48,14 +48,17 @@ export function computeNodeHeight(node: C4Node): number {
 
 export function computeBoundingBox(
   childNodes: C4Node[],
-  fallbackPosition: { x: number; y: number }
+  fallbackPosition: { x: number; y: number },
+  minSize?: { width: number; height: number }
 ): { x: number; y: number; width: number; height: number } {
+  const effectiveMinWidth = Math.max(BOUNDARY_MIN_WIDTH, minSize?.width ?? 0);
+  const effectiveMinHeight = Math.max(BOUNDARY_MIN_HEIGHT, minSize?.height ?? 0);
   if (childNodes.length === 0) {
     return {
       x: fallbackPosition.x - BOUNDARY_PADDING,
       y: fallbackPosition.y - BOUNDARY_PADDING,
-      width: BOUNDARY_MIN_WIDTH,
-      height: BOUNDARY_MIN_HEIGHT,
+      width: effectiveMinWidth,
+      height: effectiveMinHeight,
     };
   }
   const minX = Math.min(...childNodes.map((n) => n.position.x));
@@ -65,8 +68,8 @@ export function computeBoundingBox(
   return {
     x: minX - BOUNDARY_PADDING,
     y: minY - BOUNDARY_PADDING,
-    width: Math.max(maxX - minX + BOUNDARY_PADDING * 2, BOUNDARY_MIN_WIDTH),
-    height: Math.max(maxY - minY + BOUNDARY_PADDING * 2, BOUNDARY_MIN_HEIGHT),
+    width: Math.max(maxX - minX + BOUNDARY_PADDING * 2, effectiveMinWidth),
+    height: Math.max(maxY - minY + BOUNDARY_PADDING * 2, effectiveMinHeight),
   };
 }
 
@@ -173,7 +176,7 @@ export function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
     .filter((n) => childTypeIsValid(n.type, state.currentLevel))
     .map((n) => {
       const nodes = currentLevelData.nodes.filter((cn) => cn.parentNodeId === n.id);
-      return { parentNodeId: n.id, nodes, bbox: computeBoundingBox(nodes, n.position) };
+      return { parentNodeId: n.id, nodes, bbox: computeBoundingBox(nodes, n.position, n.boundarySize) };
     });
 
   if (groups.length < 2) return state;
@@ -187,7 +190,7 @@ export function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
     for (const g of groups) {
       g.nodes = newNodes.filter((n) => n.parentNodeId === g.parentNodeId);
       const parentNode = parentLevelData.nodes.find((n) => n.id === g.parentNodeId);
-      g.bbox = computeBoundingBox(g.nodes, parentNode?.position ?? { x: 0, y: 0 });
+      g.bbox = computeBoundingBox(g.nodes, parentNode?.position ?? { x: 0, y: 0 }, parentNode?.boundarySize);
     }
 
     for (let i = 0; i < groups.length - 1; i++) {

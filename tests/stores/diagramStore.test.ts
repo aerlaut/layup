@@ -28,6 +28,7 @@ import {
   setPendingNodeType,
   updateNodePositions,
   updateNodePositionsInLevel,
+  updateNodeBoundarySize,
   addAnnotation,
   updateAnnotation,
   deleteAnnotation,
@@ -757,6 +758,68 @@ describe('computeNodeHeight', () => {
     });
     const expected = UML_NODE_HEIGHT_BASE + UML_COMPARTMENT_OVERHEAD + 1 * UML_MEMBER_ROW_HEIGHT;
     expect(computeNodeHeight(node)).toBe(expected);
+  });
+});
+
+// ─── updateNodeBoundarySize ───────────────────────────────────────────────────
+
+describe('updateNodeBoundarySize', () => {
+  beforeEach(() => resetDiagram());
+
+  it('stores boundarySize on the target node', () => {
+    loadDiagram({
+      ...createInitialDiagramState(),
+      currentLevel: 'context',
+      levels: {
+        context: { level: 'context', nodes: [makeNode({ id: 'sys1', type: 'system' })], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [], edges: [], annotations: [] },
+        component: { level: 'component', nodes: [], edges: [], annotations: [] },
+        code: { level: 'code', nodes: [], edges: [], annotations: [] },
+      },
+    });
+    updateNodeBoundarySize('context', 'sys1', 600, 400);
+    const state = get(diagramStore);
+    const node = state.levels['context'].nodes.find((n) => n.id === 'sys1')!;
+    expect(node.boundarySize).toEqual({ width: 600, height: 400 });
+  });
+
+  it('does not affect other nodes', () => {
+    loadDiagram({
+      ...createInitialDiagramState(),
+      currentLevel: 'context',
+      levels: {
+        context: { level: 'context', nodes: [
+          makeNode({ id: 'sys1', type: 'system' }),
+          makeNode({ id: 'sys2', type: 'system' }),
+        ], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [], edges: [], annotations: [] },
+        component: { level: 'component', nodes: [], edges: [], annotations: [] },
+        code: { level: 'code', nodes: [], edges: [], annotations: [] },
+      },
+    });
+    updateNodeBoundarySize('context', 'sys1', 600, 400);
+    const state = get(diagramStore);
+    const sys2 = state.levels['context'].nodes.find((n) => n.id === 'sys2')!;
+    expect(sys2.boundarySize).toBeUndefined();
+  });
+
+  it('contextBoundaries respects boundarySize as minimum', () => {
+    loadDiagram({
+      ...createInitialDiagramState(),
+      currentLevel: 'container',
+      levels: {
+        context: { level: 'context', nodes: [
+          makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }),
+        ], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [], edges: [], annotations: [] },
+        component: { level: 'component', nodes: [], edges: [], annotations: [] },
+        code: { level: 'code', nodes: [], edges: [], annotations: [] },
+      },
+    });
+    updateNodeBoundarySize('context', 'sys1', 800, 600);
+    const boundaries = get(contextBoundaries);
+    expect(boundaries[0]!.boundingBox.width).toBe(800);
+    expect(boundaries[0]!.boundingBox.height).toBe(600);
   });
 });
 

@@ -103,7 +103,7 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
     const childNodes = currentLevelData.nodes.filter(
       (n) => n.parentNodeId === parentNode.id
     );
-    const boundingBox = computeBoundingBox(childNodes, parentNode.position);
+    const boundingBox = computeBoundingBox(childNodes, parentNode.position, parentNode.boundarySize);
     return {
       parentNodeId: parentNode.id,
       parentLabel: parentNode.label,
@@ -341,6 +341,25 @@ export function setSelected(id: string | null): void {
 
 export function setPendingNodeType(type: PaletteItemType | null): void {
   diagramStore.update((s) => ({ ...s, pendingNodeType: type }));
+}
+
+// ─── Boundary size actions ────────────────────────────────────────────────────
+
+export function updateNodeBoundarySize(
+  level: C4LevelType,
+  nodeId: string,
+  width: number,
+  height: number
+): void {
+  snapshot();
+  diagramStore.update((s) =>
+    withLevel(s, level, (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) =>
+        n.id === nodeId ? { ...n, boundarySize: { width, height } } : n
+      ),
+    }))
+  );
 }
 
 // ─── Annotation actions ───────────────────────────────────────────────────────

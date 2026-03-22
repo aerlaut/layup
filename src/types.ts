@@ -38,6 +38,8 @@ export interface C4Node {
   members?: ClassMember[];
   /** ERD table columns. Only meaningful for erd-table / erd-view node types. */
   columns?: TableColumn[];
+  /** User-specified minimum size for this node's boundary group at the level below. */
+  boundarySize?: { width: number; height: number };
 }
 
 /**

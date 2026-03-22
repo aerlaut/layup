@@ -74,6 +74,36 @@ describe('computeBoundingBox', () => {
     expect(box.width).toBeGreaterThanOrEqual(BOUNDARY_MIN_WIDTH);
     expect(box.height).toBeGreaterThanOrEqual(BOUNDARY_MIN_HEIGHT);
   });
+
+  it('respects minSize when larger than auto-computed (empty boundary)', () => {
+    const box = computeBoundingBox([], { x: 100, y: 200 }, { width: 500, height: 400 });
+    expect(box.width).toBe(500);
+    expect(box.height).toBe(400);
+  });
+
+  it('respects minSize when larger than auto-computed (with children)', () => {
+    const nodes = [makeNode({ id: 'a', position: { x: 50, y: 50 } })];
+    const box = computeBoundingBox(nodes, { x: 0, y: 0 }, { width: 600, height: 500 });
+    expect(box.width).toBe(600);
+    expect(box.height).toBe(500);
+  });
+
+  it('ignores minSize when smaller than auto-computed', () => {
+    const nodes = [
+      makeNode({ id: 'a', position: { x: 0, y: 0 } }),
+      makeNode({ id: 'b', position: { x: 400, y: 300 } }),
+    ];
+    const autoBox = computeBoundingBox(nodes, { x: 0, y: 0 });
+    const box = computeBoundingBox(nodes, { x: 0, y: 0 }, { width: 10, height: 10 });
+    expect(box.width).toBe(autoBox.width);
+    expect(box.height).toBe(autoBox.height);
+  });
+
+  it('ignores minSize when smaller than BOUNDARY_MIN_WIDTH/HEIGHT constants', () => {
+    const box = computeBoundingBox([], { x: 0, y: 0 }, { width: 10, height: 10 });
+    expect(box.width).toBe(BOUNDARY_MIN_WIDTH);
+    expect(box.height).toBe(BOUNDARY_MIN_HEIGHT);
+  });
 });
 
 // ─── resolveNodeOverlaps ──────────────────────────────────────────────────────
