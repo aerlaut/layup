@@ -183,13 +183,14 @@ export function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
 
   const MAX_ITER = 10;
   let newNodes = [...currentLevelData.nodes];
+  let newParentNodes = [...parentLevelData.nodes];
 
   for (let iter = 0; iter < MAX_ITER; iter++) {
     let changed = false;
 
     for (const g of groups) {
       g.nodes = newNodes.filter((n) => n.parentNodeId === g.parentNodeId);
-      const parentNode = parentLevelData.nodes.find((n) => n.id === g.parentNodeId);
+      const parentNode = newParentNodes.find((n) => n.id === g.parentNodeId);
       g.bbox = computeBoundingBox(g.nodes, parentNode?.boundaryPosition ?? parentNode?.position ?? { x: 0, y: 0 }, parentNode?.boundarySize);
     }
 
@@ -222,13 +223,27 @@ export function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
           offsetY = (sCy >= lCy ? overlapY : -overlapY) + 10;
         }
 
-        const smallerIds = new Set(smaller.nodes.map((n) => n.id));
-        newNodes = newNodes.map((n) =>
-          smallerIds.has(n.id)
-            ? { ...n, position: { x: n.position.x + offsetX, y: n.position.y + offsetY } }
-            : n
-        );
-        smaller.nodes = newNodes.filter((n) => n.parentNodeId === smaller.parentNodeId);
+        if (smaller.nodes.length === 0) {
+          // Empty group: shift its boundaryPosition on the parent node
+          newParentNodes = newParentNodes.map((n) =>
+            n.id === smaller.parentNodeId
+              ? { ...n, boundaryPosition: { x: smaller.bbox.x + offsetX, y: smaller.bbox.y + offsetY } }
+              : n
+          );
+          smaller.bbox = {
+            ...smaller.bbox,
+            x: smaller.bbox.x + offsetX,
+            y: smaller.bbox.y + offsetY,
+          };
+        } else {
+          const smallerIds = new Set(smaller.nodes.map((n) => n.id));
+          newNodes = newNodes.map((n) =>
+            smallerIds.has(n.id)
+              ? { ...n, position: { x: n.position.x + offsetX, y: n.position.y + offsetY } }
+              : n
+          );
+          smaller.nodes = newNodes.filter((n) => n.parentNodeId === smaller.parentNodeId);
+        }
       }
     }
     if (!changed) break;
@@ -238,6 +253,7 @@ export function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
     ...state,
     levels: {
       ...state.levels,
+      [prev]: { ...state.levels[prev], nodes: newParentNodes },
       [state.currentLevel]: { ...state.levels[state.currentLevel], nodes: newNodes },
     },
   };
