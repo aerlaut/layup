@@ -195,6 +195,24 @@ export function addNode(node: C4Node): void {
   });
 }
 
+export function reparentNode(
+  nodeId: string,
+  newParentNodeId: string | undefined,
+  position: { x: number; y: number }
+): void {
+  snapshot();
+  diagramStore.update((s) =>
+    resolveBoundaryOverlaps(
+      withCurrentLevel(s, (d) => ({
+        ...d,
+        nodes: d.nodes.map((n) =>
+          n.id === nodeId ? { ...n, parentNodeId: newParentNodeId, position } : n
+        ),
+      }))
+    )
+  );
+}
+
 export function updateNode(nodeId: string, patch: Partial<C4Node>): void {
   snapshot();
   diagramStore.update((s) =>

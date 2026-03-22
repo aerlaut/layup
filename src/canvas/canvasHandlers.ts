@@ -18,6 +18,7 @@ import {
   deleteAnnotation,
   updateEdge as storeUpdateEdge,
   updateNode,
+  reparentNode,
   setSelected,
   updateNodePositions,
   updateAnnotationPositions,
@@ -150,8 +151,39 @@ export function makeHandleNodeDragStop(
       if (annotUpdates.length > 0) {
         updateAnnotationPositions(s.currentLevel, annotUpdates);
       }
-      if (nodeUpdates.length > 0) {
-        updateNodePositions(nodeUpdates);
+
+      if (s.currentLevel !== 'context') {
+        const reparentUpdates: Array<{ id: string; newParentNodeId: string | undefined; position: { x: number; y: number } }> = [];
+        const remainingPositionUpdates: typeof nodeUpdates = [];
+
+        for (const update of nodeUpdates) {
+          const c4node = s.levels[s.currentLevel].nodes.find((n) => n.id === update.id);
+          if (!c4node) { remainingPositionUpdates.push(update); continue; }
+
+          const targetGroup = boundaries.find((g) => {
+            const bb = g.boundingBox;
+            return (
+              update.position.x >= bb.x && update.position.x <= bb.x + bb.width &&
+              update.position.y >= bb.y && update.position.y <= bb.y + bb.height
+            );
+          });
+
+          const newParentNodeId = targetGroup?.parentNodeId;
+          if (newParentNodeId !== c4node.parentNodeId) {
+            reparentUpdates.push({ id: update.id, newParentNodeId, position: update.position });
+          } else {
+            remainingPositionUpdates.push(update);
+          }
+        }
+
+        for (const r of reparentUpdates) {
+          reparentNode(r.id, r.newParentNodeId, r.position);
+        }
+        if (remainingPositionUpdates.length > 0) {
+          updateNodePositions(remainingPositionUpdates);
+        }
+      } else {
+        if (nodeUpdates.length > 0) updateNodePositions(nodeUpdates);
       }
     }
   };
