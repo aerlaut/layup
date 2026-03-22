@@ -146,6 +146,36 @@ describe('applyAutoLayout — container level, flow style, empty groups', () => 
     expect(rp1.boundaryPosition).toBeUndefined();
   });
 
+  it('arranges multiple empty groups without overlapping', async () => {
+    const p1 = makeNode({ id: 'p1', type: 'system', position: { x: 0, y: 0 } });
+    const p2 = makeNode({ id: 'p2', type: 'system', position: { x: 0, y: 0 } });
+    const p3 = makeNode({ id: 'p3', type: 'system', position: { x: 0, y: 0 } });
+    const child = makeNode({ id: 'ch1', type: 'container', parentNodeId: 'p1', position: { x: 0, y: 0 } });
+
+    const state = makeState({
+      currentLevel: 'container',
+      levels: {
+        context:   { level: 'context',   nodes: [p1, p2, p3], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [child],       edges: [], annotations: [] },
+        component: { level: 'component', nodes: [],            edges: [], annotations: [] },
+        code:      { level: 'code',      nodes: [],            edges: [], annotations: [] },
+      },
+    });
+
+    const result = await applyAutoLayout(state, { direction: 'right', style: 'flow', spacing: 'normal' });
+    const rp2 = result.levels.context.nodes.find((n) => n.id === 'p2')!;
+    const rp3 = result.levels.context.nodes.find((n) => n.id === 'p3')!;
+
+    // Both empty groups should have positions
+    expect(rp2.boundaryPosition).toBeDefined();
+    expect(rp3.boundaryPosition).toBeDefined();
+
+    // And they should not overlap (must differ in X or Y by more than zero)
+    const bp2 = rp2.boundaryPosition!;
+    const bp3 = rp3.boundaryPosition!;
+    expect(bp2.x !== bp3.x || bp2.y !== bp3.y).toBe(true);
+  });
+
   it('does not overwrite existing parent positions in prevLevel for non-empty groups', async () => {
     const parent = makeNode({ id: 'p1', type: 'system', position: { x: 100, y: 200 } });
     const child  = makeNode({ id: 'ch1', type: 'container', parentNodeId: 'p1', position: { x: 0, y: 0 } });

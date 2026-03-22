@@ -97,8 +97,18 @@ export async function applyAutoLayout(state: DiagramState, options: LayoutOption
   const childNodes  = nodes.filter((n) => n.parentNodeId && validParentIds.has(n.parentNodeId));
 
   // ── Flow style: compound layered layout ─────────────────────────────────────
+  //
+  // Empty boundary groups are excluded from the main ELK graph (they would
+  // render as zero-size compound nodes and cluster together). Instead they
+  // are arranged in a separate ELK pass and placed above the flow layout.
   if (options.style === 'flow') {
-    const parentElkNodes = validParents.map((parent) => ({
+    const nonEmptyParentIds = new Set(
+      childNodes.map((n) => n.parentNodeId).filter((id): id is string => !!id)
+    );
+    const nonEmptyParents = validParents.filter((p) => nonEmptyParentIds.has(p.id));
+    const emptyParents    = validParents.filter((p) => !nonEmptyParentIds.has(p.id));
+
+    const nonEmptyParentElkNodes = nonEmptyParents.map((parent) => ({
       id: parent.id,
       layoutOptions: { 'elk.padding': paddingStr(sp.padding) },
       children: childNodes
@@ -112,32 +122,34 @@ export async function applyAutoLayout(state: DiagramState, options: LayoutOption
       height: computeNodeHeight(n),
     }));
 
-    const graph = {
-      id: 'root',
-      layoutOptions: {
-        'elk.algorithm': 'layered',
-        'elk.direction': DIRECTION_MAP[options.direction],
-        'elk.spacing.nodeNode': String(sp.nodeNode),
-        'elk.layered.spacing.nodeNodeBetweenLayers': String(sp.layerSpacing),
-        'elk.padding': paddingStr(sp.padding),
-        'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-      },
-      children: [...parentElkNodes, ...orphanElkNodes],
-      edges: edges.map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
-    };
-
-    const laid = await elk.layout(graph);
-
+    // Main flow layout — non-empty groups + orphans
     const posMap = new Map<string, { x: number; y: number }>();
-    for (const elkParent of laid.children ?? []) {
-      if (elkParent.x === undefined || elkParent.y === undefined) continue;
-      posMap.set(elkParent.id, { x: elkParent.x, y: elkParent.y });
-      for (const elkChild of elkParent.children ?? []) {
-        if (elkChild.x !== undefined && elkChild.y !== undefined) {
-          posMap.set(elkChild.id, {
-            x: elkParent.x + elkChild.x,
-            y: elkParent.y + elkChild.y,
-          });
+    if (nonEmptyParentElkNodes.length > 0 || orphanElkNodes.length > 0) {
+      const graph = {
+        id: 'root',
+        layoutOptions: {
+          'elk.algorithm': 'layered',
+          'elk.direction': DIRECTION_MAP[options.direction],
+          'elk.spacing.nodeNode': String(sp.nodeNode),
+          'elk.layered.spacing.nodeNodeBetweenLayers': String(sp.layerSpacing),
+          'elk.padding': paddingStr(sp.padding),
+          'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+        },
+        children: [...nonEmptyParentElkNodes, ...orphanElkNodes],
+        edges: edges.map((e) => ({ id: e.id, sources: [e.source], targets: [e.target] })),
+      };
+
+      const laid = await elk.layout(graph);
+      for (const elkParent of laid.children ?? []) {
+        if (elkParent.x === undefined || elkParent.y === undefined) continue;
+        posMap.set(elkParent.id, { x: elkParent.x, y: elkParent.y });
+        for (const elkChild of elkParent.children ?? []) {
+          if (elkChild.x !== undefined && elkChild.y !== undefined) {
+            posMap.set(elkChild.id, {
+              x: elkParent.x + elkChild.x,
+              y: elkParent.y + elkChild.y,
+            });
+          }
         }
       }
     }
@@ -147,16 +159,67 @@ export async function applyAutoLayout(state: DiagramState, options: LayoutOption
       return pos ? { ...n, position: pos } : n;
     });
 
-    // Write back ELK-assigned positions for empty boundary groups
-    const emptyGroupParentIds = new Set(
-      validParents
-        .filter((p) => !childNodes.some((n) => n.parentNodeId === p.id))
-        .map((p) => p.id)
-    );
+    // Empty group layout — arranged with proper sizes, then placed above the flow layout
+    const emptyPosMap = new Map<string, { x: number; y: number }>();
+    if (emptyParents.length > 0) {
+      const emptySizeMap = new Map(
+        emptyParents.map((p) => [
+          p.id,
+          {
+            width:  p.boundarySize?.width  ?? BOUNDARY_MIN_WIDTH,
+            height: p.boundarySize?.height ?? BOUNDARY_MIN_HEIGHT,
+          },
+        ])
+      );
+
+      const emptyGraph = {
+        id: 'root',
+        layoutOptions: {
+          'elk.algorithm': 'layered',
+          'elk.direction': DIRECTION_MAP[options.direction],
+          'elk.spacing.nodeNode': String(sp.nodeNode),
+          'elk.layered.spacing.nodeNodeBetweenLayers': String(sp.layerSpacing),
+          'elk.padding': paddingStr(sp.padding),
+        },
+        children: emptyParents.map((p) => {
+          const size = emptySizeMap.get(p.id)!;
+          return { id: p.id, width: size.width, height: size.height };
+        }),
+        edges: [] as { id: string; sources: string[]; targets: string[] }[],
+      };
+
+      const emptyLaid = await elk.layout(emptyGraph);
+
+      // Collect raw positions and measure the bottom of the empty arrangement
+      const emptyRawPositions = new Map<string, { x: number; y: number }>();
+      let emptyArrangementMaxY = 0;
+      for (const elkNode of emptyLaid.children ?? []) {
+        if (elkNode.x === undefined || elkNode.y === undefined) continue;
+        emptyRawPositions.set(elkNode.id, { x: elkNode.x, y: elkNode.y });
+        const size = emptySizeMap.get(elkNode.id);
+        if (size) {
+          emptyArrangementMaxY = Math.max(emptyArrangementMaxY, elkNode.y + size.height);
+        }
+      }
+
+      if (posMap.size > 0) {
+        // Shift the empty arrangement so it sits above the flow layout
+        const flowMinY = Math.min(...[...posMap.values()].map((p) => p.y));
+        const yShift = flowMinY - emptyArrangementMaxY - sp.nodeNode;
+        for (const [id, pos] of emptyRawPositions) {
+          emptyPosMap.set(id, { x: pos.x, y: pos.y + yShift });
+        }
+      } else {
+        // No flow nodes: use the raw ELK positions as-is
+        for (const [id, pos] of emptyRawPositions) {
+          emptyPosMap.set(id, pos);
+        }
+      }
+    }
+
     const updatedParentNodes = parentLevelData.nodes.map((n) => {
-      if (!emptyGroupParentIds.has(n.id)) return n;
-      const pos = posMap.get(n.id);
-      return pos ? { ...n, boundaryPosition: pos } : n;
+      if (!emptyPosMap.has(n.id)) return n;
+      return { ...n, boundaryPosition: emptyPosMap.get(n.id)! };
     });
 
     return {
