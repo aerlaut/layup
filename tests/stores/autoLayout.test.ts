@@ -191,22 +191,74 @@ describe('applyAutoLayout — container level, compact style', () => {
     expect(rc1.position.x !== rc2.position.x || rc1.position.y !== rc2.position.y).toBe(true);
   });
 
-  it('leaves orphan nodes at their original positions', async () => {
-    const parent = makeNode({ id: 'p1', type: 'system', position: { x: 50, y: 50 } });
-    const orphan = makeNode({ id: 'orphan', type: 'container', position: { x: 999, y: 999 } });
+  it('separates two non-empty groups after global layout', async () => {
+    const p1 = makeNode({ id: 'p1', type: 'system', position: { x: 0, y: 0 } });
+    const p2 = makeNode({ id: 'p2', type: 'system', position: { x: 0, y: 0 } });
+    const ch1 = makeNode({ id: 'ch1', type: 'container', parentNodeId: 'p1', position: { x: 0, y: 0 } });
+    const ch2 = makeNode({ id: 'ch2', type: 'container', parentNodeId: 'p2', position: { x: 0, y: 0 } });
 
     const state = makeState({
       currentLevel: 'container',
       levels: {
-        context:   { level: 'context',   nodes: [parent], edges: [], annotations: [] },
-        container: { level: 'container', nodes: [orphan], edges: [], annotations: [] },
+        context:   { level: 'context',   nodes: [p1, p2],   edges: [], annotations: [] },
+        container: { level: 'container', nodes: [ch1, ch2], edges: [], annotations: [] },
+        component: { level: 'component', nodes: [],         edges: [], annotations: [] },
+        code:      { level: 'code',      nodes: [],         edges: [], annotations: [] },
+      },
+    });
+
+    const result = await applyAutoLayout(state, { direction: 'right', style: 'compact', spacing: 'normal' });
+    const rch1 = result.levels.container.nodes.find((n) => n.id === 'ch1')!;
+    const rch2 = result.levels.container.nodes.find((n) => n.id === 'ch2')!;
+
+    // Groups should have been arranged globally — children from different groups should not overlap
+    expect(rch1.position.x !== rch2.position.x || rch1.position.y !== rch2.position.y).toBe(true);
+  });
+
+  it('sets boundaryPosition on empty group parent after global layout', async () => {
+    const p1 = makeNode({ id: 'p1', type: 'system', position: { x: 0, y: 0 } });
+    const p2 = makeNode({ id: 'p2', type: 'system', position: { x: 0, y: 0 } });
+    const child = makeNode({ id: 'ch1', type: 'container', parentNodeId: 'p1', position: { x: 0, y: 0 } });
+
+    const state = makeState({
+      currentLevel: 'container',
+      levels: {
+        context:   { level: 'context',   nodes: [p1, p2], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [child],  edges: [], annotations: [] },
         component: { level: 'component', nodes: [],       edges: [], annotations: [] },
         code:      { level: 'code',      nodes: [],       edges: [], annotations: [] },
       },
     });
 
     const result = await applyAutoLayout(state, { direction: 'right', style: 'compact', spacing: 'normal' });
-    // Orphan has no parentNodeId — compact layout leaves it as-is
-    expect(result.levels.container.nodes[0].position).toEqual({ x: 999, y: 999 });
+    const rp2 = result.levels.context.nodes.find((n) => n.id === 'p2')!;
+
+    // p2 has no children — global pass should assign it a boundaryPosition
+    expect(rp2.boundaryPosition).toBeDefined();
+  });
+
+  it('globally lays out orphan nodes alongside groups', async () => {
+    const parent = makeNode({ id: 'p1', type: 'system', position: { x: 0, y: 0 } });
+    const child  = makeNode({ id: 'ch1', type: 'container', parentNodeId: 'p1', position: { x: 0, y: 0 } });
+    const orphan = makeNode({ id: 'orphan', type: 'container', position: { x: 0, y: 0 } });
+
+    const state = makeState({
+      currentLevel: 'container',
+      levels: {
+        context:   { level: 'context',   nodes: [parent], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [child, orphan], edges: [], annotations: [] },
+        component: { level: 'component', nodes: [],              edges: [], annotations: [] },
+        code:      { level: 'code',      nodes: [],              edges: [], annotations: [] },
+      },
+    });
+
+    const result = await applyAutoLayout(state, { direction: 'right', style: 'compact', spacing: 'normal' });
+    const rOrphan = result.levels.container.nodes.find((n) => n.id === 'orphan')!;
+    const rChild  = result.levels.container.nodes.find((n) => n.id === 'ch1')!;
+
+    // Orphan is repositioned by the global ELK pass — no longer at origin
+    expect(rOrphan.position.x !== 0 || rOrphan.position.y !== 0).toBe(true);
+    // Orphan and the group's child should not overlap
+    expect(rOrphan.position.x !== rChild.position.x || rOrphan.position.y !== rChild.position.y).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { DiagramState } from '../types';
-import { computeNodeHeight, childTypeIsValid, resolveBoundaryOverlaps } from './diagramLayout';
-import { NODE_DEFAULT_WIDTH, BOUNDARY_PADDING } from '../utils/constants';
+import { computeNodeHeight, childTypeIsValid } from './diagramLayout';
+import { NODE_DEFAULT_WIDTH, BOUNDARY_PADDING, BOUNDARY_MIN_WIDTH, BOUNDARY_MIN_HEIGHT } from '../utils/constants';
 import { prevLevel } from './diagramNavigation';
 
 export type LayoutDirection = 'right' | 'down';
@@ -169,14 +169,28 @@ export async function applyAutoLayout(state: DiagramState, options: LayoutOption
     };
   }
 
-  // ── Compact style: rectpacking per group ─────────────────────────────────────
-  const updatedNodesMap = new Map(nodes.map((n) => [n.id, n]));
+  // ── Compact style: two-pass layout ──────────────────────────────────────────
+  //
+  // Pass 1: rectpack each non-empty group at origin (0,0) to get natural size.
+  // Pass 2: ELK-layered over all groups + orphans to arrange them globally.
+  // Apply: offset packed children by the group's Pass-2 position.
 
+  type GroupLayout = {
+    parentId: string;
+    width: number;
+    height: number;
+    // relative positions of children after rectpacking (origin = top-left of group content)
+    childPositions: Map<string, { x: number; y: number }>;
+  };
+
+  const groupLayouts: GroupLayout[] = [];
+
+  // Pass 1 — pack each non-empty group internally
   for (const parent of validParents) {
     const children = childNodes.filter((n) => n.parentNodeId === parent.id);
     if (children.length === 0) continue;
 
-    const graph = {
+    const packGraph = {
       id: 'root',
       layoutOptions: {
         'elk.algorithm': 'rectpacking',
@@ -191,30 +205,116 @@ export async function applyAutoLayout(state: DiagramState, options: LayoutOption
       edges: [] as { id: string; sources: string[]; targets: string[] }[],
     };
 
-    const laid = await elk.layout(graph);
-    const originX = parent.position.x + sp.padding;
-    const originY = parent.position.y + sp.padding;
-
-    for (const elkChild of laid.children ?? []) {
+    const packed = await elk.layout(packGraph);
+    const childPositions = new Map<string, { x: number; y: number }>();
+    const heightById = new Map(children.map((n) => [n.id, computeNodeHeight(n)]));
+    let groupWidth  = BOUNDARY_MIN_WIDTH;
+    let groupHeight = BOUNDARY_MIN_HEIGHT;
+    for (const elkChild of packed.children ?? []) {
       if (elkChild.x === undefined || elkChild.y === undefined) continue;
-      const node = updatedNodesMap.get(elkChild.id);
+      childPositions.set(elkChild.id, { x: elkChild.x, y: elkChild.y });
+      groupWidth  = Math.max(groupWidth,  elkChild.x + NODE_DEFAULT_WIDTH + sp.padding);
+      groupHeight = Math.max(groupHeight, elkChild.y + (heightById.get(elkChild.id) ?? 0) + sp.padding);
+    }
+
+    groupLayouts.push({
+      parentId: parent.id,
+      width:  groupWidth,
+      height: groupHeight,
+      childPositions,
+    });
+  }
+
+  // Pass 2 — arrange groups + orphans globally with ELK layered
+  const groupLayoutMap = new Map(groupLayouts.map((g) => [g.parentId, g]));
+
+  const globalChildren = [
+    // non-empty groups as fixed-size nodes
+    ...validParents
+      .filter((p) => groupLayoutMap.has(p.id))
+      .map((p) => {
+        const g = groupLayoutMap.get(p.id)!;
+        return { id: p.id, width: g.width, height: g.height };
+      }),
+    // empty groups using boundarySize or minimum dimensions
+    ...validParents
+      .filter((p) => !groupLayoutMap.has(p.id))
+      .map((p) => ({
+        id: p.id,
+        width:  p.boundarySize?.width  ?? BOUNDARY_MIN_WIDTH,
+        height: p.boundarySize?.height ?? BOUNDARY_MIN_HEIGHT,
+      })),
+    // orphan nodes
+    ...orphanNodes.map((n) => ({
+      id: n.id,
+      width: NODE_DEFAULT_WIDTH,
+      height: computeNodeHeight(n),
+    })),
+  ];
+
+  const globalGraph = {
+    id: 'root',
+    layoutOptions: {
+      'elk.algorithm': 'layered',
+      'elk.direction': DIRECTION_MAP[options.direction],
+      'elk.spacing.nodeNode': String(sp.nodeNode),
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(sp.layerSpacing),
+      'elk.padding': paddingStr(sp.padding),
+    },
+    children: globalChildren,
+    edges: [] as { id: string; sources: string[]; targets: string[] }[],
+  };
+
+  const globalLaid = await elk.layout(globalGraph);
+  const globalPosMap = new Map<string, { x: number; y: number }>();
+  for (const elkNode of globalLaid.children ?? []) {
+    if (elkNode.x !== undefined && elkNode.y !== undefined) {
+      globalPosMap.set(elkNode.id, { x: elkNode.x, y: elkNode.y });
+    }
+  }
+
+  // Apply: update child positions and empty group boundaryPositions
+  const updatedNodesMap = new Map(nodes.map((n) => [n.id, n]));
+
+  for (const gl of groupLayouts) {
+    const groupOrigin = globalPosMap.get(gl.parentId);
+    if (!groupOrigin) continue;
+    for (const [childId, relPos] of gl.childPositions) {
+      const node = updatedNodesMap.get(childId);
       if (node) {
-        updatedNodesMap.set(elkChild.id, {
+        updatedNodesMap.set(childId, {
           ...node,
-          position: { x: originX + elkChild.x, y: originY + elkChild.y },
+          position: { x: groupOrigin.x + relPos.x, y: groupOrigin.y + relPos.y },
         });
       }
     }
   }
 
+  for (const orphan of orphanNodes) {
+    const pos = globalPosMap.get(orphan.id);
+    if (pos) {
+      const node = updatedNodesMap.get(orphan.id);
+      if (node) updatedNodesMap.set(orphan.id, { ...node, position: pos });
+    }
+  }
+
+  const emptyGroupParentIds = new Set(
+    validParents.filter((p) => !groupLayoutMap.has(p.id)).map((p) => p.id)
+  );
+  const updatedParentNodes = parentLevelData.nodes.map((n) => {
+    if (!emptyGroupParentIds.has(n.id)) return n;
+    const pos = globalPosMap.get(n.id);
+    return pos ? { ...n, boundaryPosition: pos } : n;
+  });
+
   const updatedNodes = nodes.map((n) => updatedNodesMap.get(n.id) ?? n);
-  const intermediateState = {
+
+  return {
     ...state,
     levels: {
       ...state.levels,
+      [prev]: { ...parentLevelData, nodes: updatedParentNodes },
       [state.currentLevel]: { ...levelData, nodes: updatedNodes },
     },
   };
-
-  return resolveBoundaryOverlaps(intermediateState);
 }
