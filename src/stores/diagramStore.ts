@@ -179,6 +179,14 @@ const debouncedPositionSnapshot = debounce(() => {
 
 // ─── Node CRUD actions ────────────────────────────────────────────────────────
 
+export function isParentStale(state: DiagramState, nodeId: string): boolean {
+  const node = state.levels[state.currentLevel].nodes.find((n) => n.id === nodeId);
+  if (!node?.parentNodeId) return false;
+  const prev = prevLevel(state.currentLevel);
+  if (!prev) return false;
+  return !state.levels[prev].nodes.some((n) => n.id === node.parentNodeId);
+}
+
 export function addNode(node: C4Node): void {
   snapshot();
   diagramStore.update((s) => {

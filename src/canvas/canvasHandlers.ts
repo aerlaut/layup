@@ -17,6 +17,7 @@ import {
   deleteEdge as storeDeleteEdge,
   deleteAnnotation,
   updateEdge as storeUpdateEdge,
+  updateNode,
   setSelected,
   updateNodePositions,
   updateAnnotationPositions,
@@ -24,6 +25,7 @@ import {
   drillUp,
   nextLevel,
   contextBoundaries,
+  isParentStale,
 } from '../stores/diagramStore';
 
 /** Annotation node types — these bypass C4 hierarchy logic */
@@ -65,6 +67,13 @@ export function handleNodeClick({ node }: { node: Node; event: MouseEvent | Touc
     setSelected(fromBoundaryId(node.id));
     return;
   }
+
+  // Lazy stale parent cleanup: if this node's parentNodeId points to a deleted node, clear it.
+  const s = get(diagramStore);
+  if (isParentStale(s, node.id)) {
+    updateNode(node.id, { parentNodeId: undefined });
+  }
+
   setSelected(node.id);
 }
 
