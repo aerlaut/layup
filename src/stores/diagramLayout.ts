@@ -55,8 +55,8 @@ export function computeBoundingBox(
   const effectiveMinHeight = Math.max(BOUNDARY_MIN_HEIGHT, minSize?.height ?? 0);
   if (childNodes.length === 0) {
     return {
-      x: fallbackPosition.x - BOUNDARY_PADDING,
-      y: fallbackPosition.y - BOUNDARY_PADDING,
+      x: fallbackPosition.x,
+      y: fallbackPosition.y,
       width: effectiveMinWidth,
       height: effectiveMinHeight,
     };

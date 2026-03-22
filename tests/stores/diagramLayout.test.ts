@@ -48,12 +48,22 @@ function makeState(overrides: Partial<DiagramState> = {}): DiagramState {
 // ─── computeBoundingBox ───────────────────────────────────────────────────────
 
 describe('computeBoundingBox', () => {
-  it('returns a box based on fallback when no child nodes', () => {
+  it('returns a box at the fallback position when no child nodes', () => {
     const box = computeBoundingBox([], { x: 100, y: 200 });
-    expect(box.x).toBe(100 - BOUNDARY_PADDING);
-    expect(box.y).toBe(200 - BOUNDARY_PADDING);
+    expect(box.x).toBe(100);
+    expect(box.y).toBe(200);
     expect(box.width).toBe(BOUNDARY_MIN_WIDTH);
     expect(box.height).toBe(BOUNDARY_MIN_HEIGHT);
+  });
+
+  it('empty group: fallback position is used directly as box origin (no PADDING offset)', () => {
+    // Regression: previously computeBoundingBox subtracted BOUNDARY_PADDING from the fallback,
+    // causing a 40px top-left snap each time an empty group was dragged.
+    // The fallback (boundaryPosition) must now equal bbox.x/y so drag writes and reads are consistent.
+    const pos = { x: 300, y: 400 };
+    const box = computeBoundingBox([], pos);
+    expect(box.x).toBe(pos.x);
+    expect(box.y).toBe(pos.y);
   });
 
   it('computes bounding box from node positions', () => {
