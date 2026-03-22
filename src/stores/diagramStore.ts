@@ -201,16 +201,39 @@ export function reparentNode(
   position: { x: number; y: number }
 ): void {
   snapshot();
-  diagramStore.update((s) =>
-    resolveBoundaryOverlaps(
-      withCurrentLevel(s, (d) => ({
+  diagramStore.update((s) => {
+    // If this node is the last child in its old boundary group, capture the
+    // group's current bbox position as boundaryPosition on the old parent node.
+    const movingNode = s.levels[s.currentLevel].nodes.find((n) => n.id === nodeId);
+    const prev = prevLevel(s.currentLevel);
+    let newState = s;
+    if (movingNode?.parentNodeId && movingNode.parentNodeId !== newParentNodeId && prev) {
+      const siblings = s.levels[s.currentLevel].nodes.filter(
+        (n) => n.parentNodeId === movingNode.parentNodeId && n.id !== nodeId
+      );
+      if (siblings.length === 0) {
+        const parentNode = s.levels[prev].nodes.find((n) => n.id === movingNode.parentNodeId);
+        if (parentNode) {
+          const bbox = computeBoundingBox([movingNode], parentNode.boundaryPosition ?? parentNode.position, parentNode.boundarySize);
+          newState = withLevel(newState, prev, (d) => ({
+            ...d,
+            nodes: d.nodes.map((n) =>
+              n.id === parentNode.id ? { ...n, boundaryPosition: { x: bbox.x, y: bbox.y } } : n
+            ),
+          }));
+        }
+      }
+    }
+
+    return resolveBoundaryOverlaps(
+      withCurrentLevel(newState, (d) => ({
         ...d,
         nodes: d.nodes.map((n) =>
           n.id === nodeId ? { ...n, parentNodeId: newParentNodeId, position } : n
         ),
       }))
-    )
-  );
+    );
+  });
 }
 
 export function updateNode(nodeId: string, patch: Partial<C4Node>): void {
@@ -228,7 +251,29 @@ export function deleteNode(nodeId: string): void {
   diagramStore.update((s) => {
     const toDelete = collectDescendants(s, nodeId, s.currentLevel);
 
+    // If this is the last child in its boundary group, capture the group's
+    // current bbox position as boundaryPosition on the parent node.
+    const deletedNode = s.levels[s.currentLevel].nodes.find((n) => n.id === nodeId);
+    const prev = prevLevel(s.currentLevel);
     let newState = s;
+    if (deletedNode?.parentNodeId && prev) {
+      const siblings = s.levels[s.currentLevel].nodes.filter(
+        (n) => n.parentNodeId === deletedNode.parentNodeId && n.id !== nodeId
+      );
+      if (siblings.length === 0) {
+        const parentNode = s.levels[prev].nodes.find((n) => n.id === deletedNode.parentNodeId);
+        if (parentNode) {
+          const bbox = computeBoundingBox([deletedNode], parentNode.boundaryPosition ?? parentNode.position, parentNode.boundarySize);
+          newState = withLevel(newState, prev, (d) => ({
+            ...d,
+            nodes: d.nodes.map((n) =>
+              n.id === parentNode.id ? { ...n, boundaryPosition: { x: bbox.x, y: bbox.y } } : n
+            ),
+          }));
+        }
+      }
+    }
+
     for (const [level, ids] of toDelete) {
       newState = withLevel(newState, level, (d) => ({
         ...d,
@@ -321,6 +366,29 @@ export function updateNodePositionsInLevel(
       nodes: d.nodes.map((n) => (posMap.has(n.id) ? { ...n, position: posMap.get(n.id)! } : n)),
     }));
     return resolveBoundaryOverlaps(newState);
+  });
+}
+
+/**
+ * Persist an explicit position for an empty boundary group.
+ * Writes boundaryPosition on the parent node in the previous level so the
+ * group stays where the user dragged it, independent of the parent node's
+ * own canvas position.
+ */
+export function setBoundaryPosition(
+  parentNodeId: string,
+  position: { x: number; y: number }
+): void {
+  debouncedPositionSnapshot();
+  diagramStore.update((s) => {
+    const prev = prevLevel(s.currentLevel);
+    if (!prev) return s;
+    return withLevel(s, prev, (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) =>
+        n.id === parentNodeId ? { ...n, boundaryPosition: position } : n
+      ),
+    }));
   });
 }
 

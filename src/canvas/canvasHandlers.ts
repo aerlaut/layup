@@ -22,6 +22,7 @@ import {
   setSelected,
   updateNodePositions,
   updateAnnotationPositions,
+  setBoundaryPosition,
   drillDown,
   drillUp,
   nextLevel,
@@ -105,22 +106,28 @@ export function makeHandleNodeDragStop(
     const boundaryDrags = draggedNodes.filter((n) => isBoundaryId(n.id));
     const regularDrags  = draggedNodes.filter((n) => !isBoundaryId(n.id));
 
-    // Boundary drags: translate all child nodes by the drag delta
+    // Boundary drags: translate all child nodes by the drag delta (or persist
+    // boundaryPosition directly for empty groups)
     for (const bNode of boundaryDrags) {
       const parentNodeId = fromBoundaryId(bNode.id);
       const group = boundaries.find((g) => g.parentNodeId === parentNodeId);
-      if (!group || group.childNodes.length === 0) continue;
+      if (!group) continue;
 
       const dx = bNode.position.x - group.boundingBox.x;
       const dy = bNode.position.y - group.boundingBox.y;
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
 
-      const childUpdates = group.childNodes.map((cn) => ({
-        id: cn.id,
-        position: { x: cn.position.x + dx, y: cn.position.y + dy },
-      }));
-      // All child nodes are in currentLevel
-      updateNodePositions(childUpdates);
+      if (group.childNodes.length === 0) {
+        // Empty group: persist the new position on the parent node
+        setBoundaryPosition(parentNodeId, { x: bNode.position.x, y: bNode.position.y });
+      } else {
+        const childUpdates = group.childNodes.map((cn) => ({
+          id: cn.id,
+          position: { x: cn.position.x + dx, y: cn.position.y + dy },
+        }));
+        // All child nodes are in currentLevel
+        updateNodePositions(childUpdates);
+      }
     }
 
     // Regular node drags: annotations vs C4 nodes
