@@ -10,7 +10,9 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest",
     "test:run": "vitest run",
-    "schema": "ts-json-schema-generator --path src/types.ts --type DiagramState --tsconfig tsconfig.app.json --no-ref-encode -o schema/diagram.schema.json"
+    "schema": "npm run schema:diagram && npm run schema:subtree",
+    "schema:diagram": "ts-json-schema-generator --path src/types.ts --type DiagramState --tsconfig tsconfig.app.json --no-ref-encode -o schema/diagram.schema.json",
+    "schema:subtree": "ts-json-schema-generator --path src/types.ts --type NodeSubtreeExport --tsconfig tsconfig.app.json --no-ref-encode -o schema/nodeSubtree.schema.json"
   },
   "dependencies": {
     "@xyflow/svelte": "^1.5.1",

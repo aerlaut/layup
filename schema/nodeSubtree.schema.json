@@ -1,0 +1,376 @@
+{
+  "$ref": "#/definitions/NodeSubtreeExport",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "C4Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "description": "Custom color (hex) for this edge; uses default gray if omitted",
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "lineStyle": {
+          "$ref": "#/definitions/LineStyle"
+        },
+        "lineType": {
+          "$ref": "#/definitions/LineType"
+        },
+        "markerEnd": {
+          "$ref": "#/definitions/MarkerType"
+        },
+        "markerStart": {
+          "$ref": "#/definitions/MarkerType"
+        },
+        "multiplicitySource": {
+          "description": "UML multiplicity label at the source end, e.g. \"1\", \"0..*\"",
+          "type": "string"
+        },
+        "multiplicityTarget": {
+          "description": "UML multiplicity label at the target end, e.g. \"1\", \"0..*\"",
+          "type": "string"
+        },
+        "roleSource": {
+          "description": "UML role name at the source end",
+          "type": "string"
+        },
+        "roleTarget": {
+          "description": "UML role name at the target end",
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sourceHandle": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "targetHandle": {
+          "type": "string"
+        },
+        "technology": {
+          "type": "string"
+        },
+        "waypoints": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "C4LevelType": {
+      "enum": [
+        "context",
+        "container",
+        "component",
+        "code"
+      ],
+      "type": "string"
+    },
+    "C4Node": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "description": "Custom color (hex) for this node; uses type default if omitted",
+          "type": "string"
+        },
+        "columns": {
+          "description": "ERD table columns. Only meaningful for erd-table / erd-view node types.",
+          "items": {
+            "$ref": "#/definitions/TableColumn"
+          },
+          "type": "array"
+        },
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "members": {
+          "description": "UML class members (attributes and operations). Only meaningful for UML Code-layer node types.",
+          "items": {
+            "$ref": "#/definitions/ClassMember"
+          },
+          "type": "array"
+        },
+        "parentNodeId": {
+          "description": "ID of the owning node at the level above; absent at context level",
+          "type": "string"
+        },
+        "position": {
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        "technology": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/C4NodeType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "label",
+        "position"
+      ],
+      "type": "object"
+    },
+    "C4NodeType": {
+      "enum": [
+        "person",
+        "external-person",
+        "system",
+        "external-system",
+        "container",
+        "database",
+        "db-schema",
+        "component",
+        "class",
+        "abstract-class",
+        "interface",
+        "enum",
+        "record",
+        "erd-table",
+        "erd-view"
+      ],
+      "type": "string"
+    },
+    "ClassMember": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "isAbstract": {
+          "type": "boolean"
+        },
+        "isStatic": {
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "attribute",
+            "operation"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "params": {
+          "description": "Parameter list string for operations, e.g. \"(x: int, y: string)\"",
+          "type": "string"
+        },
+        "type": {
+          "description": "Field type (attributes) or return type (operations)",
+          "type": "string"
+        },
+        "visibility": {
+          "$ref": "#/definitions/MemberVisibility"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "visibility",
+        "name"
+      ],
+      "type": "object"
+    },
+    "LineStyle": {
+      "enum": [
+        "solid",
+        "dashed",
+        "dotted"
+      ],
+      "type": "string"
+    },
+    "LineType": {
+      "enum": [
+        "bezier",
+        "straight",
+        "step",
+        "smoothstep"
+      ],
+      "type": "string"
+    },
+    "MarkerType": {
+      "enum": [
+        "arrow",
+        "dot",
+        "none",
+        "open-arrow",
+        "hollow-triangle",
+        "hollow-diamond",
+        "filled-diamond"
+      ],
+      "type": "string"
+    },
+    "MemberVisibility": {
+      "enum": [
+        "+",
+        "-",
+        "#",
+        "~"
+      ],
+      "type": "string"
+    },
+    "NodeSubtreeExport": {
+      "additionalProperties": false,
+      "properties": {
+        "exportType": {
+          "const": "node-subtree",
+          "description": "Distinguishes this format from a full DiagramState export.",
+          "type": "string"
+        },
+        "levels": {
+          "additionalProperties": false,
+          "description": "Data for rootLevel and every level below it. levels[rootLevel].nodes[0] is always the root node, with parentNodeId stripped (undefined) so it can be re-parented on import. Edges at rootLevel are excluded because they connect to nodes outside the subtree. Edges at descendant levels are included only when both the source and target node are within the subtree.",
+          "properties": {
+            "code": {
+              "$ref": "#/definitions/NodeSubtreeLevelData"
+            },
+            "component": {
+              "$ref": "#/definitions/NodeSubtreeLevelData"
+            },
+            "container": {
+              "$ref": "#/definitions/NodeSubtreeLevelData"
+            },
+            "context": {
+              "$ref": "#/definitions/NodeSubtreeLevelData"
+            }
+          },
+          "type": "object"
+        },
+        "rootLevel": {
+          "$ref": "#/definitions/C4LevelType",
+          "description": "The C4 level at which the root node lives."
+        },
+        "version": {
+          "const": 1,
+          "description": "Bump when the format changes in a breaking way.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "exportType",
+        "version",
+        "rootLevel",
+        "levels"
+      ],
+      "type": "object"
+    },
+    "NodeSubtreeLevelData": {
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "items": {
+            "$ref": "#/definitions/C4Edge"
+          },
+          "type": "array"
+        },
+        "level": {
+          "$ref": "#/definitions/C4LevelType"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/definitions/C4Node"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "level",
+        "nodes",
+        "edges"
+      ],
+      "type": "object"
+    },
+    "TableColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "dataType": {
+          "description": "SQL data type string, e.g. \"INT\", \"VARCHAR(255)\", \"TIMESTAMP\"",
+          "type": "string"
+        },
+        "defaultValue": {
+          "description": "SQL DEFAULT expression, e.g. \"NOW()\", \"'active'\"",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isForeignKey": {
+          "type": "boolean"
+        },
+        "isNullable": {
+          "description": "Whether the column accepts NULL values (defaults to true when omitted)",
+          "type": "boolean"
+        },
+        "isPrimaryKey": {
+          "type": "boolean"
+        },
+        "isUnique": {
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Column name, e.g. \"user_id\"",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "dataType"
+      ],
+      "type": "object"
+    }
+  }
+}
