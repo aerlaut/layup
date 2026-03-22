@@ -176,7 +176,7 @@ export function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
     .filter((n) => childTypeIsValid(n.type, state.currentLevel))
     .map((n) => {
       const nodes = currentLevelData.nodes.filter((cn) => cn.parentNodeId === n.id);
-      return { parentNodeId: n.id, nodes, bbox: computeBoundingBox(nodes, n.position, n.boundarySize) };
+      return { parentNodeId: n.id, nodes, bbox: computeBoundingBox(nodes, n.boundaryPosition ?? n.position, n.boundarySize) };
     });
 
   if (groups.length < 2) return state;
@@ -190,7 +190,7 @@ export function resolveBoundaryOverlaps(state: DiagramState): DiagramState {
     for (const g of groups) {
       g.nodes = newNodes.filter((n) => n.parentNodeId === g.parentNodeId);
       const parentNode = parentLevelData.nodes.find((n) => n.id === g.parentNodeId);
-      g.bbox = computeBoundingBox(g.nodes, parentNode?.position ?? { x: 0, y: 0 }, parentNode?.boundarySize);
+      g.bbox = computeBoundingBox(g.nodes, parentNode?.boundaryPosition ?? parentNode?.position ?? { x: 0, y: 0 }, parentNode?.boundarySize);
     }
 
     for (let i = 0; i < groups.length - 1; i++) {

@@ -103,7 +103,7 @@ export const contextBoundaries = derived(diagramStore, ($s): BoundaryGroup[] => 
     const childNodes = currentLevelData.nodes.filter(
       (n) => n.parentNodeId === parentNode.id
     );
-    const boundingBox = computeBoundingBox(childNodes, parentNode.position, parentNode.boundarySize);
+    const boundingBox = computeBoundingBox(childNodes, parentNode.boundaryPosition ?? parentNode.position, parentNode.boundarySize);
     return {
       parentNodeId: parentNode.id,
       parentLabel: parentNode.label,

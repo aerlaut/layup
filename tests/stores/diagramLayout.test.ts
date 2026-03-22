@@ -352,6 +352,30 @@ describe('resolveBoundaryOverlaps', () => {
     expect(distance).toBeGreaterThan(0);
   });
 
+  it('uses boundaryPosition (not position) for empty group bbox when boundaryPosition is set', () => {
+    // sys2 is empty (no containers) but has boundaryPosition set far away from sys1
+    const state = makeState({
+      currentLevel: 'container',
+      levels: {
+        context: { level: 'context', nodes: [
+          makeNode({ id: 'sys1', type: 'system', position: { x: 0, y: 0 } }),
+          makeNode({ id: 'sys2', type: 'system', position: { x: 0, y: 0 }, boundaryPosition: { x: 2000, y: 2000 } }),
+        ], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [
+          makeNode({ id: 'c1', parentNodeId: 'sys1', position: { x: 0, y: 0 } }),
+          // no containers for sys2
+        ], edges: [], annotations: [] },
+        component: { level: 'component', nodes: [], edges: [], annotations: [] },
+        code:      { level: 'code',      nodes: [], edges: [], annotations: [] },
+      },
+    });
+    // sys2's boundary is at (2000,2000) — far from sys1's group — so no overlap resolution needed
+    const result = resolveBoundaryOverlaps(state);
+    // c1 should not have moved, since the groups don't overlap
+    const c1 = result.levels['container'].nodes.find((n) => n.id === 'c1')!;
+    expect(c1.position).toEqual({ x: 0, y: 0 });
+  });
+
   it('does not mutate the input state', () => {
     const origPos = { x: 0, y: 0 };
     const state = makeState({
