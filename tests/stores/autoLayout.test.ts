@@ -119,6 +119,55 @@ describe('applyAutoLayout — container level, flow style', () => {
   });
 });
 
+describe('applyAutoLayout — container level, flow style, empty groups', () => {
+  it('writes boundaryPosition back to empty group parent when laid out alongside non-empty group', async () => {
+    const p1 = makeNode({ id: 'p1', type: 'system', position: { x: 0, y: 0 } });
+    const p2 = makeNode({ id: 'p2', type: 'system', position: { x: 0, y: 0 } });
+    const child = makeNode({ id: 'ch1', type: 'container', parentNodeId: 'p1', position: { x: 0, y: 0 } });
+
+    const state = makeState({
+      currentLevel: 'container',
+      levels: {
+        context:   { level: 'context',   nodes: [p1, p2], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [child],  edges: [], annotations: [] },
+        component: { level: 'component', nodes: [],       edges: [], annotations: [] },
+        code:      { level: 'code',      nodes: [],       edges: [], annotations: [] },
+      },
+    });
+
+    const result = await applyAutoLayout(state, { direction: 'right', style: 'flow', spacing: 'normal' });
+
+    // p2 has no children — ELK should assign it a position written back as boundaryPosition
+    const rp2 = result.levels.context.nodes.find((n) => n.id === 'p2')!;
+    expect(rp2.boundaryPosition).toBeDefined();
+
+    // p1's children define its bbox — no boundaryPosition needed
+    const rp1 = result.levels.context.nodes.find((n) => n.id === 'p1')!;
+    expect(rp1.boundaryPosition).toBeUndefined();
+  });
+
+  it('does not overwrite existing parent positions in prevLevel for non-empty groups', async () => {
+    const parent = makeNode({ id: 'p1', type: 'system', position: { x: 100, y: 200 } });
+    const child  = makeNode({ id: 'ch1', type: 'container', parentNodeId: 'p1', position: { x: 0, y: 0 } });
+
+    const state = makeState({
+      currentLevel: 'container',
+      levels: {
+        context:   { level: 'context',   nodes: [parent], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [child],  edges: [], annotations: [] },
+        component: { level: 'component', nodes: [],       edges: [], annotations: [] },
+        code:      { level: 'code',      nodes: [],       edges: [], annotations: [] },
+      },
+    });
+
+    const result = await applyAutoLayout(state, { direction: 'right', style: 'flow', spacing: 'normal' });
+    const rp1 = result.levels.context.nodes.find((n) => n.id === 'p1')!;
+    expect(rp1.boundaryPosition).toBeUndefined();
+    // Original position of the context-level parent is unchanged
+    expect(rp1.position).toEqual({ x: 100, y: 200 });
+  });
+});
+
 describe('applyAutoLayout — container level, compact style', () => {
   it('packs children within a group using rectpacking', async () => {
     const parent = makeNode({ id: 'p1', type: 'system', position: { x: 50, y: 50 } });

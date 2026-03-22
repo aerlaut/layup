@@ -147,10 +147,23 @@ export async function applyAutoLayout(state: DiagramState, options: LayoutOption
       return pos ? { ...n, position: pos } : n;
     });
 
+    // Write back ELK-assigned positions for empty boundary groups
+    const emptyGroupParentIds = new Set(
+      validParents
+        .filter((p) => !childNodes.some((n) => n.parentNodeId === p.id))
+        .map((p) => p.id)
+    );
+    const updatedParentNodes = parentLevelData.nodes.map((n) => {
+      if (!emptyGroupParentIds.has(n.id)) return n;
+      const pos = posMap.get(n.id);
+      return pos ? { ...n, boundaryPosition: pos } : n;
+    });
+
     return {
       ...state,
       levels: {
         ...state.levels,
+        [prev]: { ...parentLevelData, nodes: updatedParentNodes },
         [state.currentLevel]: { ...levelData, nodes: updatedNodes },
       },
     };
