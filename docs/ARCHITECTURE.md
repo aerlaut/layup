@@ -39,7 +39,9 @@ src/
 ├── screens/            # Full-page views (HomeScreen, DiagramCard, ProjectCard)
 └── utils/              # Pure helpers (id generation, persistence, colors, constants)
 
-schema/                 # JSON schema for DiagramState (generated via `npm run schema`)
+schema/                 # JSON schemas (generated via `npm run schema`)
+│   ├── diagram.schema.json      # Full DiagramState — for tools that produce complete diagram files
+│   └── nodeSubtree.schema.json  # NodeSubtreeExport — for tools that produce Import Node files
 docs/                   # Project documentation
 ```
 
