@@ -1,18 +1,19 @@
 <script lang="ts">
   import type { LayoutOptions, LayoutDirection, LayoutStyle, LayoutSpacing } from '../stores/autoLayout';
-  import { DEFAULT_LAYOUT_OPTIONS } from '../stores/autoLayout';
 
   let {
+    initialOptions,
     onConfirm,
     onCancel,
   }: {
+    initialOptions: LayoutOptions;
     onConfirm: (options: LayoutOptions) => void;
     onCancel:  () => void;
   } = $props();
 
-  let direction = $state<LayoutDirection>(DEFAULT_LAYOUT_OPTIONS.direction);
-  let style     = $state<LayoutStyle>(DEFAULT_LAYOUT_OPTIONS.style);
-  let spacing   = $state<LayoutSpacing>(DEFAULT_LAYOUT_OPTIONS.spacing);
+  let direction = $state<LayoutDirection>(initialOptions.direction);
+  let style     = $state<LayoutStyle>(initialOptions.style);
+  let spacing   = $state<LayoutSpacing>(initialOptions.spacing);
 </script>
 
 <div class="modal-backdrop" role="presentation" onclick={onCancel}>
@@ -34,12 +35,18 @@
           <label>
             <input type="radio" bind:group={style} value="flow" />
             Flow
-            <span class="option-desc">Arranges nodes in layers, respecting edge direction</span>
+            <span class="tooltip-anchor" aria-label="Arranges nodes in layers, respecting edge direction">
+              <span class="tooltip-icon">?</span>
+              <span class="tooltip-text">Arranges nodes in layers, respecting edge direction</span>
+            </span>
           </label>
           <label>
             <input type="radio" bind:group={style} value="compact" />
             Compact
-            <span class="option-desc">Packs nodes tightly within each group</span>
+            <span class="tooltip-anchor" aria-label="Packs nodes tightly within each group">
+              <span class="tooltip-icon">?</span>
+              <span class="tooltip-text">Packs nodes tightly within each group</span>
+            </span>
           </label>
         </div>
       </fieldset>
@@ -162,13 +169,58 @@
     font-size: 0.85rem;
     color: var(--color-text);
     cursor: pointer;
+    white-space: nowrap;
   }
 
-  .option-desc {
-    font-size: 0.78rem;
-    color: var(--color-text-muted);
-    font-style: italic;
+  /* ── Tooltip ─────────────────────────────────────────────────────────────── */
+
+  .tooltip-anchor {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
   }
+
+  .tooltip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--color-text-muted);
+    color: var(--color-text-muted);
+    font-size: 0.65rem;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1;
+    cursor: default;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .tooltip-text {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    padding: 5px 9px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .tooltip-anchor:hover .tooltip-text {
+    display: block;
+  }
+
+  /* ── Footer ──────────────────────────────────────────────────────────────── */
 
   .modal-footer {
     padding: 12px 20px 16px;

@@ -8,7 +8,7 @@
   import { get } from 'svelte/store';
   import { loadDiagram } from '../stores/diagramStore';
   import { canUndo, canRedo, pushUndo } from '../stores/undoHistory';
-  import { applyAutoLayout } from '../stores/autoLayout';
+  import { applyAutoLayout, DEFAULT_LAYOUT_OPTIONS } from '../stores/autoLayout';
   import type { LayoutOptions } from '../stores/autoLayout';
   import type { NodeSubtreeExport, C4Node } from '../types';
 
@@ -20,6 +20,7 @@
   let pendingValidParents: C4Node[] = $state([]);
   let showImportNodeDialog = $state(false);
   let showAutoLayoutDialog = $state(false);
+  let lastLayoutOptions = $state<LayoutOptions>({ ...DEFAULT_LAYOUT_OPTIONS });
   function handleHome() {
     goHome();
   }
@@ -75,6 +76,7 @@
 
   async function handleAutoLayoutConfirm(options: LayoutOptions) {
     showAutoLayoutDialog = false;
+    lastLayoutOptions = options;
     const currentState = get(diagramStore);
     pushUndo(currentState);
     const newState = await applyAutoLayout(currentState, options);
@@ -172,6 +174,7 @@
 
 {#if showAutoLayoutDialog}
   <AutoLayoutDialog
+    initialOptions={lastLayoutOptions}
     onConfirm={handleAutoLayoutConfirm}
     onCancel={() => showAutoLayoutDialog = false}
   />
