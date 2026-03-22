@@ -7,6 +7,8 @@
   import ErdColumnEditor from './ErdColumnEditor.svelte';
   import { exportNodeSubtree } from '../../utils/nodeSubtreeExport';
   import { get } from 'svelte/store';
+  import { prevLevel } from '../../stores/diagramNavigation';
+  import { childTypeIsValid } from '../../stores/diagramLayout';
 
   interface Props {
     node: C4Node;
@@ -22,6 +24,16 @@
   const isUmlClassNode = $derived(UML_CLASS_TYPES.has(node.type));
   const isErdNode = $derived(ERD_NODE_TYPES.has(node.type));
   const noTechTypes = new Set(['person', 'external-person', 'system', 'external-system']);
+
+  const parentLevelKey = $derived(prevLevel(level));
+  const validParents = $derived(
+    parentLevelKey
+      ? $diagramStore.levels[parentLevelKey].nodes.filter((n) =>
+          childTypeIsValid(n.type, level)
+        )
+      : []
+  );
+  const showParentField = $derived(validParents.length > 0);
 </script>
 
 <div class="panel-header">
@@ -45,6 +57,24 @@
       <label for="node-tech">Technology</label>
       <input id="node-tech" type="text" value={node.technology ?? ''}
         oninput={(e) => updateNode(node.id, { technology: (e.target as HTMLInputElement).value })} />
+    </div>
+  {/if}
+  {#if showParentField}
+    <div class="field">
+      <label for="node-parent">Parent</label>
+      <select
+        id="node-parent"
+        value={node.parentNodeId ?? ''}
+        onchange={(e) => {
+          const val = (e.target as HTMLSelectElement).value;
+          updateNode(node.id, { parentNodeId: val || undefined });
+        }}
+      >
+        <option value="">— None —</option>
+        {#each validParents as parent (parent.id)}
+          <option value={parent.id}>{parent.label}</option>
+        {/each}
+      </select>
     </div>
   {/if}
   <div class="field">
@@ -74,6 +104,16 @@
 
 <style>
   @import './_panel.css';
+
+  select {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 0.85rem;
+  }
 
   .node-type-chip {
     background: var(--color-bg);
