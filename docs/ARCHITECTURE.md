@@ -13,6 +13,7 @@ Layup is a browser-based [C4 model](https://c4model.com/) diagram editor. Users 
 | Vite | Build tool and dev server |
 | @xyflow/svelte | Canvas graph rendering (nodes, edges, pan/zoom) |
 | AJV | JSON schema validation for import/export |
+| elkjs | Graph layout engine (auto-arrange nodes and boundary groups) |
 | Vitest | Unit testing |
 
 ## Directory Layout
@@ -26,6 +27,7 @@ src/
 │   ├── diagramStore.ts     # DiagramState: nodes, edges, current level
 │   ├── diagramNavigation.ts # Level traversal helpers (drillDown, drillUp)
 │   ├── diagramLayout.ts    # Boundary grouping, overlap resolution, childTypeIsValid()
+│   ├── autoLayout.ts       # ELK-based auto-layout: LayoutOptions type + applyAutoLayout()
 │   └── undoHistory.ts      # Undo/redo stack
 ├── canvas/             # Canvas rendering and interaction
 │   ├── DiagramCanvas.svelte # xyflow surface
@@ -34,6 +36,7 @@ src/
 │   ├── canvasDragDrop.ts   # Drag-and-drop placement and boundary validation
 │   └── positionUtils.ts    # Position math
 ├── components/         # UI chrome (palette, properties panel, toolbar, dialogs)
+│   └── AutoLayoutDialog.svelte  # Modal for configuring and triggering auto-layout
 ├── elements/           # Svelte node/edge components rendered by xyflow
 │   └── *Node.svelte, C4Edge.svelte
 ├── screens/            # Full-page views (HomeScreen, DiagramCard, ProjectCard)
