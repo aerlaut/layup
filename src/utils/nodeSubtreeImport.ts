@@ -122,7 +122,7 @@ export function importNodeSubtree(
     if (!levelData) continue;
 
     const rewrittenNodes = levelData.nodes.map((node) => {
-      const isRoot = level === subtree.rootLevel && node === levelData.nodes[0];
+      const isRoot = level === subtree.rootLevel;
       return {
         ...node,
         id: idMap.get(node.id) ?? node.id,

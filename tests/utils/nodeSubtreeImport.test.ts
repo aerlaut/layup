@@ -332,6 +332,36 @@ describe('importNodeSubtree', () => {
     expect(newState.levels.context.edges[0].id).toBe('e-edge');
   });
 
+  it('assigns parentNodeId to all root-level nodes when multiple are present', () => {
+    const parent = makeNode({ id: 'parent-sys', type: 'system' });
+    const state = makeState({
+      levels: {
+        context:   { level: 'context',   nodes: [parent], edges: [], annotations: [] },
+        container: { level: 'container', nodes: [], edges: [], annotations: [] },
+        component: { level: 'component', nodes: [], edges: [], annotations: [] },
+        code:      { level: 'code',      nodes: [], edges: [], annotations: [] },
+      },
+    });
+
+    const rootA = makeNode({ id: 'root-a', type: 'container' });
+    const rootB = makeNode({ id: 'root-b', type: 'container' });
+    const subtree: NodeSubtreeExport = {
+      exportType: 'node-subtree',
+      version: 1,
+      rootLevel: 'container',
+      levels: {
+        container: { level: 'container', nodes: [rootA, rootB], edges: [] },
+      },
+    };
+
+    const newState = importNodeSubtree(state, subtree, 'parent-sys');
+    const imported = newState.levels.container.nodes;
+
+    expect(imported).toHaveLength(2);
+    expect(imported[0].parentNodeId).toBe('parent-sys');
+    expect(imported[1].parentNodeId).toBe('parent-sys');
+  });
+
   it('imports a multi-level subtree across context, container, and component', () => {
     const ctxNode = makeNode({ id: 'ctx', type: 'system' });
     const ctnNode = makeNode({ id: 'ctn', type: 'container', parentNodeId: 'ctx' });
